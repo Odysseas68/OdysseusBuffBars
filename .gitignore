@@ -1,35 +1,55 @@
-# OS Generated Files (Keeps Mac/Windows junk out)
+# OS-generated metadata
 .DS_Store
 .DS_Store?
 ._*
 .Spotlight-V100
 .Trashes
-ehthumbs.db
 Thumbs.db
-desktop.ini
-notes.txt
-gemini-notes.txt
-chatgpt_notes.txt
-flightdata.lua.bak
-wow-dev-mcp.cmd
-TODO.md
-Directory_List.txt
+ehthumbs.db
+[Dd]esktop.ini
 
-# IDE and Editor Folders (Keeps your personal VS Code settings private)
+# Editors and local tooling
 .vscode/
 .idea/
+.vs/
 .claude/
-/Scripts/
-/Reference/
-/tmp/
-*.sublime-workspace
 *.code-workspace
+*.sublime-workspace
+*.swp
+*.swo
+*~
 
-# Build and Packaging Artifacts (For when you eventually make .zip files for CurseForge)
-*.zip
-*.rar
-*.csv
-*.png
+# Caches and local environments
+__pycache__/
+*.py[cod]
+.cache/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.env
+.env.*
+!.env.example
+
+# Temporary files
+*.tmp
+*.bak
+*.log
+*.orig
+*.rej
+/tmp/
+
+# Project-specific local-only content
+/Reference/
+/Scripts/
+/Claude_export_chats.zip
+/notes.txt
+/gemini-notes.txt
+/chatgpt_notes.txt
+/wow-dev-mcp.cmd
+/Directory_List.txt
+/TODO.md
+
+# Build and packaging output
 /release/
 /build/
 /out/
