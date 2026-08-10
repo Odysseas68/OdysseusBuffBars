@@ -1,0 +1,21 @@
+## Interface: 120007, 120100
+## Title: Odysseus Buff Bars
+## Notes: Standalone Retail aura bar research addon for Midnight.
+## Author: nkats / Codex
+## Version: 0.1.0
+## IconTexture: Interface\Icons\Spell_Holy_BlessingOfProtection
+## Category: Buffs & Debuffs
+
+## OptionalDeps: LibSharedMedia-3.0
+## SavedVariables: OdysseusBuffBarsDB, OdysseusBuffBarsTestDB
+# OdysseusBuffBarsTestDB is retained temporarily for rename migration.
+
+Libs\LibStub\LibStub.lua
+Libs\CallbackHandler-1.0\CallbackHandler-1.0.xml
+Libs\LibSharedMedia-3.0\LibSharedMedia-3.0.lua
+
+OdysseusBuffBars.lua
+OdysseusBuffBars_Auras.lua
+OdysseusBuffBars_Bars.lua
+OdysseusBuffBars_Config.lua
+OdysseusBuffBars_ManagedPrototype.lua
