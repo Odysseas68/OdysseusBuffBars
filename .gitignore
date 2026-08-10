@@ -12,7 +12,6 @@ ehthumbs.db
 .vscode/
 .idea/
 .vs/
-.claude/
 *.code-workspace
 *.sublime-workspace
 *.swp
@@ -37,17 +36,6 @@ __pycache__/
 *.orig
 *.rej
 /tmp/
-
-# Project-specific local-only content
-/Reference/
-/Scripts/
-/Claude_export_chats.zip
-/notes.txt
-/gemini-notes.txt
-/chatgpt_notes.txt
-/wow-dev-mcp.cmd
-/Directory_List.txt
-/TODO.md
 
 # Build and packaging output
 /release/
