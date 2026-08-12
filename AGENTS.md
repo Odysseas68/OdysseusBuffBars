@@ -2,7 +2,7 @@
 
 ## Addon Scope
 - Addon name: `OdysseusBuffBars`.
-- Game target: WoW Retail 12.1 / Midnight aura research and development.
+- Game target: WoW Retail 12.1 Live / Midnight aura research and development.
 - Language: Lua 5.1 in the WoW addon sandbox.
 - Purpose: standalone aura-bar research and development addon, separate from the production Odysseus Utility Suite.
 - Keep this addon small and focused on aura scanning, sorting, bar rendering, timer text, icons, and saved frame position.
@@ -20,7 +20,24 @@
 - `OdysseusBuffBars_Config.lua`
   - Native configuration frame, combat-locked controls, group settings, filters UI, and research/debug commands.
 
-The TOC must not load the reference addon under `Reference\ElkBuffBars\`.
+The TOC must load only this addon's active files and bundled libraries. The old local `Reference\ElkBuffBars\` directory is no longer present in this repository; use historical notes and committed research instead of assuming that local reference tree exists.
+
+## Active Development Environment
+- Active development/test repository: `D:\Program Files\Blizzard\World of Warcraft\_retail_\Interface\AddOns\OdysseusBuffBars\`.
+- This `_retail_` copy is the primary development and runtime-test environment for current Retail 12.1 Live work.
+- The former PTR addon copy is frozen historical/validation reference material. Do not edit the PTR addon copy during normal development.
+- Current Live Blizzard source mirror: `D:\WowDEV\Reference\Blizzard\wow-ui-source\`; use it as the primary source reference for current Retail behavior.
+- PTR Blizzard source mirror: `D:\WowDEV\Reference\Blizzard\wow-ui-source-ptr\`; use it for future/unreleased PTR change monitoring and regression checks.
+- Authoritative research repository: `D:\WowDEV\Projects\BlizzardResearch\`.
+- Current 12.1 authoritative Analysis directory: `D:\WowDEV\Projects\BlizzardResearch\12.1.0\Analysis\`.
+- Completed Live audit commit in BlizzardResearch: `a07fb6de71e915416fe379af9e92565ef7e1df9b` (`Confirm AuraContainer architecture on Live 12.1`).
+- The Live audit verified Retail `12.1.0.69273`, interface `120100`, Live source revision `eb941aad0`, final PTR revision `6e348870e`, and no material Live-only aura architecture changes.
+
+## Git Workflow
+- OdysseusBuffBars is now a real Git repository with `main` and a GitHub remote.
+- Normal static validation may include `git status`, `git diff`, `git diff --check`, and readback verification.
+- Do not automatically commit or push after implementation or research tasks.
+- Commit and push only when explicitly requested or when a separate repository-maintenance task instructs it.
 
 ## Current Working State
 - Uses `OdysseusBuffBarsDB` as the canonical global SavedVariables table.
@@ -63,7 +80,7 @@ The TOC must not load the reference addon under `Reference\ElkBuffBars\`.
 - While a group title is being dragged, aura refresh/layout updates skip reapplying that group's position so it does not fight the mouse.
 - Anchor cycles and self-anchors are guarded before `SetPoint`; invalid chains are reset to screen placement instead of calling into a dependent frame loop.
 - General includes `Sync Group Bars`; when enabled, group bar settings sync across all groups except Anchor, Place, Offset X, and Offset Y.
-- General includes `Hide default Blizzard frames`; this hides/shows Blizzard aura frames out of combat without hooks or replacing Blizzard update logic.
+- General includes `Hide default Blizzard frames`; this is a best-effort legacy convenience toggle that hides/shows Blizzard aura frames out of combat without replacing Blizzard update logic. Blizzard Edit Mode remains the supported owner of default aura-frame visibility.
 - Hide default Blizzard frames is reapplied when Blizzard Edit Mode closes, with short delayed retries, because Edit Mode can show the default aura frames again after applying its layout.
 - General includes `Override Settings`; overrides are keyed by numeric `spellID`, can hide matching auras, and can route HELPFUL auras between BUFFS and ENCHANTMENTS.
 - Override Settings intentionally does not do name-based matching and does not yet route across HELPFUL/HARMFUL filters.
@@ -112,15 +129,19 @@ The TOC must not load the reference addon under `Reference\ElkBuffBars\`.
 
 ## Managed AuraContainer Research and Phase B.2 Rules
 - Stable project roots:
-  - `D:\WowDEV\Reference\Blizzard\` is the current local Blizzard UI source mirror. Use it to verify APIs, templates, mixins, layout, secure execution, and lifecycle behavior; do not store project-owned analysis there.
-  - `D:\WowDEV\Projects\BlizzardResearch\12.1.0\` is the authoritative project-owned research root. Its primary AuraContainer analysis is `D:\WowDEV\Projects\BlizzardResearch\12.1.0\Analysis\AuraContainerArchitecture.md`; preserve verified findings, historical notes, citations, inferences, and runtime-test requirements there rather than recreating them in the addon or source mirror.
-  - `D:\Program Files\Blizzard\World of Warcraft\_ptr_\Interface\AddOns\OdysseusBuffBars\` is the isolated addon/prototype working copy for PTR runtime validation. Migrate production behavior only after research and prototype validation.
+  - `D:\WowDEV\Reference\Blizzard\wow-ui-source\` is the current Retail 12.1 Live Blizzard UI source mirror. Use it as the primary source reference for current Retail behavior and to verify APIs, templates, mixins, layout, secure execution, and lifecycle behavior; do not store project-owned analysis there.
+  - `D:\WowDEV\Reference\Blizzard\wow-ui-source-ptr\` is the PTR Blizzard UI source mirror. Use it only for future/unreleased PTR change monitoring and regression checks.
+  - `D:\WowDEV\Projects\BlizzardResearch\12.1.0\Analysis\` is the authoritative project-owned research location. Preserve verified findings, historical notes, citations, inferences, and runtime-test requirements there rather than recreating them in the addon or source mirrors.
+  - `D:\Program Files\Blizzard\World of Warcraft\_retail_\Interface\AddOns\OdysseusBuffBars\` is the active addon/prototype working copy for Retail 12.1 Live development and runtime validation.
+  - The former PTR addon copy is frozen historical/validation reference material and must not be edited during normal development.
 - Required workflow:
-  - Inspect current Blizzard PTR source -> update the authoritative Analysis document -> derive an implementation plan -> modify only the isolated prototype -> validate on PTR, including combat -> migrate production code incrementally -> synchronize addon documentation.
+  - Inspect current Retail Live Blizzard source -> update or consult the authoritative Analysis document -> derive an implementation plan -> modify the active Retail addon copy -> validate on Retail Live, including combat -> synchronize addon documentation.
+  - Use PTR source only when monitoring future/unreleased changes or comparing against historical PTR findings.
   - Research must precede implementation whenever Blizzard architecture or secure behavior is uncertain.
   - Record the exact build, interface, branch, and source revision when available. Cite exact Blizzard files, mixins, functions, and line ranges in the research document.
   - Label verified source facts, inferences, and runtime-test requirements distinctly. Never invent Blizzard APIs or behavior, and preserve historical findings when Blizzard renames or restructures a system.
-- Verified evidence snapshot: PTR build `12.1.0.68914`, interface `120100`, branch `ptr`, commit `d3915c78aba77a7a9be76acbfa35c674bbb6abe9`. The following names and behavior are verified implementation details for that build, not guaranteed permanent public API; recheck them after Blizzard source changes.
+- Verified Live audit snapshot: Retail `12.1.0.69273`, interface `120100`, Live source revision `eb941aad0`, final PTR revision `6e348870e`, BlizzardResearch commit `a07fb6de71e915416fe379af9e92565ef7e1df9b`. The audit confirmed no material Live-only AuraContainer architecture changes from the final PTR findings.
+- Historical PTR evidence snapshot: PTR build `12.1.0.68914`, interface `120100`, branch `ptr`, commit `d3915c78aba77a7a9be76acbfa35c674bbb6abe9`. Preserve this as historical validation context, not as the primary current-behavior reference.
 - Managed layout ownership and lifecycle:
   - `ManagedAuraContainerPrivateMixin` owns the dirty-phase lifecycle, while `CustomAuraContainerFlowLayoutMixin` delegates layout calculation to `AnchorUtil.FlowLayoutMixin`.
   - Broad lifecycle: aura update -> mark dirty -> one-shot visible `OnUpdate` -> retain/release/acquire managed frames -> commit the dense displayed-frame list -> FlowLayout -> container `SetSize`.
@@ -132,30 +153,22 @@ The TOC must not load the reference addon under `Reference\ElkBuffBars\`.
   - Do not use raw `GetChildren()` or `IsShown()` counts as the primary design. Do not read private collections such as `framesByIndex`, aura-instance maps, or provider `activeFrames`.
   - CustomAuraContainer exposes no supported post-layout callback in the researched build. TargetFrame's callback is private and consumer-specific; CustomAuraContainer does not inherit it.
   - Do not hook private layout methods or collections, call private functions such as `MarkDirty` or `ApplyLayout`, or add polling/countdown/layout `OnUpdate` logic.
+- Blizzard BuffFrame/Edit Mode ownership conclusion:
+  - The completed Retail 12.1 Live audit verified that Blizzard owns `BuffFrame` visibility through Edit Mode.
+  - Combat transitions trigger `PLAYER_IN_COMBAT_CHANGED` -> `UpdateShownState()` -> `SetShown(policy)`, so direct addon `BuffFrame:Hide()` calls can be overwritten by Blizzard on combat transitions.
+  - The supported user-facing solution is the Edit Mode Aura Frame visibility setting `Hidden`.
+  - Do not invent or recommend an addon API for changing another Edit Mode system's visibility.
 - Phase B.2 architectural direction, not completed behavior:
   - Retain an independent position/root frame and anchor the self-sizing managed container below or within it without circular size dependencies. Let the managed container own its calculated size.
   - If background or chrome must follow the managed bounds, use a separate ordinary chrome frame and apply `DisableUntrustedLayoutScriptsTemplate` where required by the verified secure-layout design.
   - Do not resize the managed container from a custom `OnSizeChanged`, reparent managed AuraButtons, or mirror managed auras into ordinary bars.
   - Blizzard's secure managed pipeline performs layout during combat, but source inspection did not prove arbitrary addon `SetHeight` calls from a callback combat-safe. Combat-time anchoring, protection state, and chrome propagation require PTR validation; call behavior combat-safe only when supported by verified Blizzard source or completed PTR testing.
-- Phase B.2 runtime validation remains required for non-circular root/container/chrome anchors, combat-time anchor propagation, frame protection state, empty-container one-pixel bounds, and same-frame chrome resizing during managed aura reuse. Do not mark these checks complete without PTR evidence.
+- Phase B.2 runtime validation remains required for non-circular root/container/chrome anchors, combat-time anchor propagation, frame protection state, empty-container one-pixel bounds, and same-frame chrome resizing during managed aura reuse. Do not mark these checks complete without current Retail Live evidence or clearly scoped future PTR evidence when testing unreleased changes.
 
-## Reference Files
-The working reference addon is copied only for research:
-
-- `Reference\ElkBuffBars\ElkBuffBars.lua`
-  - Main ElkBuffBars file with mixed Retail/Classic code.
-  - Contains the Retail aura scan path based on `C_UnitAuras.GetAuraDataByIndex`.
-  - Keeps previous aura data by `auraInstanceID`.
-  - Preserves previous `expires` when `expirationTime` becomes unreadable/secret.
-- `Reference\ElkBuffBars\EBB_Bar.secrets.lua`
-  - Retail secret-safe bar display and timer code.
-  - Uses duration objects, safe count/dispel wrappers, cached time-left fallback, and secret-safe text display.
-- `Reference\ElkBuffBars\EBB_BarGroup.secrets.lua`
-  - Retail secret-safe bar group update/sorting code.
-  - Uses `C_UnitAuras.GetUnitAuraInstanceIDs` for aura ordering where possible.
-  - Defers unsafe structural work in combat while allowing aura groups to live-update.
-- `Reference\ElkBuffBars\AGENTS.md`
-  - Reference-addon guidance merged into this file.
+## Historical Reference Notes
+- The old local `Reference\ElkBuffBars\` tree is no longer present in this repository and must not be assumed available for future work.
+- Historical ElkBuffBars-derived findings that still matter are preserved in this AGENTS.md and in committed research/docs.
+- Do not load, recreate, or depend on a local reference addon tree during normal Retail Live development.
 
 ## Midnight Secret Aura Rules
 - Many aura fields can be secret in combat, dungeons, and raids: names, counts, texture/icon IDs, durations, expiration times, source units, and booleans.

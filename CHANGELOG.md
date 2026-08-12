@@ -13,4 +13,6 @@ This changelog records repository history beginning with the creation of the sta
 - Native filtering.
 - Automatic filter synchronization.
 - Retail 12.1 PTR validation.
+- Isolated managed player-DEBUFFS prototype and Retail 12.1 Live validation.
+- Dynamic managed BUFFS-to-DEBUFFS anchoring.
 - Project documentation.

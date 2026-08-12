@@ -30,7 +30,9 @@ local BAR_SPACING = 2
 local MAX_AURAS = 30
 local HOST_PADDING = 4
 local HOST_HEADER_HEIGHT = 22
+local MANAGED_GROUP_GAP = 8
 local AURA_GROUP_KEY = "Helpful"
+local DEBUFF_AURA_GROUP_KEY = "Harmful"
 local INITIAL_PROTOTYPE_SORT_MODE = "TIMELEFT"
 
 local SORT_MODES = {
@@ -273,4 +275,130 @@ local function CreateManagedAuraPrototype()
     end)
 end
 
+local function InitializeDebuffAuraButton(auraButton)
+    auraButton:SetSize(BAR_WIDTH, BAR_HEIGHT)
+
+    local background = auraButton:CreateTexture(nil, "BACKGROUND")
+    background:SetAllPoints()
+    background:SetColorTexture(0.10, 0.02, 0.02, 0.85)
+
+    local durationBar = CreateFrame("StatusBar", nil, auraButton)
+    durationBar:SetPoint("TOPLEFT", auraButton, "TOPLEFT", BAR_HEIGHT + 2, 0)
+    durationBar:SetPoint("BOTTOMRIGHT", auraButton, "BOTTOMRIGHT")
+    durationBar:SetFrameLevel(auraButton:GetFrameLevel() + 1)
+    durationBar:SetStatusBarTexture([[Interface\TargetingFrame\UI-StatusBar]])
+    durationBar:SetStatusBarColor(0.72, 0.18, 0.18, 0.8)
+
+    local icon = auraButton:CreateTexture(nil, "ARTWORK")
+    icon:SetPoint("LEFT", auraButton, "LEFT")
+    icon:SetSize(BAR_HEIGHT, BAR_HEIGHT)
+    icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+
+    local textLayer = CreateFrame("Frame", nil, auraButton)
+    textLayer:SetAllPoints()
+    textLayer:SetFrameLevel(durationBar:GetFrameLevel() + 1)
+
+    local nameText = textLayer:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    nameText:SetPoint("LEFT", auraButton, "LEFT", BAR_HEIGHT + 6, 0)
+    nameText:SetJustifyH("LEFT")
+    nameText:SetJustifyV("MIDDLE")
+    nameText:SetWordWrap(false)
+
+    local durationText = textLayer:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    durationText:SetPoint("RIGHT", auraButton, "RIGHT", -5, 0)
+    durationText:SetWidth(52)
+    durationText:SetJustifyH("RIGHT")
+    durationText:SetJustifyV("MIDDLE")
+    durationText:SetWordWrap(false)
+
+    nameText:SetPoint("RIGHT", durationText, "LEFT", -5, 0)
+
+    local countText = textLayer:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
+    countText:SetPoint("BOTTOMRIGHT", auraButton, "BOTTOMLEFT", BAR_HEIGHT - 1, 1)
+    countText:SetJustifyH("RIGHT")
+    countText:SetJustifyV("BOTTOM")
+
+    auraButton:SetIcon(icon)
+    auraButton:SetSpellName(nameText)
+    auraButton:SetApplicationCount(countText)
+    auraButton:SetDurationText(durationText)
+    auraButton:SetDurationBar(durationBar, {
+        direction = Enum.StatusBarTimerDirection.RemainingTime,
+    })
+end
+
+local function CreateManagedDebuffPrototype(buffContainer)
+    local host = CreateFrame(
+        "Frame",
+        "OdysseusBuffBarsManagedDebuffPrototypeHost",
+        UIParent,
+        "DisableUntrustedLayoutScriptsTemplate"
+    )
+    host:SetSize(BAR_WIDTH + (HOST_PADDING * 2), HOST_HEADER_HEIGHT)
+    host:SetPoint("TOPLEFT", buffContainer, "BOTTOMLEFT", -HOST_PADDING, -MANAGED_GROUP_GAP)
+    host:SetFrameStrata("MEDIUM")
+    host:Hide()
+
+    local background = host:CreateTexture(nil, "BACKGROUND")
+    background:SetAllPoints()
+    background:SetColorTexture(0.12, 0, 0, 0.75)
+
+    local label = host:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    label:SetPoint("TOPLEFT", host, "TOPLEFT", HOST_PADDING, -4)
+    label:SetText("OBB Managed DEBUFFS")
+
+    local container = CreateFrame(
+        "AuraContainer",
+        "OdysseusBuffBarsManagedDebuffPrototypeContainer",
+        host,
+        "CustomAuraContainerTemplate"
+    )
+    container:Hide()
+    container:SetPoint("TOPLEFT", host, "TOPLEFT", HOST_PADDING, -HOST_HEADER_HEIGHT)
+    container:SetSize(1, 1)
+    container:SetEnabled(false)
+    container:SetUnit("player")
+    container:SetFlowLayoutAxis(AnchorUtil.FlowLayoutAxis.Vertical)
+    container:SetFlowLayoutAnchorPoint("TOPLEFT")
+    container:SetFlowLayoutGrowthDirection(AnchorUtil.FlowDirection.Right, AnchorUtil.FlowDirection.Down)
+    local activeSortMode = INITIAL_PROTOTYPE_SORT_MODE
+    local activeSort = SORT_MODES[activeSortMode]
+    container:AddAuraGroup(DEBUFF_AURA_GROUP_KEY, "HARMFUL", {
+        maxFrameCount = MAX_AURAS,
+        initializeFrame = InitializeDebuffAuraButton,
+        sortMethod = activeSort.method,
+        sortDirection = activeSort.direction,
+        layout = {
+            elementWidth = BAR_WIDTH,
+            elementHeight = BAR_HEIGHT,
+            elementSpacing = BAR_SPACING,
+        },
+    })
+
+    local sortButton = CreateFrame("Button", nil, host, "UIPanelButtonTemplate")
+    sortButton:SetSize(94, 18)
+    sortButton:SetPoint("TOPRIGHT", host, "TOPRIGHT", -2, -2)
+    sortButton:SetFrameLevel(host:GetFrameLevel() + 1)
+    sortButton:SetText("Sort: " .. activeSort.label)
+    sortButton:SetScript("OnClick", function()
+        if InCombatLockdown and InCombatLockdown() then
+            return
+        end
+
+        activeSortMode = NEXT_SORT_MODE[activeSortMode]
+        activeSort = SORT_MODES[activeSortMode]
+        container:SetAuraGroupSortMethod(DEBUFF_AURA_GROUP_KEY, activeSort.method, activeSort.direction)
+        sortButton:SetText("Sort: " .. activeSort.label)
+    end)
+
+    ManagedPrototype.debuffHost = host
+    ManagedPrototype.debuffContainer = container
+    ManagedPrototype.debuffSortButton = sortButton
+
+    host:Show()
+    container:Show()
+    container:SetEnabled(true)
+end
+
 CreateManagedAuraPrototype()
+CreateManagedDebuffPrototype(ManagedPrototype.container)

@@ -1,27 +1,29 @@
 # Managed AuraContainer Migration
 
-Phase A, managed AuraButton presentation, Phase B.2 dynamic self-sizing, native managed sorting, player-BUFFS whitelist/blacklist semantics, and automatic synchronization from the existing BUFFS filter editor are validated on the Retail 12.1 PTR. The managed player-BUFFS frame remains a parallel prototype; no production aura group uses the managed backend.
+Phase A, managed AuraButton presentation, Phase B.2 dynamic self-sizing, native managed sorting, player-BUFFS whitelist/blacklist semantics, and automatic synchronization from the existing BUFFS filter editor are validated on the Retail 12.1 PTR. A second isolated player-DEBUFFS prototype now has core runtime behavior validated on Retail Live `12.1.0.69273`, including all three native sort mappings, native combat tooltips, and dynamic BUFFS-to-DEBUFFS layout propagation; targeted private-aura and optional restriction-focused validation remains pending. Both managed frames remain parallel prototypes; no production aura group uses the managed backend.
 
 Evidence labels used below:
 
 - **Verified:** documented in the supplied PTR analysis and confirmed in Blizzard PTR source.
+- **Runtime validated:** observed in the active Retail Live addon during gameplay.
 - **Implication:** architectural conclusion derived from verified behavior.
-- **Unresolved:** requires an in-game PTR prototype or product decision.
+- **Unresolved:** requires further source research, a targeted runtime test, or a product decision.
 
 Current milestone status:
 
 | Area | Status |
 |---|---|
-| Retail 12.1 AuraContainer architecture research | Complete for the recorded PTR source snapshot; recheck on API/source changes. |
+| Retail 12.1 AuraContainer architecture research | Complete for the audited Live source snapshot; recheck on API/source changes. |
 | Parallel managed player-BUFFS implementation | Implemented and PTR validated for core lifecycle, presentation, sorting, filtering, and existing-editor synchronization. |
 | Phase B.2 dynamic self-sizing | PTR validated. |
+| Isolated managed player-DEBUFFS implementation | Core runtime behavior validated on Retail Live with a broad `HARMFUL` group, all three sort mappings, native combat tooltips, and dynamic BUFFS-to-DEBUFFS anchoring; targeted private-aura validation and integration pending. |
 | Final visual parity, persistent position/sort, and full configuration integration | Pending. |
 | Debuffs, Enhancements/item enchantments, and production cutover | Pending. |
 | Blizzard BuffFrame visibility during combat | Unresolved and separate from the managed implementation. |
 
 ## 1. Current Architecture
 
-The production/legacy path is a standalone custom aura-bar implementation built around direct aura scanning. A parallel managed player-BUFFS prototype now validates the intended replacement architecture without taking ownership from that legacy path.
+The production/legacy path is a standalone custom aura-bar implementation built around direct aura scanning. Parallel managed player-BUFFS and isolated player-DEBUFFS prototypes validate the intended replacement architecture without taking ownership from that legacy path.
 
 Runtime flow:
 
@@ -37,27 +39,27 @@ WoW events
 
 Key components:
 
-- [OdysseusBuffBars.lua](<D:/Program Files/Blizzard/World of Warcraft/_ptr_/Interface/AddOns/OdysseusBuffBars/OdysseusBuffBars.lua:191>)
+- [OdysseusBuffBars.lua](<D:/Program Files/Blizzard/World of Warcraft/_retail_/Interface/AddOns/OdysseusBuffBars/OdysseusBuffBars.lua:191>)
   - Owns defaults, SavedVariables initialization, events, refresh dispatch, combat transitions, slash commands, and Blizzard-frame visibility.
   - Refreshes groups on `UNIT_AURA`, weapon enchant events, login, and explicit refreshes.
   - Supports unit tokens such as player, target, focus, and pet internally, although the configuration UI does not currently expose unit selection.
   - Avoids Blizzard-frame visibility changes during combat.
 
-- [OdysseusBuffBars_Auras.lua](<D:/Program Files/Blizzard/World of Warcraft/_ptr_/Interface/AddOns/OdysseusBuffBars/OdysseusBuffBars_Auras.lua:368>)
+- [OdysseusBuffBars_Auras.lua](<D:/Program Files/Blizzard/World of Warcraft/_retail_/Interface/AddOns/OdysseusBuffBars/OdysseusBuffBars_Auras.lua:368>)
   - Directly scans `C_UnitAuras`.
   - Converts aura results into addon-owned records containing identity, presentation, duration, expiration, routing, and filtering data.
   - Maintains previous-aura and filter-row caches.
   - Synthesizes weapon enchant records.
   - Contains the temporary `pcall` containment for secret-aura failures.
 
-- [OdysseusBuffBars_Bars.lua](<D:/Program Files/Blizzard/World of Warcraft/_ptr_/Interface/AddOns/OdysseusBuffBars/OdysseusBuffBars_Bars.lua:276>)
+- [OdysseusBuffBars_Bars.lua](<D:/Program Files/Blizzard/World of Warcraft/_retail_/Interface/AddOns/OdysseusBuffBars/OdysseusBuffBars_Bars.lua:276>)
   - Creates ordinary movable group frames and ordinary custom bar frames.
   - Manually applies text, icons, counts, timers, colors, growth, and positioning.
   - Retains bar frames for reuse.
   - Creates separate `SecureActionButtonTemplate` overlays for right-click cancellation outside combat.
   - Preserves index-based `GameTooltip:SetUnitAura` through `pcall` on clients before Retail 12.1, but suppresses that incompatible path on Retail 12.1 and newer.
 
-- [OdysseusBuffBars_Config.lua](<D:/Program Files/Blizzard/World of Warcraft/_ptr_/Interface/AddOns/OdysseusBuffBars/OdysseusBuffBars_Config.lua:701>)
+- [OdysseusBuffBars_Config.lua](<D:/Program Files/Blizzard/World of Warcraft/_retail_/Interface/AddOns/OdysseusBuffBars/OdysseusBuffBars_Config.lua:701>)
   - Edits the three SavedVariables-backed groups.
   - Supports geometry, appearance, anchoring, sorting, maximum bars, timed/timeless selection, filters, and routing overrides.
   - Conservatively prevents configuration mutation in combat.
@@ -117,7 +119,7 @@ Additional verified findings:
 | Separate secure cancel overlay | Reimplements behavior already owned by AuraButton and depends on addon-provided identity/index. |
 | Name-based enhancement heuristics | Managed candidate filters are based on supported criteria, not unrestricted aura-name inspection. |
 | Timed/timeless filtering | No verified general-purpose native selector provides exact parity. `maxDuration` is not a complete replacement. |
-| Whitelist and blacklist | Native spell-ID candidate filtering is PTR validated for player BUFFS; Debuffs and other identity-restricted cases remain unresolved. |
+| Whitelist and blacklist | Native spell-ID candidate filtering is PTR validated for player BUFFS. General player-DEBUFFS parity is unavailable because non-`NeverSecret` harmful auras on the assistable player unit skip identity maps; product policy remains unresolved. |
 | Three independent movable groups | A container has one unit and one coordinated flow surface. Independent placement favors one container per existing group. |
 | Custom bar count and host resizing | Managed layout and visibility can be secret-dependent; addon code must not infer active aura counts from provider capacity. |
 | Blizzard-frame hiding | Blizzard now reasserts management during combat. Repeated insecure hiding is not a sustainable replacement for supported behavior. |
@@ -159,7 +161,7 @@ Ordinary OBB group host
 
 The ordinary host should remain responsible for SavedVariables position and user movement. The container should be anchored to the host; unrelated addon frames should not be anchored back to the restricted container.
 
-The current layout omits stack-wide chrome and does not require `DisableUntrustedLayoutScriptsTemplate`. Its exact use and placement must be established if future chrome depends on managed bounds.
+The BUFFS layout omits stack-wide chrome and does not require `DisableUntrustedLayoutScriptsTemplate`. The chained DEBUFFS prototype applies that template to its ordinary host because the host follows restricted managed bounds.
 
 ### Presentation
 
@@ -210,7 +212,7 @@ The current heuristic classification cannot be carried forward as if it were rel
 
 ### Secure interaction
 
-Use native AuraButton tooltip and cancellation behavior. Do not recreate managed identity in an addon-owned secure overlay.
+Use native AuraButton tooltip behavior and native cancellation only for groups where cancellation is meaningful. BUFFS right-click cancellation is validated; the DEBUFFS prototype intentionally registers no cancellation because player harmful auras are not normally cancellable. Do not recreate managed identity in an addon-owned secure overlay.
 
 The current conservative configuration lock can remain initially. Structural or uncertain changes should be queued until out of combat.
 
@@ -320,6 +322,32 @@ The validated player-BUFFS prototype covers the core managed lifecycle, presenta
 
 Rollback: existing bars remain authoritative.
 
+### Isolated managed player-DEBUFFS prototype
+
+Status: Core managed player-DEBUFFS runtime behavior validated on Retail Live. Targeted private-aura and optional restriction-focused validation remain pending. This is not a production DEBUFFS backend.
+
+- The DEBUFFS slice retains its own ordinary header/root and `CustomAuraContainerTemplate`, with independent frame names, local sort state, and managed lifecycle. Its position is no longer independent: the BUFFS root remains the primary movable root, and the DEBUFFS host follows the bottom of the self-sizing BUFFS container.
+- The DEBUFFS host is created with `DisableUntrustedLayoutScriptsTemplate` and anchored one-way from its `TOPLEFT` to the BUFFS container's `BOTTOMLEFT`, horizontally realigned by the existing host padding and separated by an eight-pixel prototype gap. No BUFFS frame is anchored back to DEBUFFS, so the dependency remains strictly BUFFS root -> BUFFS container -> DEBUFFS host -> DEBUFFS container.
+- Independent DEBUFFS dragging is removed. Moving the BUFFS root out of combat moves both managed groups through the now-validated anchor propagation; no new SavedVariables persistence is added.
+- The container uses `SetUnit("player")` and one `AddAuraGroup("Harmful", "HARMFUL", options)` declaration with a maximum capacity of 30 and the validated vertical 250 by 16 layout with two-pixel spacing.
+- The group is intentionally broad. It supplies no candidate spell-ID filters and does not connect the legacy DEBUFFS whitelist/blacklist editor because non-`NeverSecret` player HARMFUL auras skip managed identity maps.
+- Blizzard's default managed source selection supplies the public-plus-private path. The addon does not add a private source/group, enumerate private identities, or copy private aura data.
+- Each container-owned AuraButton registers `SetIcon`, `SetSpellName`, `SetApplicationCount`, `SetDurationText`, and `SetDurationBar`; Blizzard owns duration updates, clearing on reuse, and presentation under restrictions.
+- Tooltip behavior remains the native managed AuraButton path for ordinary, restricted, and private harmful auras. No indexed, slot, or instance-based addon tooltip lookup is added.
+- The DEBUFFS initializer intentionally omits `SetCancelAuraButtons`; no secure cancellation overlay is created.
+- Default, Name, and Time Left use the validated native sort mappings through a DEBUFFS-local selector. Sort mutation is blocked during combat, while the configured managed sort continues to govern updates.
+- Dynamic sizing, pooling, public/private updates, and combat refreshes remain framework-owned. The addon does not count or enumerate buttons, poll, scan `UNIT_AURA`, read aura identity, or call private managed/layout methods.
+- The legacy DEBUFFS scanner, renderer, configuration, SavedVariables, and Blizzard-frame handling remain unchanged. Prototype root position and sort selection are not persisted.
+- Retail Live validation on `12.1.0.69273`, interface `120100`, confirmed broad player/HARMFUL display, multiple simultaneous debuffs, combat additions/refreshes/removals, icons, names, application counts, duration text and StatusBars, dynamic grow/shrink, and simultaneous managed BUFFS/DEBUFFS operation.
+- All three DEBUFFS sort mappings are runtime validated: Default uses `AuraContainerSortMethod.Default` with `AuraContainerSortDirection.Normal`, Name uses `AuraContainerSortMethod.NameOnly` with `AuraContainerSortDirection.Normal`, and Time Left uses `AuraContainerSortMethod.ExpirationOnly` with `AuraContainerSortDirection.Reverse`. Blizzard's Default semantic ordering is not reinterpreted beyond that verified mapping, and combat additions/removals/refreshes continued working in all tested modes.
+- The native managed DEBUFF tooltip is runtime validated in combat. No custom indexed-aura lookup or fallback is required.
+- Observed presentation examples included Temporal Displacement, Creeping Void, and Dusk Frights; Creeping Void exercised application-count presentation. These examples do not establish secret, restricted, `NeverSecret`, or private classification.
+- No Lua errors, taint, or blocked actions attributable to OdysseusBuffBars were observed during Live validation.
+- Targeted validation remains pending for a known real private harmful aura, explicit secrecy/restriction classification if still useful, and focused `NeverSecret` filtering behavior if a later product decision requires it. Source research supports private harmful auras entering the same default public-plus-private group pipeline, but OBB Live runtime validation of that path has not occurred.
+- The chained layout is runtime validated for BUFFS movement and grow/shrink propagation, independent DEBUFFS grow/shrink below the BUFFS stack, and combat-driven layout changes. No anchor-loop errors, OBB-attributable Lua errors, taint, or blocked actions were observed. It uses only managed container bounds and declarative anchors; no aura counting, capacity-derived offset, polling, size callback, or manual height calculation is introduced.
+
+Rollback: remove or disable only the isolated DEBUFFS prototype; the validated managed BUFFS prototype and legacy DEBUFFS backend remain intact.
+
 ### Phase C — One managed Buffs group
 
 - Add an explicit backend choice for the Buffs group.
@@ -339,7 +367,8 @@ Rollback: preserve existing SavedVariables fields and switch the group backend b
 
 ### Phase E — Multiple groups and units
 
-- Migrate Debuffs.
+- Complete targeted validation of the isolated player-DEBUFFS prototype with a known real private harmful aura and any still-useful explicit restriction cases.
+- Migrate Debuffs only after the filtering product policy and remaining runtime evidence are accepted.
 - Validate separate containers for independently positioned groups.
 - Exercise target, focus, and pet tokens before treating existing internal support as retained compatibility.
 - Preserve chaining through ordinary host frames.
@@ -347,7 +376,7 @@ Rollback: preserve existing SavedVariables fields and switch the group backend b
 ### Phase F — Tooltips and cancellation
 
 - Native managed-button tooltip and player-buff cancellation are PTR validated in the isolated BUFFS prototype.
-- Carry native tooltip and cancellation into each production managed group as it migrates; item-enchantment behavior remains future work.
+- Carry native tooltip into each production managed group as it migrates. Register cancellation only for cancellable groups; the player-DEBUFFS prototype intentionally omits it. Item-enchantment behavior remains future work.
 - Remove the separate secure overlay only for groups already using managed buttons.
 
 ### Phase G — Blizzard-frame visibility policy
@@ -400,18 +429,18 @@ After all groups pass validation:
 
 Every phase should also include LuaCheck, load/reload testing, Lua error capture, taint-log review, combat transitions, and static diff review when the directory is under Git.
 
-## 8. Open Questions Requiring PTR Experiments
+## 8. Open Questions Requiring Research or Runtime Tests
 
 1. Which additional container and group setters, if any, should be exposed through final configuration, and which must remain out-of-combat only?
 2. Where must `DisableUntrustedLayoutScriptsTemplate` be applied if future stack-wide chrome depends on managed bounds?
-3. Can include/exclude spell-ID filters preserve intended behavior for Debuffs and other units under secret-aura restrictions?
+3. What product policy should replace general legacy DEBUFFS spell-ID filtering now that non-`NeverSecret` player HARMFUL auras are known to skip identity maps?
 4. Is exact timed-only or timeless-only selection expressible without reading protected aura data?
 5. Can native item enchantments and an ordinary aura group share one Enhancements container with acceptable ordering and layout?
 6. How should enhancement consumables be selected without name-based heuristics?
 7. What supported Retail or Edit Mode mechanism, if any, replaces combat-time hiding of Blizzard aura frames?
 8. Should target, focus, and pet support remain part of the product despite not being exposed in the current configuration UI?
 9. How should the filter editor obtain known spell IDs once live aura discovery no longer reads addon-owned aura records?
-10. How do private auras appear in custom groups, and what product policy should govern them?
+10. Does an actual private player HARMFUL aura traverse the verified default public-plus-private source path with correct presentation, sorting, tooltip, and removal behavior on Retail Live?
 11. Is one container per group acceptable under realistic multi-group combat load?
 12. Which public names and semantics survive the final PTR-to-Live transition?
 

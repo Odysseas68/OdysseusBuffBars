@@ -32,13 +32,34 @@
 - [x] Block filter mutation during combat while the active managed filter continues governing aura updates.
 - [x] Restore configuration availability after combat and retain correct filter behavior after `/reload`.
 
+## Live 12.1 Isolated Managed Player-DEBUFFS Prototype
+
+- [x] Implement a second independent ordinary root and `CustomAuraContainerTemplate` for player DEBUFFS without changing the validated managed BUFFS group.
+- [x] Use one broad `HARMFUL` group with Blizzard's default public-plus-private managed source path.
+- [x] Register the five managed presentation bindings for icon, spell name, application count, duration text, and duration bar.
+- [x] Keep sorting and dynamic self-sizing Blizzard-managed, with prototype-local Default, Name, and Time Left selection.
+- [x] Intentionally omit DEBUFFS candidate spell-ID filters because general player-HARMFUL whitelist/blacklist parity is unavailable for non-`NeverSecret` auras.
+- [x] Intentionally omit right-click cancellation and secure cancellation overlays for player HARMFUL auras.
+- [x] Anchor the DEBUFFS prototype below the dynamically self-sizing BUFFS container through an ordinary `DisableUntrustedLayoutScriptsTemplate` host with an eight-pixel gap and remove independent DEBUFFS dragging.
+- [x] Validate core managed player-DEBUFFS runtime behavior on Retail Live `12.1.0.69273`, interface `120100`.
+- [x] Validate broad player `HARMFUL` display, simultaneous debuffs, combat additions/refreshes/removals, icons, names, application counts, duration text/bars, dynamic grow/shrink, and simultaneous managed BUFFS/DEBUFFS operation.
+- [x] Validate Default sorting through `AuraContainerSortMethod.Default` with `AuraContainerSortDirection.Normal` without reinterpreting Blizzard's default ordering.
+- [x] Validate Name sorting through `AuraContainerSortMethod.NameOnly` with `AuraContainerSortDirection.Normal`.
+- [x] Validate Time Left sorting in combat through `AuraContainerSortMethod.ExpirationOnly` with `AuraContainerSortDirection.Reverse`.
+- [x] Validate the native managed DEBUFF tooltip in combat without a custom indexed-aura lookup or fallback.
+- [x] Live-validate the BUFFS-to-DEBUFFS anchor chain across BUFFS movement and grow/shrink, independent DEBUFFS grow/shrink, combat layout propagation, anchor-loop detection, taint, and blocked actions.
+- [x] Confirm no Lua errors, taint, or blocked actions attributable to OdysseusBuffBars were observed during Live validation.
+- [ ] Validate a real private player harmful aura, including presentation, ordering, native tooltip, and add/remove transitions.
+- [ ] Run explicit secrecy/restriction classification tests without inferring classifications from observed aura names.
+- [ ] Run focused `NeverSecret` behavior/filtering tests if a later product decision requires them.
+
 ## Remaining Migration Work
 
 - [ ] Complete visual parity and final managed bar styling.
 - [ ] Persist managed prototype position.
 - [ ] Persist sort selection and complete final configuration integration.
 - [ ] Redesign filter-row discovery for a fully managed backend if supported discovery is still required; do not depend on direct aura identity scanning.
-- [ ] Migrate Debuffs after their secret-identity filtering limitations have a supported design.
+- [ ] Decide the DEBUFFS filtering product policy after targeted validation, then integrate and cut over DEBUFFS separately.
 - [ ] Migrate Enhancements and native item enchantments after routing, ordering, and filtering policy is resolved.
 - [ ] Research supported/Edit Mode handling for Blizzard BuffFrame visibility; do not claim the combat reappearance issue is fixed.
 - [ ] Cut over player BUFFS to exactly one production backend and remove its duplicate legacy display.
