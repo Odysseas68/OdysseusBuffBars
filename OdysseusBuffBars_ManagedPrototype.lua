@@ -33,7 +33,11 @@ local HOST_HEADER_HEIGHT = 22
 local MANAGED_GROUP_GAP = 8
 local AURA_GROUP_KEY = "Helpful"
 local DEBUFF_AURA_GROUP_KEY = "Harmful"
+local ENHANCEMENT_AURA_GROUP_KEY = "HelpfulEnhancements"
 local INITIAL_PROTOTYPE_SORT_MODE = "TIMELEFT"
+local ROUTED_ENHANCEMENT_SPELL_IDS = {
+    [1232325] = true,
+}
 
 local SORT_MODES = {
     DEFAULT = {
@@ -59,13 +63,24 @@ local NEXT_SORT_MODE = {
     TIMELEFT = "DEFAULT",
 }
 
-local function CompileManagedCandidateFilters(filters)
+local function CopyRoutedEnhancementSpellIDs()
+    local spellIDs = {}
+
+    for spellID, enabled in pairs(ROUTED_ENHANCEMENT_SPELL_IDS) do
+        if enabled then
+            spellIDs[spellID] = true
+        end
+    end
+
+    return spellIDs
+end
+
+local function CompileManagedBuffCandidateFilters(filters)
     local whitelist = filters and filters.whitelist
     local blacklist = filters and filters.blacklist
     local includeSpellIDs = {}
-    local excludeSpellIDs = {}
+    local excludeSpellIDs = CopyRoutedEnhancementSpellIDs()
     local hasWhitelist = false
-    local hasBlacklist = false
 
     if type(whitelist) == "table" then
         for spellID, enabled in pairs(whitelist) do
@@ -79,6 +94,7 @@ local function CompileManagedCandidateFilters(filters)
     if hasWhitelist then
         return {
             includeSpellIDs = includeSpellIDs,
+            excludeSpellIDs = excludeSpellIDs,
         }
     end
 
@@ -86,18 +102,19 @@ local function CompileManagedCandidateFilters(filters)
         for spellID, enabled in pairs(blacklist) do
             if enabled and type(spellID) == "number" then
                 excludeSpellIDs[spellID] = true
-                hasBlacklist = true
             end
         end
     end
 
-    if hasBlacklist then
-        return {
-            excludeSpellIDs = excludeSpellIDs,
-        }
-    end
+    return {
+        excludeSpellIDs = excludeSpellIDs,
+    }
+end
 
-    return {}
+local function CompileManagedEnhancementCandidateFilters()
+    return {
+        includeSpellIDs = CopyRoutedEnhancementSpellIDs(),
+    }
 end
 
 local function GetLegacyBuffFilters()
@@ -121,9 +138,17 @@ function ManagedPrototype:RefreshCandidateFilters()
     if not self.container or not self.container.SetAuraGroupCandidateFilters then
         return false
     end
+    if not self.enchantmentContainer or not self.enchantmentContainer.SetAuraGroupCandidateFilters then
+        return false
+    end
 
-    local candidateFilters = CompileManagedCandidateFilters(GetLegacyBuffFilters())
-    self.container:SetAuraGroupCandidateFilters(AURA_GROUP_KEY, candidateFilters)
+    local buffCandidateFilters = CompileManagedBuffCandidateFilters(GetLegacyBuffFilters())
+    local enhancementCandidateFilters = CompileManagedEnhancementCandidateFilters()
+    self.container:SetAuraGroupCandidateFilters(AURA_GROUP_KEY, buffCandidateFilters)
+    self.enchantmentContainer:SetAuraGroupCandidateFilters(
+        ENHANCEMENT_AURA_GROUP_KEY,
+        enhancementCandidateFilters
+    )
     return true
 end
 
@@ -229,6 +254,7 @@ local function CreateManagedAuraPrototype()
     local activeSortMode = INITIAL_PROTOTYPE_SORT_MODE
     local activeSort = SORT_MODES[activeSortMode]
     container:AddAuraGroup(AURA_GROUP_KEY, "HELPFUL", {
+        candidateFilters = CompileManagedBuffCandidateFilters(GetLegacyBuffFilters()),
         maxFrameCount = MAX_AURAS,
         initializeFrame = InitializeAuraButton,
         sortMethod = activeSort.method,
@@ -546,6 +572,19 @@ local function CreateManagedEnchantmentPrototype(debuffContainer)
     container:AddItemEnchantment(AuraContainerItemEnchantmentSlot.OffHand, {
         initializeFrame = InitializeEnchantmentAuraButton,
         hidePermanent = false,
+    })
+    local activeSort = SORT_MODES[INITIAL_PROTOTYPE_SORT_MODE]
+    container:AddAuraGroup(ENHANCEMENT_AURA_GROUP_KEY, "HELPFUL", {
+        candidateFilters = CompileManagedEnhancementCandidateFilters(),
+        maxFrameCount = MAX_AURAS,
+        initializeFrame = InitializeEnchantmentAuraButton,
+        sortMethod = activeSort.method,
+        sortDirection = activeSort.direction,
+        layout = {
+            elementWidth = BAR_WIDTH,
+            elementHeight = BAR_HEIGHT,
+            elementSpacing = BAR_SPACING,
+        },
     })
 
     ManagedPrototype.enchantmentHost = host
