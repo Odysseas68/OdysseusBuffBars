@@ -265,13 +265,56 @@ local function CreateManagedAuraPrototype()
     container:SetEnabled(true)
 
     local filterInitFrame = CreateFrame("Frame")
-    filterInitFrame:RegisterEvent("ADDON_LOADED")
-    filterInitFrame:SetScript("OnEvent", function(_, _, loadedAddonName)
-        if loadedAddonName ~= OBB.addonName then
+    local startupInventoryGeneration
+    local startupInventoryCheckPending
+
+    local function ScheduleStartupInventoryQuietTurn()
+        if startupInventoryGeneration == nil or startupInventoryCheckPending then
             return
         end
-        filterInitFrame:UnregisterEvent("ADDON_LOADED")
-        ManagedPrototype:RefreshCandidateFilters()
+
+        startupInventoryCheckPending = true
+        local scheduledGeneration = startupInventoryGeneration
+        C_Timer.After(0, function()
+            startupInventoryCheckPending = nil
+            if startupInventoryGeneration == nil then
+                return
+            end
+
+            if startupInventoryGeneration ~= scheduledGeneration then
+                ScheduleStartupInventoryQuietTurn()
+                return
+            end
+
+            filterInitFrame:UnregisterEvent("UNIT_INVENTORY_CHANGED")
+            startupInventoryGeneration = nil
+            ManagedPrototype.enchantmentContainer:UpdateAllAuras()
+        end)
+    end
+
+    filterInitFrame:RegisterEvent("ADDON_LOADED")
+    filterInitFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    filterInitFrame:SetScript("OnEvent", function(_, event, eventArg1)
+        if event == "ADDON_LOADED" then
+            if eventArg1 ~= OBB.addonName then
+                return
+            end
+            filterInitFrame:UnregisterEvent("ADDON_LOADED")
+            ManagedPrototype:RefreshCandidateFilters()
+        elseif event == "PLAYER_ENTERING_WORLD" then
+            local initialLogin = eventArg1
+            ManagedPrototype.enchantmentContainer:UpdateAllAuras()
+            if initialLogin then
+                startupInventoryGeneration = 0
+                startupInventoryCheckPending = nil
+                filterInitFrame:RegisterUnitEvent("UNIT_INVENTORY_CHANGED", "player")
+            end
+        elseif event == "UNIT_INVENTORY_CHANGED" then
+            if startupInventoryGeneration ~= nil then
+                startupInventoryGeneration = startupInventoryGeneration + 1
+                ScheduleStartupInventoryQuietTurn()
+            end
+        end
     end)
 end
 
@@ -400,5 +443,119 @@ local function CreateManagedDebuffPrototype(buffContainer)
     container:SetEnabled(true)
 end
 
+local function InitializeEnchantmentAuraButton(auraButton)
+    auraButton:SetSize(BAR_WIDTH, BAR_HEIGHT)
+
+    local background = auraButton:CreateTexture(nil, "BACKGROUND")
+    background:SetAllPoints()
+    background:SetColorTexture(0.08, 0.02, 0.10, 0.85)
+
+    local durationBar = CreateFrame("StatusBar", nil, auraButton)
+    durationBar:SetPoint("TOPLEFT", auraButton, "TOPLEFT", BAR_HEIGHT + 2, 0)
+    durationBar:SetPoint("BOTTOMRIGHT", auraButton, "BOTTOMRIGHT")
+    durationBar:SetFrameLevel(auraButton:GetFrameLevel() + 1)
+    durationBar:SetStatusBarTexture([[Interface\TargetingFrame\UI-StatusBar]])
+    durationBar:SetStatusBarColor(0.48, 0.20, 0.62, 0.8)
+
+    local icon = auraButton:CreateTexture(nil, "ARTWORK")
+    icon:SetPoint("LEFT", auraButton, "LEFT")
+    icon:SetSize(BAR_HEIGHT, BAR_HEIGHT)
+    icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+
+    local textLayer = CreateFrame("Frame", nil, auraButton)
+    textLayer:SetAllPoints()
+    textLayer:SetFrameLevel(durationBar:GetFrameLevel() + 1)
+
+    local nameText = textLayer:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    nameText:SetPoint("LEFT", auraButton, "LEFT", BAR_HEIGHT + 6, 0)
+    nameText:SetJustifyH("LEFT")
+    nameText:SetJustifyV("MIDDLE")
+    nameText:SetWordWrap(false)
+
+    local durationText = textLayer:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    durationText:SetPoint("RIGHT", auraButton, "RIGHT", -5, 0)
+    durationText:SetWidth(52)
+    durationText:SetJustifyH("RIGHT")
+    durationText:SetJustifyV("MIDDLE")
+    durationText:SetWordWrap(false)
+
+    nameText:SetPoint("RIGHT", durationText, "LEFT", -5, 0)
+
+    local countText = textLayer:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
+    countText:SetPoint("BOTTOMRIGHT", auraButton, "BOTTOMLEFT", BAR_HEIGHT - 1, 1)
+    countText:SetJustifyH("RIGHT")
+    countText:SetJustifyV("BOTTOM")
+
+    auraButton:SetIcon(icon)
+    auraButton:SetSpellName(nameText)
+    auraButton:SetApplicationCount(countText)
+    auraButton:SetDurationText(durationText)
+    auraButton:SetDurationBar(durationBar, {
+        direction = Enum.StatusBarTimerDirection.RemainingTime,
+    })
+    auraButton:SetCancelAuraButtons("RightButtonDown")
+end
+
+local function CreateManagedEnchantmentPrototype(debuffContainer)
+    local host = CreateFrame(
+        "Frame",
+        "OdysseusBuffBarsManagedEnchantmentPrototypeHost",
+        UIParent,
+        "DisableUntrustedLayoutScriptsTemplate"
+    )
+    host:SetSize(BAR_WIDTH + (HOST_PADDING * 2), HOST_HEADER_HEIGHT)
+    host:SetPoint("TOPLEFT", debuffContainer, "BOTTOMLEFT", -HOST_PADDING, -MANAGED_GROUP_GAP)
+    host:SetFrameStrata("MEDIUM")
+    host:Hide()
+
+    local background = host:CreateTexture(nil, "BACKGROUND")
+    background:SetAllPoints()
+    background:SetColorTexture(0.10, 0.02, 0.12, 0.75)
+
+    local label = host:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    label:SetPoint("TOPLEFT", host, "TOPLEFT", HOST_PADDING, -4)
+    label:SetText("OBB Managed ENCHANTMENTS")
+
+    local container = CreateFrame(
+        "AuraContainer",
+        "OdysseusBuffBarsManagedEnchantmentPrototypeContainer",
+        host,
+        "CustomAuraContainerTemplate"
+    )
+    container:Hide()
+    container:SetPoint("TOPLEFT", host, "TOPLEFT", HOST_PADDING, -HOST_HEADER_HEIGHT)
+    container:SetSize(1, 1)
+    container:SetEnabled(false)
+    container:SetUnit("player")
+    container:SetFlowLayoutAxis(AnchorUtil.FlowLayoutAxis.Vertical)
+    container:SetFlowLayoutAnchorPoint("TOPLEFT")
+    container:SetFlowLayoutGrowthDirection(AnchorUtil.FlowDirection.Right, AnchorUtil.FlowDirection.Down)
+    container:SetItemEnchantmentLayout({
+        elementWidth = BAR_WIDTH,
+        elementHeight = BAR_HEIGHT,
+        elementSpacing = BAR_SPACING,
+    })
+    container:SetItemEnchantmentSortMethod(
+        AuraContainerItemEnchantmentSortMethod.Duration,
+        AuraContainerSortDirection.Reverse
+    )
+    container:AddItemEnchantment(AuraContainerItemEnchantmentSlot.MainHand, {
+        initializeFrame = InitializeEnchantmentAuraButton,
+        hidePermanent = false,
+    })
+    container:AddItemEnchantment(AuraContainerItemEnchantmentSlot.OffHand, {
+        initializeFrame = InitializeEnchantmentAuraButton,
+        hidePermanent = false,
+    })
+
+    ManagedPrototype.enchantmentHost = host
+    ManagedPrototype.enchantmentContainer = container
+
+    host:Show()
+    container:Show()
+    container:SetEnabled(true)
+end
+
 CreateManagedAuraPrototype()
 CreateManagedDebuffPrototype(ManagedPrototype.container)
+CreateManagedEnchantmentPrototype(ManagedPrototype.debuffContainer)

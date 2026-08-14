@@ -10,7 +10,9 @@ A parallel player-BUFFS implementation now uses `CustomAuraContainer` with conta
 
 A second isolated managed player-DEBUFFS prototype uses its own `CustomAuraContainer`, `unit="player"`, and one broad `HARMFUL` group. Core runtime behavior is validated on Retail Live `12.1.0.69273`: multiple debuffs, combat additions/refreshes/removals, the five managed presentation bindings, Default/Name/Time Left sorting, native combat tooltips, dynamic grow/shrink, and simultaneous managed BUFFS/DEBUFFS operation worked without observed addon-attributable Lua errors, taint, or blocked actions. Its ordinary host follows the dynamically self-sizing BUFFS container through a one-directional eight-pixel-gap anchor, and combat-driven BUFFS size changes propagate correctly. A known real private harmful aura and optional explicit secrecy/`NeverSecret` tests remain pending.
 
-These are successful parallel migration prototypes, not final production backends. The legacy production DEBUFFS path remains present. The managed DEBUFFS prototype intentionally does not connect the legacy whitelist/blacklist editor because non-`NeverSecret` player harmful auras skip managed identity maps; saved numeric IDs remain untouched while the final filtering product policy is unresolved. BUFFS retains validated native right-click cancellation, while DEBUFFS registers no cancellation because player harmful auras are not normally cancellable. Visual parity, persistent prototype position and sort choice, final configuration integration, managed ENCHANTMENTS, Blizzard BuffFrame visibility, and production cutover remain future work.
+A third isolated managed ENCHANTMENTS prototype registers native MainHand and OffHand item-enchantment sources below DEBUFFS. Core managed MainHand temporary-enchantment lifecycle is validated on Retail Live with Thalassian Phoenix Oil, including two cold logins, reload, fresh reapplication, native tooltip, and right-click cancellation in the tested non-combat context. Its initial-login recovery coalesces the player `UNIT_INVENTORY_CHANGED` burst with generation checks and one pending `C_Timer.After(0)` callback, then performs one final managed refresh after a quiet turn. No fixed callback count, positive delay, polling, PaperDoll inspection, or synthetic fallback is used.
+
+These are successful parallel migration prototypes, not final production backends. The legacy production paths remain present. Managed ENCHANTMENTS currently shows Blizzard's native equipped-weapon name because Retail 12.1 exposes no supported temporary-enchant-ID-to-localized-name resolver. OffHand, simultaneous slots, duration ordering, combat cancellation, permanent/zero-duration cases, Ranged behavior, final naming, visual parity, persistence, configuration integration, and production cutover remain pending. Legacy Food and Flask effects are HELPFUL auras rather than native item enchantments; deciding whether and how to route them from managed BUFFS into ENCHANTMENTS is the next separate enhancement-routing step.
 
 ## Project boundaries
 
@@ -27,7 +29,7 @@ These are successful parallel migration prototypes, not final production backend
 - `OdysseusBuffBars_Auras.lua` — legacy direct-scanning compatibility implementation.
 - `OdysseusBuffBars_Bars.lua` — legacy ordinary-bar rendering and interaction.
 - `OdysseusBuffBars_Config.lua` — native configuration interface and existing filter editor.
-- `OdysseusBuffBars_ManagedPrototype.lua` — parallel managed player-BUFFS and isolated player-DEBUFFS prototypes.
+- `OdysseusBuffBars_ManagedPrototype.lua` — parallel managed player-BUFFS, player-DEBUFFS, and native item-enchantment prototypes.
 - `Reference/` — frozen local reference material; it is not loaded by the addon.
 - `Documentation/` — project overview, architecture, roadmap, migration history, and changelog.
 

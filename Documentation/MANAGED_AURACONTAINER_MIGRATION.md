@@ -1,6 +1,6 @@
 # Managed AuraContainer Migration
 
-Phase A, managed AuraButton presentation, Phase B.2 dynamic self-sizing, native managed sorting, player-BUFFS whitelist/blacklist semantics, and automatic synchronization from the existing BUFFS filter editor are validated on the Retail 12.1 PTR. A second isolated player-DEBUFFS prototype now has core runtime behavior validated on Retail Live `12.1.0.69273`, including all three native sort mappings, native combat tooltips, and dynamic BUFFS-to-DEBUFFS layout propagation; targeted private-aura and optional restriction-focused validation remains pending. Both managed frames remain parallel prototypes; no production aura group uses the managed backend.
+Phase A, managed AuraButton presentation, Phase B.2 dynamic self-sizing, native managed sorting, player-BUFFS whitelist/blacklist semantics, and automatic synchronization from the existing BUFFS filter editor are validated on the Retail 12.1 PTR. A second isolated player-DEBUFFS prototype has core runtime behavior validated on Retail Live `12.1.0.69273`, including all three native sort mappings, native combat tooltips, and dynamic BUFFS-to-DEBUFFS layout propagation; targeted private-aura and optional restriction-focused validation remains pending. A third isolated managed ENCHANTMENTS prototype registers native MainHand and OffHand item-enchantment providers below DEBUFFS. Its quiet-turn recovery and core MainHand temporary-enchantment lifecycle are validated on Retail Live across cold login, reload, fresh reapplication, native tooltip, and cancellation in the tested non-combat context; broader parity remains pending. All three managed frames remain parallel prototypes; no production aura group uses the managed backend.
 
 Evidence labels used below:
 
@@ -17,13 +17,14 @@ Current milestone status:
 | Parallel managed player-BUFFS implementation | Implemented and PTR validated for core lifecycle, presentation, sorting, filtering, and existing-editor synchronization. |
 | Phase B.2 dynamic self-sizing | PTR validated. |
 | Isolated managed player-DEBUFFS implementation | Core runtime behavior validated on Retail Live with a broad `HARMFUL` group, all three sort mappings, native combat tooltips, and dynamic BUFFS-to-DEBUFFS anchoring; targeted private-aura validation and integration pending. |
+| Isolated managed ENCHANTMENTS implementation | MainHand and OffHand native item-enchantment providers implemented; quiet-turn recovery and the tested MainHand Phoenix Oil lifecycle are Live validated, while OffHand and broader presentation/interaction parity remain pending. |
 | Final visual parity, persistent position/sort, and full configuration integration | Pending. |
-| Debuffs, Enhancements/item enchantments, and production cutover | Pending. |
+| DEBUFFS/ENCHANTMENTS production integration, curated enhancement-aura policy, and production cutover | Pending. |
 | Blizzard BuffFrame visibility during combat | Unresolved and separate from the managed implementation. |
 
 ## 1. Current Architecture
 
-The production/legacy path is a standalone custom aura-bar implementation built around direct aura scanning. Parallel managed player-BUFFS and isolated player-DEBUFFS prototypes validate the intended replacement architecture without taking ownership from that legacy path.
+The production/legacy path is a standalone custom aura-bar implementation built around direct aura scanning. Parallel managed player-BUFFS, player-DEBUFFS, and native item-enchantment prototypes validate the intended replacement architecture without taking ownership from that legacy path.
 
 Runtime flow:
 
@@ -348,6 +349,35 @@ Status: Core managed player-DEBUFFS runtime behavior validated on Retail Live. T
 
 Rollback: remove or disable only the isolated DEBUFFS prototype; the validated managed BUFFS prototype and legacy DEBUFFS backend remain intact.
 
+### Isolated managed ENCHANTMENTS prototype
+
+Status: Core managed MainHand temporary-enchantment lifecycle validated on Retail Live, including cold login, reload, reapplication, native tooltip, and cancellation in the tested non-combat context. Broader ENCHANTMENTS parity and HELPFUL enhancement routing remain in progress. This is not a production ENCHANTMENTS backend.
+
+- A third ordinary host is created with `DisableUntrustedLayoutScriptsTemplate` and anchored one-way from its `TOPLEFT` to the DEBUFFS container's `BOTTOMLEFT`, horizontally realigned by the shared host padding and separated by the same eight-pixel prototype gap.
+- The dependency chain is strictly BUFFS root -> BUFFS container -> DEBUFFS host -> DEBUFFS container -> ENCHANTMENTS host -> ENCHANTMENTS container. ENCHANTMENTS has no independent dragging, persistence, SavedVariables, or configuration integration; moving BUFFS carries all three prototypes through declarative anchors.
+- ENCHANTMENTS owns a third independent `CustomAuraContainerTemplate`. It is configured early, shown before enablement, kept long-lived, and left at the managed one-pixel empty minimum until active item-enchantment frames establish larger FlowLayout bounds.
+- The container calls `AddItemEnchantment(AuraContainerItemEnchantmentSlot.MainHand, options)` and `AddItemEnchantment(AuraContainerItemEnchantmentSlot.OffHand, options)` only. Each registration uses the same bar initializer and `hidePermanent = false`. Ranged is not registered.
+- ENCHANTMENTS does not call `AddAuraGroup`, `SetAuraGroupCandidateFilters`, or `SetAuraGroupSortMethod`; it has no AuraGroup, candidate filter, spell-ID filter, maximum frame count, or legacy whitelist/blacklist connection.
+- Each fixed container-owned managed frame registers `SetIcon`, `SetSpellName`, `SetApplicationCount`, `SetDurationText`, and `SetDurationBar`. The primary text is Blizzard's equipped-item name. Blizzard owns application-count clearing, the retained duration object, countdown updates, StatusBar progress, equipment/enchant event refreshes, inactive-frame clearing, and frame reuse.
+- Native item-enchantment sorting is configured once through `SetItemEnchantmentSortMethod(AuraContainerItemEnchantmentSortMethod.Duration, AuraContainerSortDirection.Reverse)`. Native semantics put non-expiring rows first, then timed rows from longest remaining to shortest remaining; no Name, Slot, Default, AuraGroup sort, runtime selector, or addon comparator was added.
+- Tooltip behavior remains the native AuraButton inventory-item path. No addon hover handler, tooltip scraping, tooltip fallback, raw item-link parsing, hardcoded enchant-name map, or `enchantID == spellID` assumption is present.
+- Each managed item-enchantment frame registers `SetCancelAuraButtons("RightButtonDown")`. The intrinsic AuraButton targets its own managed inventory slot through `C_PaperDollInfo.CancelTemporaryEnchantment`; no secure overlay or addon-owned cancellation state is added. Combat cancellation remains a required runtime test, not a source-proven claim.
+- The item-enchantment layout uses the same 250 by 16 vertical bar geometry and two-pixel spacing as the other prototypes. Only active fixed frames participate in FlowLayout; no manual height, aura/button count, equipment polling, enchantment polling, custom countdown `OnUpdate`, or empty-state special case is introduced.
+- A Retail Live diagnostic found active MainHand PaperDoll data (`enchantID 8051`, remaining time `1063382`, zero charges, expiring) while the initial managed row was absent. One out-of-combat `enchantmentContainer:UpdateAllAuras()` immediately populated the row, proving an initial lifecycle timing miss rather than a slot, registration, sort, permanence, charge, visibility, or data-availability failure.
+- Repeated cold-login diagnostics refined the race: file load, `PLAYER_LOGIN`, and `PLAYER_ENTERING_WORLD` all observed the enchant as absent; the first player `UNIT_INVENTORY_CHANGED` exposed enchantID `8051` with `remainingTimeMs = 0` and expiration enabled; a subsequent callback exposed usable positive remaining times, including `4698000`, `4510000`, and `4349000`. The managed item-enchantment provider does not subscribe to `UNIT_INVENTORY_CHANGED`, so a world-entry refresh alone cannot recover this transition.
+- Live testing of the first two-callback recovery made the managed row appear automatically but without a timer. Refreshing on callback one consumed the incomplete zero-duration startup snapshot; after PaperDoll reported a positive remaining time (`3838386` observed), one later manual `enchantmentContainer:UpdateAllAuras()` updated the existing row with the correct timer.
+- Later callback-count diagnostics disproved the fixed two-callback policy. Timed-ready publication occurred on callbacks 69, 105, and 430 across cold logins, so callback ordinal is not a readiness contract. Temporarily isolating the legacy synthetic weapon-enchantment append path produced the same managed failure and ruled it out as the cause; the legacy block was restored exactly.
+- The prototype initialization event frame keeps its normal `PLAYER_ENTERING_WORLD` refresh. When that event's `initialLogin` argument is true, the same frame calls `RegisterUnitEvent("UNIT_INVENTORY_CHANGED", "player")` and starts a generation-based quiet-turn coalescer. Each player inventory callback only advances the generation; the first callback schedules one `C_Timer.After(0)` check, and later callbacks cannot schedule a duplicate while that check is pending.
+- Each deferred check compares its captured generation with the current generation. Continued activity schedules one more zero-delay turn using the latest generation. One unchanged deferred turn unregisters the temporary listener, clears the startup generation/pending state, and performs exactly one final `ManagedPrototype.enchantmentContainer:UpdateAllAuras()` call. `/reload` does not enable this listener because `initialLogin` is false; its existing world-entry refresh remains separate.
+- No positive fixed delay, callback-count threshold, ticker, `OnUpdate`, polling loop, PaperDoll inspection, synthetic fallback, `UNIT_AURA`, broad/permanent inventory listener, or custom permanent weapon-event ownership is introduced. Blizzard remains responsible for fresh post-login application, refresh, removal, expiration, and equipment changes after the bounded cold-login recovery ends.
+- Two genuine cold logins with MainHand Thalassian Phoenix Oil active validated automatic row and timer recovery without manual refresh, stale zero-duration state, or duplicate rows. `/reload`, fresh post-login reapplication, the native inventory tooltip, and right-click cancellation in the tested non-combat context also passed. No OBB-attributable Lua error, taint, or blocked action was observed in these tests.
+- Native managed primary text displays the equipped weapon name. Retail 12.1 exposes no supported temporary-enchantment-ID-to-localized-name resolver; tooltip scraping, hardcoded mappings, raw item-link parsing, and treating enchant ID as spell ID are rejected. A static slot label remains a later presentation option.
+- Native MainHand/OffHand item enchantments and HELPFUL enhancement auras are separate managed sources. Legacy OBB routes Food and Flask effects into its logical ENCHANTMENTS bucket, while the current managed prototype leaves those HELPFUL effects in BUFFS. Curated HELPFUL enhancement routing is the next separate ENCHANTMENTS research/development step.
+- `OBBEnchantDiag` was temporary external research tooling used to establish staged startup publication and variable callback ordinals. The validated prototype has no runtime, repository, or TOC dependency on it, and it can now be retired.
+- Retail Live validation remains required for OffHand, simultaneous MainHand/OffHand behavior, two-enchant duration ordering, combat cancellation, zero/one/multiple charges, same-ID refreshes, permanent/zero-duration behavior, equipment swaps, empty/one-row/two-row sizing, Ranged where exercisable, broader enchant families, and the full BUFFS-to-DEBUFFS-to-ENCHANTMENTS anchor chain.
+
+Rollback: remove or disable only the isolated ENCHANTMENTS prototype; the existing managed BUFFS/DEBUFFS prototypes and all legacy production behavior remain intact.
+
 ### Phase C — One managed Buffs group
 
 - Add an explicit backend choice for the Buffs group.
@@ -376,7 +406,7 @@ Rollback: preserve existing SavedVariables fields and switch the group backend b
 ### Phase F — Tooltips and cancellation
 
 - Native managed-button tooltip and player-buff cancellation are PTR validated in the isolated BUFFS prototype.
-- Carry native tooltip into each production managed group as it migrates. Register cancellation only for cancellable groups; the player-DEBUFFS prototype intentionally omits it. Item-enchantment behavior remains future work.
+- Carry native tooltip into each production managed group as it migrates. Register cancellation only for cancellable groups; the player-DEBUFFS prototype intentionally omits it. The isolated item-enchantment prototype's native inventory tooltip and right-click cancellation are Live validated for MainHand in the tested non-combat context; combat cancellation and OffHand interaction remain pending.
 - Remove the separate secure overlay only for groups already using managed buttons.
 
 ### Phase G — Blizzard-frame visibility policy

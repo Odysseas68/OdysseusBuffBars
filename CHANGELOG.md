@@ -15,4 +15,5 @@ This changelog records repository history beginning with the creation of the sta
 - Retail 12.1 PTR validation.
 - Isolated managed player-DEBUFFS prototype and Retail 12.1 Live validation.
 - Dynamic managed BUFFS-to-DEBUFFS anchoring.
+- Isolated managed ENCHANTMENTS prototype with MainHand/OffHand registrations and validated MainHand quiet-turn cold-login recovery on Retail 12.1 Live.
 - Project documentation.

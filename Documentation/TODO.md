@@ -53,6 +53,37 @@
 - [ ] Run explicit secrecy/restriction classification tests without inferring classifications from observed aura names.
 - [ ] Run focused `NeverSecret` behavior/filtering tests if a later product decision requires them.
 
+## Live 12.1 Isolated Managed ENCHANTMENTS Prototype
+
+- [x] Implement a third ordinary `DisableUntrustedLayoutScriptsTemplate` host and independent `CustomAuraContainerTemplate` below the self-sizing DEBUFFS container.
+- [x] Register only `AuraContainerItemEnchantmentSlot.MainHand` and `AuraContainerItemEnchantmentSlot.OffHand` through `AddItemEnchantment`, each with `hidePermanent = false`.
+- [x] Use the native equipped-item icon/name, application count, duration text, duration StatusBar, inventory-item tooltip, and `RightButtonDown` cancellation paths.
+- [x] Use ENCHANTMENTS-specific `AuraContainerItemEnchantmentSortMethod.Duration` with `AuraContainerSortDirection.Reverse` for native non-expiring-first, then longest-to-shortest timed ordering; add no selector or other sort mode.
+- [x] Keep item-enchantment lifecycle, equipment/enchant refreshes, frame reuse, stale-value clearing, countdowns, and self-sizing Blizzard-managed without addon polling or `OnUpdate`.
+- [x] Add no ENCHANTMENTS filtering, enchant-name resolver, SavedVariables, persistence, or configuration integration.
+- [x] Confirm on Live that pre-existing MainHand PaperDoll enchantment data can be available while the initial managed row is absent, and that one manual `UpdateAllAuras()` immediately populates it.
+- [x] Prove through repeated cold-login diagnostics that `PLAYER_ENTERING_WORLD` can precede usable timed enchantment data: the first player `UNIT_INVENTORY_CHANGED` exposed enchantID `8051` with zero remaining time, while a subsequent callback exposed a positive remaining duration.
+- [x] Confirm that refreshing on both startup inventory callbacks made the row appear but allowed callback one's incomplete zero-duration snapshot to produce a row without a timer; a later manual `UpdateAllAuras()` after final readiness restored the correct timer.
+- [x] Disprove fixed callback-count recovery through Live diagnostics: timed-ready publication occurred on callbacks 69, 105, and 430 across cold logins, so callback ordinal is not stable.
+- [x] Confirm that isolating the legacy synthetic weapon-enchantment append path did not change the managed cold-login failure.
+- [x] Keep the `PLAYER_ENTERING_WORLD` managed refresh, and on fresh `initialLogin` only register player-filtered `UNIT_INVENTORY_CHANGED`; coalesce the inventory burst through generation checks scheduled with `C_Timer.After(0)` and perform one final managed refresh after a quiet turn.
+- [x] Unregister the startup inventory listener and clear its generation/pending state before the final refresh.
+- [x] Add no fixed delay, callback-count threshold, polling, PaperDoll inspection, synthetic fallback, `UNIT_AURA`, or permanent inventory-event listener.
+- [x] Live-validate twice that a MainHand enchant active before cold login appears automatically with its timer through the quiet-turn managed refresh, with no manual refresh, duplicate row, or stale zero-duration state.
+- [x] Live-validate MainHand fresh reapplication after login, native equipped-weapon name, native inventory tooltip, and right-click cancellation in the tested non-combat context.
+- [x] Live-validate `/reload` with the MainHand enchant active without enabling the initial-login inventory listener.
+- [x] Confirm no OBB-attributable Lua error, taint, or blocked action was observed during the validated MainHand lifecycle tests.
+- [x] Record `OBBEnchantDiag` as completed temporary research tooling with no runtime or repository dependency.
+- [ ] Live-validate broader MainHand apply/refresh/remove behavior, charge clearing/count formatting, equipment swaps, and empty `1 x 1` collapse.
+- [ ] Live-validate OffHand independently and simultaneously with MainHand, including equipment swaps and removing one row without disturbing the other.
+- [ ] Live-validate longest-to-shortest duration sorting and managed reordering with two active temporary enchantments.
+- [ ] Live-validate combat cancellation and OffHand cancellation; record any restriction, taint, or blocked action without adding a workaround.
+- [ ] Live-validate BUFFS -> DEBUFFS -> ENCHANTMENTS anchor propagation, managed grow/shrink, rapid enchant churn, and Blizzard-owned post-login apply/remove updates.
+- [ ] Exercise and record permanent/zero-duration behavior with `hidePermanent = false` if a suitable case is available.
+- [ ] Research and decide HELPFUL enhancement routing for Food, Flask, and similar effects; do not restore name heuristics or direct aura scans.
+- [ ] Decide final row naming/presentation between Blizzard's equipped-weapon name and a static slot label; do not scrape tooltips or hardcode enchant-ID mappings.
+- [ ] Evaluate Ranged registration only in a Retail context that can exercise inventory slot 18.
+
 ## Remaining Migration Work
 
 - [ ] Complete visual parity and final managed bar styling.
@@ -60,7 +91,7 @@
 - [ ] Persist sort selection and complete final configuration integration.
 - [ ] Redesign filter-row discovery for a fully managed backend if supported discovery is still required; do not depend on direct aura identity scanning.
 - [ ] Decide the DEBUFFS filtering product policy after targeted validation, then integrate and cut over DEBUFFS separately.
-- [ ] Migrate Enhancements and native item enchantments after routing, ordering, and filtering policy is resolved.
+- [ ] Complete Live validation of the isolated native item-enchantment prototype, then decide production ENCHANTMENTS integration and any later curated HELPFUL enhancement-aura policy.
 - [ ] Research supported/Edit Mode handling for Blizzard BuffFrame visibility; do not claim the combat reappearance issue is fixed.
 - [ ] Cut over player BUFFS to exactly one production backend and remove its duplicate legacy display.
 - [ ] Validate final production configuration, combat behavior, rollback, and SavedVariables compatibility.

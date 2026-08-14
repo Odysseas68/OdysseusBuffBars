@@ -6,11 +6,13 @@ A standalone World of Warcraft Retail addon implementing a modern managed AuraCo
 
 - ✅ Managed Player BUFFS
 - 🚧 Player DEBUFFS
-- 🚧 Weapon Enchantments
+- 🚧 Managed ENCHANTMENTS parity
 - 🚧 Visual parity
 - 🚧 Final production migration
 
 The managed Player BUFFS implementation has been validated on the PTR for the AuraContainer lifecycle, dynamic self-sizing, native sorting, native whitelist/blacklist filtering, automatic configuration synchronization, native tooltips, native right-click cancellation, and combat operation.
+
+Core managed MainHand temporary-enchantment lifecycle is validated on Retail Live, including cold login, reload, fresh reapplication, native tooltip, and right-click cancellation in the tested non-combat context. OffHand, simultaneous enchants, combat cancellation, Food/Flask HELPFUL routing, final presentation, configuration, persistence, and production cutover remain in progress.
 
 The legacy implementation remains temporarily for comparison and migration purposes.
 
@@ -30,7 +32,7 @@ The legacy implementation remains temporarily for comparison and migration purpo
 
 - Player BUFFS — ✔ Complete
 - Player DEBUFFS — In progress
-- Weapon Enchantments — Planned
+- Managed ENCHANTMENTS — MainHand lifecycle validated; broader parity in progress
 - Visual parity — Planned
 - Configuration integration — Planned
 - Production migration — Planned
