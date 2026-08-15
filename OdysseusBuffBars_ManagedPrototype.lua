@@ -154,6 +154,235 @@ local NEXT_SORT_MODE = {
     TIMELEFT = "DEFAULT",
 }
 
+local SAVED_SORT_MODES = {
+    default = "DEFAULT",
+    name = "NAME",
+    timeleft = "TIMELEFT",
+}
+
+local MANAGED_GROUPS = {
+    { key = "BUFFS", id = 1 },
+    { key = "DEBUFFS", id = 2 },
+    { key = "ENCHANTMENTS", id = 3 },
+}
+
+local function GetValidatedNumber(value, fallback, minimum, maximum)
+    if type(value) ~= "number" or value ~= value or value == math.huge or value == -math.huge then
+        return fallback
+    end
+    if minimum and value < minimum then
+        return fallback
+    end
+    if maximum and value > maximum then
+        return fallback
+    end
+    return value
+end
+
+local function GetValidatedInteger(value, fallback, minimum, maximum)
+    value = GetValidatedNumber(value, fallback, minimum, maximum)
+    value = math.floor(value + 0.5)
+    if value < minimum or value > maximum then
+        return fallback
+    end
+    return value
+end
+
+local function GetColorComponent(value, fallback)
+    return GetValidatedNumber(value, fallback, 0, 1)
+end
+
+local function CopyColor(source, fallback)
+    source = type(source) == "table" and source or nil
+    return {
+        GetColorComponent(source and source[1], fallback[1]),
+        GetColorComponent(source and source[2], fallback[2]),
+        GetColorComponent(source and source[3], fallback[3]),
+        GetColorComponent(source and source[4], fallback[4]),
+    }
+end
+
+local function CopyBackdrop(backdrop)
+    return {
+        bgFile = backdrop.bgFile,
+        edgeFile = backdrop.edgeFile,
+        edgeSize = backdrop.edgeSize,
+        insets = {
+            left = backdrop.insets.left,
+            right = backdrop.insets.right,
+            top = backdrop.insets.top,
+            bottom = backdrop.insets.bottom,
+        },
+    }
+end
+
+local function GetGroupSettings(groupID)
+    for _, settings in ipairs(OBB.db.groups or {}) do
+        if type(settings) == "table" and settings.id == groupID then
+            return settings
+        end
+    end
+    return nil
+end
+
+local function BuildManagedBarStyle(settings, fallback)
+    local width = GetValidatedNumber(settings and settings.width, fallback.width, 120, 500)
+    local height = GetValidatedNumber(settings and settings.height, fallback.height, 12, 36)
+    local fontSize = GetValidatedNumber(settings and settings.fontSize, fallback.fontSize, 8, 24)
+    local iconSide = settings and settings.iconSide == "RIGHT" and "RIGHT" or "LEFT"
+
+    return {
+        width = width,
+        height = height,
+        fontSize = fontSize,
+        countFontSize = math.max(10, fontSize - 1),
+        iconSide = iconSide,
+        iconTexCoords = {
+            fallback.iconTexCoords[1],
+            fallback.iconTexCoords[2],
+            fallback.iconTexCoords[3],
+            fallback.iconTexCoords[4],
+        },
+        iconGap = fallback.iconGap,
+        namePadding = fallback.namePadding,
+        durationWidth = fallback.durationWidth,
+        durationRightPadding = fallback.durationRightPadding,
+        nameDurationGap = fallback.nameDurationGap,
+        fillColor = CopyColor(settings and settings.barColor, fallback.fillColor),
+        backgroundColor = CopyColor(settings and settings.barBgColor, fallback.backgroundColor),
+        countFontFlags = fallback.countFontFlags,
+        countOffsetX = fallback.countOffsetX,
+        countOffsetY = fallback.countOffsetY,
+    }
+end
+
+local function CopyManagedBarStyle(style)
+    return {
+        width = style.width,
+        height = style.height,
+        fontSize = style.fontSize,
+        countFontSize = style.countFontSize,
+        iconSide = style.iconSide,
+        iconTexCoords = {
+            style.iconTexCoords[1],
+            style.iconTexCoords[2],
+            style.iconTexCoords[3],
+            style.iconTexCoords[4],
+        },
+        iconGap = style.iconGap,
+        namePadding = style.namePadding,
+        durationWidth = style.durationWidth,
+        durationRightPadding = style.durationRightPadding,
+        nameDurationGap = style.nameDurationGap,
+        fillColor = CopyColor(style.fillColor, style.fillColor),
+        backgroundColor = CopyColor(style.backgroundColor, style.backgroundColor),
+        countFontFlags = style.countFontFlags,
+        countOffsetX = style.countOffsetX,
+        countOffsetY = style.countOffsetY,
+    }
+end
+
+local function BuildManagedHeaderStyle(settings, fallback, width, fallbackName)
+    local name = settings and settings.name
+    if type(name) ~= "string" or name == "" then
+        name = fallbackName
+    end
+
+    return {
+        width = width,
+        height = fallback.height,
+        firstRowGap = fallback.firstRowGap,
+        backdrop = CopyBackdrop(fallback.backdrop),
+        backgroundColor = CopyColor(fallback.backgroundColor, fallback.backgroundColor),
+        fontObject = fallback.fontObject,
+        text = name,
+    }
+end
+
+local function BuildManagedGroupConfig(
+    groupID,
+    fallbackName,
+    fallbackBarStyle,
+    fallbackHeaderStyle,
+    fallbackSpacing,
+    fallbackMaxBars,
+    consumeBehavior
+)
+    local settings = GetGroupSettings(groupID)
+    local barStyle = BuildManagedBarStyle(settings, fallbackBarStyle)
+    local savedSortMode = settings and SAVED_SORT_MODES[settings.sort] or nil
+
+    return {
+        barStyle = barStyle,
+        headerStyle = BuildManagedHeaderStyle(settings, fallbackHeaderStyle, barStyle.width, fallbackName),
+        spacing = GetValidatedNumber(settings and settings.spacing, fallbackSpacing, 0, 16),
+        scale = GetValidatedNumber(settings and settings.scale, 1, 0.5, 2),
+        alpha = GetValidatedNumber(settings and settings.alpha, 1, 0, 1),
+        sortMode = consumeBehavior and (savedSortMode or INITIAL_PROTOTYPE_SORT_MODE) or INITIAL_PROTOTYPE_SORT_MODE,
+        maxBars = consumeBehavior
+            and GetValidatedInteger(settings and settings.maxBars, fallbackMaxBars, 1, 80)
+            or MAX_AURAS,
+    }
+end
+
+local function BuildManagedStartupConfig()
+    if not OBB.db or type(OBB.db.groups) ~= "table" then
+        return nil
+    end
+
+    return {
+        BUFFS = BuildManagedGroupConfig(
+            1,
+            "BUFFS",
+            BUFF_BAR_STYLE,
+            BUFF_HEADER_STYLE,
+            BUFF_BAR_SPACING,
+            40,
+            true
+        ),
+        DEBUFFS = BuildManagedGroupConfig(
+            2,
+            "DEBUFFS",
+            DEBUFF_BAR_STYLE,
+            DEBUFF_HEADER_STYLE,
+            DEBUFF_BAR_SPACING,
+            40,
+            true
+        ),
+        -- ENCHANTMENTS keeps the validated prototype's separate TIMELEFT/30
+        -- HelpfulEnhancements behavior; its saved sort/maxBars remain deferred.
+        ENCHANTMENTS = BuildManagedGroupConfig(
+            3,
+            "ENCHANTMENTS",
+            ENCHANTMENT_BAR_STYLE,
+            ENCHANTMENT_HEADER_STYLE,
+            ENCHANTMENT_BAR_SPACING,
+            MAX_AURAS,
+            false
+        ),
+    }
+end
+
+local function BuildCurrentBarStyles(startupConfig)
+    -- Geometry remains copied from the immutable startup snapshot; only the
+    -- explicitly supported presentation fields advance during live apply.
+    return {
+        BUFFS = CopyManagedBarStyle(startupConfig.BUFFS.barStyle),
+        DEBUFFS = CopyManagedBarStyle(startupConfig.DEBUFFS.barStyle),
+        ENCHANTMENTS = CopyManagedBarStyle(startupConfig.ENCHANTMENTS.barStyle),
+    }
+end
+
+local function BuildLivePresentationStyle(settings, fallback)
+    local fontSize = GetValidatedNumber(settings and settings.fontSize, fallback.fontSize, 8, 24)
+    return {
+        fontSize = fontSize,
+        countFontSize = math.max(10, fontSize - 1),
+        fillColor = CopyColor(settings and settings.barColor, fallback.fillColor),
+        backgroundColor = CopyColor(settings and settings.barBgColor, fallback.backgroundColor),
+    }
+end
+
 local function CopySpellIDSet(sourceSpellIDs)
     local spellIDs = {}
 
@@ -1081,12 +1310,97 @@ function ManagedPrototype.DumpKnownAuraTooltips()
     end
 end
 
-local function InitializeManagedBarPresentation(auraButton, style)
+local function TrackManagedPresentation(groupKey, owner, presentation)
+    local owners = ManagedPrototype.presentationOwners
+        and ManagedPrototype.presentationOwners[groupKey]
+    if not owners then
+        return
+    end
+
+    -- Track only descendants created while the provider initializes this row;
+    -- live styling never needs managed-child or aura-identity enumeration.
+    owners[owner] = presentation
+end
+
+local function SetManagedFontSize(fontString, fontSize, fallbackFlags)
+    local fontFace, _, fontFlags = fontString:GetFont()
+    fontString:SetFont(
+        fontFace or _G.STANDARD_TEXT_FONT or [[Fonts\FRIZQT__.TTF]],
+        fontSize,
+        fontFlags or fallbackFlags
+    )
+end
+
+local function ApplyManagedPresentationStyle(presentation, style)
+    SetManagedFontSize(presentation.nameText, style.fontSize, "")
+    SetManagedFontSize(presentation.durationText, style.fontSize, "")
+    SetManagedFontSize(presentation.countText, style.countFontSize, style.countFontFlags)
+    presentation.durationBar:SetStatusBarColor(
+        style.fillColor[1],
+        style.fillColor[2],
+        style.fillColor[3],
+        style.fillColor[4]
+    )
+    presentation.background:SetColorTexture(
+        style.backgroundColor[1],
+        style.backgroundColor[2],
+        style.backgroundColor[3],
+        style.backgroundColor[4]
+    )
+end
+
+function ManagedPrototype:ApplyConfiguration(_reason)
+    if not self.initialized
+        or not self.startupConfig
+        or not self.currentBarStyles
+        or not self.presentationOwners
+    then
+        return false, "not initialized"
+    end
+    if _G.InCombatLockdown and _G.InCombatLockdown() then
+        return false, "combat lockdown"
+    end
+    if not OBB.db or type(OBB.db.groups) ~= "table" then
+        return false, "database unavailable"
+    end
+
+    for _, group in ipairs(MANAGED_GROUPS) do
+        local currentStyle = self.currentBarStyles[group.key]
+        local startupStyle = self.startupConfig[group.key].barStyle
+        local liveStyle = BuildLivePresentationStyle(GetGroupSettings(group.id), startupStyle)
+
+        currentStyle.fontSize = liveStyle.fontSize
+        currentStyle.countFontSize = liveStyle.countFontSize
+        currentStyle.fillColor = liveStyle.fillColor
+        currentStyle.backgroundColor = liveStyle.backgroundColor
+
+        for _, presentation in pairs(self.presentationOwners[group.key]) do
+            ApplyManagedPresentationStyle(presentation, currentStyle)
+        end
+    end
+
+    return true
+end
+
+local function ApplyManagedBarGeometry(row, background, durationBar, icon, style)
+    local iconOffset = style.height + style.iconGap
+    if style.iconSide == "RIGHT" then
+        icon:SetPoint("RIGHT", row, "RIGHT")
+        background:SetPoint("TOPLEFT", row, "TOPLEFT")
+        background:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", -iconOffset, 0)
+    else
+        icon:SetPoint("LEFT", row, "LEFT")
+        background:SetPoint("TOPLEFT", row, "TOPLEFT", iconOffset, 0)
+        background:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT")
+    end
+    durationBar:SetPoint("TOPLEFT", background, "TOPLEFT")
+    durationBar:SetPoint("BOTTOMRIGHT", background, "BOTTOMRIGHT")
+end
+
+local function InitializeManagedBarPresentation(auraButton, style, groupKey)
     auraButton:SetSize(style.width, style.height)
 
     local background = auraButton:CreateTexture(nil, "BACKGROUND")
-    background:SetPoint("TOPLEFT", auraButton, "TOPLEFT", style.height + style.iconGap, 0)
-    background:SetPoint("BOTTOMRIGHT", auraButton, "BOTTOMRIGHT")
     background:SetColorTexture(
         style.backgroundColor[1],
         style.backgroundColor[2],
@@ -1095,8 +1409,6 @@ local function InitializeManagedBarPresentation(auraButton, style)
     )
 
     local durationBar = CreateFrame("StatusBar", nil, auraButton)
-    durationBar:SetPoint("TOPLEFT", auraButton, "TOPLEFT", style.height + style.iconGap, 0)
-    durationBar:SetPoint("BOTTOMRIGHT", auraButton, "BOTTOMRIGHT")
     durationBar:SetFrameLevel(auraButton:GetFrameLevel() + 1)
     durationBar:SetStatusBarTexture([[Interface\TargetingFrame\UI-StatusBar]])
     durationBar:SetStatusBarColor(
@@ -1107,7 +1419,6 @@ local function InitializeManagedBarPresentation(auraButton, style)
     )
 
     local icon = auraButton:CreateTexture(nil, "ARTWORK")
-    icon:SetPoint("LEFT", auraButton, "LEFT")
     icon:SetSize(style.height, style.height)
     icon:SetTexCoord(
         style.iconTexCoords[1],
@@ -1115,6 +1426,7 @@ local function InitializeManagedBarPresentation(auraButton, style)
         style.iconTexCoords[3],
         style.iconTexCoords[4]
     )
+    ApplyManagedBarGeometry(auraButton, background, durationBar, icon, style)
 
     local textLayer = CreateFrame("Frame", nil, auraButton)
     textLayer:SetAllPoints()
@@ -1130,7 +1442,7 @@ local function InitializeManagedBarPresentation(auraButton, style)
 
     local durationText = textLayer:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     durationText:SetFont(font, style.fontSize, "")
-    durationText:SetPoint("RIGHT", auraButton, "RIGHT", -style.durationRightPadding, 0)
+    durationText:SetPoint("RIGHT", background, "RIGHT", -style.durationRightPadding, 0)
     durationText:SetWidth(style.durationWidth)
     durationText:SetJustifyH("RIGHT")
     durationText:SetJustifyV("MIDDLE")
@@ -1151,23 +1463,29 @@ local function InitializeManagedBarPresentation(auraButton, style)
     auraButton:SetDurationBar(durationBar, {
         direction = Enum.StatusBarTimerDirection.RemainingTime,
     })
+    TrackManagedPresentation(groupKey, auraButton, {
+        background = background,
+        durationBar = durationBar,
+        nameText = nameText,
+        durationText = durationText,
+        countText = countText,
+    })
 end
 
 local function InitializeAuraButton(auraButton)
-    InitializeManagedBarPresentation(auraButton, BUFF_BAR_STYLE)
+    InitializeManagedBarPresentation(auraButton, ManagedPrototype.currentBarStyles.BUFFS, "BUFFS")
     auraButton:SetCancelAuraButtons("RightButtonDown")
 end
 
 local function CreateFishingLureRow(host, container)
-    local style = ENCHANTMENT_BAR_STYLE
+    local groupConfig = ManagedPrototype.startupConfig.ENCHANTMENTS
+    local style = ManagedPrototype.currentBarStyles.ENCHANTMENTS
     local row = _G.CreateFrame("Button", "OdysseusBuffBarsManagedFishingLureRow", host)
     row:SetSize(style.width, style.height)
-    row:SetPoint("TOPLEFT", container, "BOTTOMLEFT", 0, -ENCHANTMENT_BAR_SPACING)
+    row:SetPoint("TOPLEFT", container, "BOTTOMLEFT", 0, -groupConfig.spacing)
     row:Hide()
 
     local background = row:CreateTexture(nil, "BACKGROUND")
-    background:SetPoint("TOPLEFT", row, "TOPLEFT", style.height + style.iconGap, 0)
-    background:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT")
     background:SetColorTexture(
         style.backgroundColor[1],
         style.backgroundColor[2],
@@ -1176,8 +1494,6 @@ local function CreateFishingLureRow(host, container)
     )
 
     local durationBar = _G.CreateFrame("StatusBar", nil, row)
-    durationBar:SetPoint("TOPLEFT", row, "TOPLEFT", style.height + style.iconGap, 0)
-    durationBar:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT")
     durationBar:SetFrameLevel(row:GetFrameLevel() + 1)
     durationBar:SetStatusBarTexture([[Interface\TargetingFrame\UI-StatusBar]])
     durationBar:SetStatusBarColor(
@@ -1188,7 +1504,6 @@ local function CreateFishingLureRow(host, container)
     )
 
     local icon = row:CreateTexture(nil, "ARTWORK")
-    icon:SetPoint("LEFT", row, "LEFT")
     icon:SetSize(style.height, style.height)
     icon:SetTexCoord(
         style.iconTexCoords[1],
@@ -1196,6 +1511,7 @@ local function CreateFishingLureRow(host, container)
         style.iconTexCoords[3],
         style.iconTexCoords[4]
     )
+    ApplyManagedBarGeometry(row, background, durationBar, icon, style)
 
     local textLayer = _G.CreateFrame("Frame", nil, row)
     textLayer:SetAllPoints()
@@ -1212,7 +1528,7 @@ local function CreateFishingLureRow(host, container)
 
     local durationText = textLayer:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     durationText:SetFont(font, style.fontSize, "")
-    durationText:SetPoint("RIGHT", row, "RIGHT", -style.durationRightPadding, 0)
+    durationText:SetPoint("RIGHT", background, "RIGHT", -style.durationRightPadding, 0)
     durationText:SetWidth(style.durationWidth)
     durationText:SetJustifyH("RIGHT")
     durationText:SetJustifyV("MIDDLE")
@@ -1230,6 +1546,13 @@ local function CreateFishingLureRow(host, container)
     row.durationBar = durationBar
     row.durationText = durationText
     row.countText = countText
+    TrackManagedPresentation("ENCHANTMENTS", row, {
+        background = background,
+        durationBar = durationBar,
+        nameText = nameText,
+        durationText = durationText,
+        countText = countText,
+    })
     row:SetScript("OnEnter", function(self)
         local tooltip = _G.GameTooltip
         if not self.inventorySlot or not tooltip or type(tooltip.SetInventoryItem) ~= "function" then
@@ -1311,13 +1634,18 @@ local function StyleManagedGroupHeader(header, style)
 end
 
 local function CreateManagedAuraPrototype()
+    local groupConfig = ManagedPrototype.startupConfig.BUFFS
+    local barStyle = groupConfig.barStyle
+    local headerStyle = groupConfig.headerStyle
     local host = CreateFrame("Frame", "OdysseusBuffBarsManagedPrototypeHost", UIParent)
     host:SetSize(
-        BUFF_HEADER_STYLE.width + (HOST_PADDING * 2),
-        BUFF_HEADER_STYLE.height + BUFF_HEADER_STYLE.firstRowGap
+        headerStyle.width + (HOST_PADDING * 2),
+        headerStyle.height + headerStyle.firstRowGap
     )
     host:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 24, -180)
     host:SetFrameStrata("MEDIUM")
+    host:SetScale(groupConfig.scale)
+    host:SetAlpha(groupConfig.alpha)
     host:SetMovable(true)
     host:SetClampedToScreen(true)
     host:Hide()
@@ -1329,7 +1657,7 @@ local function CreateManagedAuraPrototype()
         _G.BackdropTemplateMixin and "BackdropTemplate"
     )
     dragHandle:SetPoint("TOPLEFT", host, "TOPLEFT", HOST_PADDING, 0)
-    StyleManagedGroupHeader(dragHandle, BUFF_HEADER_STYLE)
+    StyleManagedGroupHeader(dragHandle, headerStyle)
     dragHandle:RegisterForDrag("LeftButton")
     dragHandle:SetScript("OnDragStart", function()
         if InCombatLockdown and InCombatLockdown() then
@@ -1353,7 +1681,7 @@ local function CreateManagedAuraPrototype()
         host,
         "TOPLEFT",
         HOST_PADDING,
-        -(BUFF_HEADER_STYLE.height + BUFF_HEADER_STYLE.firstRowGap)
+        -(headerStyle.height + headerStyle.firstRowGap)
     )
     container:SetSize(1, 1)
     container:SetEnabled(false)
@@ -1361,18 +1689,18 @@ local function CreateManagedAuraPrototype()
     container:SetFlowLayoutAxis(AnchorUtil.FlowLayoutAxis.Vertical)
     container:SetFlowLayoutAnchorPoint("TOPLEFT")
     container:SetFlowLayoutGrowthDirection(AnchorUtil.FlowDirection.Right, AnchorUtil.FlowDirection.Down)
-    local activeSortMode = INITIAL_PROTOTYPE_SORT_MODE
+    local activeSortMode = groupConfig.sortMode
     local activeSort = SORT_MODES[activeSortMode]
     container:AddAuraGroup(AURA_GROUP_KEY, "HELPFUL", {
         candidateFilters = CompileManagedBuffCandidateFilters(GetLegacyBuffFilters()),
-        maxFrameCount = MAX_AURAS,
+        maxFrameCount = groupConfig.maxBars,
         initializeFrame = InitializeAuraButton,
         sortMethod = activeSort.method,
         sortDirection = activeSort.direction,
         layout = {
-            elementWidth = BUFF_BAR_STYLE.width,
-            elementHeight = BUFF_BAR_STYLE.height,
-            elementSpacing = BUFF_BAR_SPACING,
+            elementWidth = barStyle.width,
+            elementHeight = barStyle.height,
+            elementSpacing = groupConfig.spacing,
         },
     })
 
@@ -1429,17 +1757,10 @@ local function CreateManagedAuraPrototype()
     end
 
     automaticDiscoveryFrame = filterInitFrame
-    filterInitFrame:RegisterEvent("ADDON_LOADED")
     filterInitFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     filterInitFrame:RegisterUnitEvent("UNIT_AURA", "player")
     filterInitFrame:SetScript("OnEvent", function(_, event, eventArg1)
-        if event == "ADDON_LOADED" then
-            if eventArg1 ~= OBB.addonName then
-                return
-            end
-            filterInitFrame:UnregisterEvent("ADDON_LOADED")
-            ManagedPrototype:RefreshCandidateFilters()
-        elseif event == "PLAYER_ENTERING_WORLD" then
+        if event == "PLAYER_ENTERING_WORLD" then
             local initialLogin = eventArg1
             ManagedPrototype.enchantmentContainer:UpdateAllAuras()
             AttemptAutomaticHelpfulEnhancementDiscovery("PLAYER_ENTERING_WORLD")
@@ -1464,10 +1785,13 @@ local function CreateManagedAuraPrototype()
 end
 
 local function InitializeDebuffAuraButton(auraButton)
-    InitializeManagedBarPresentation(auraButton, DEBUFF_BAR_STYLE)
+    InitializeManagedBarPresentation(auraButton, ManagedPrototype.currentBarStyles.DEBUFFS, "DEBUFFS")
 end
 
 local function CreateManagedDebuffPrototype(buffContainer)
+    local groupConfig = ManagedPrototype.startupConfig.DEBUFFS
+    local barStyle = groupConfig.barStyle
+    local headerStyle = groupConfig.headerStyle
     local host = CreateFrame(
         "Frame",
         "OdysseusBuffBarsManagedDebuffPrototypeHost",
@@ -1475,11 +1799,13 @@ local function CreateManagedDebuffPrototype(buffContainer)
         "DisableUntrustedLayoutScriptsTemplate"
     )
     host:SetSize(
-        DEBUFF_HEADER_STYLE.width + (HOST_PADDING * 2),
-        DEBUFF_HEADER_STYLE.height + DEBUFF_HEADER_STYLE.firstRowGap
+        headerStyle.width + (HOST_PADDING * 2),
+        headerStyle.height + headerStyle.firstRowGap
     )
     host:SetPoint("TOPLEFT", buffContainer, "BOTTOMLEFT", -HOST_PADDING, -MANAGED_GROUP_GAP)
     host:SetFrameStrata("MEDIUM")
+    host:SetScale(groupConfig.scale)
+    host:SetAlpha(groupConfig.alpha)
     host:Hide()
 
     local header = CreateFrame(
@@ -1489,7 +1815,7 @@ local function CreateManagedDebuffPrototype(buffContainer)
         _G.BackdropTemplateMixin and "BackdropTemplate"
     )
     header:SetPoint("TOPLEFT", host, "TOPLEFT", HOST_PADDING, 0)
-    StyleManagedGroupHeader(header, DEBUFF_HEADER_STYLE)
+    StyleManagedGroupHeader(header, headerStyle)
 
     local container = CreateFrame(
         "AuraContainer",
@@ -1503,7 +1829,7 @@ local function CreateManagedDebuffPrototype(buffContainer)
         host,
         "TOPLEFT",
         HOST_PADDING,
-        -(DEBUFF_HEADER_STYLE.height + DEBUFF_HEADER_STYLE.firstRowGap)
+        -(headerStyle.height + headerStyle.firstRowGap)
     )
     container:SetSize(1, 1)
     container:SetEnabled(false)
@@ -1511,17 +1837,17 @@ local function CreateManagedDebuffPrototype(buffContainer)
     container:SetFlowLayoutAxis(AnchorUtil.FlowLayoutAxis.Vertical)
     container:SetFlowLayoutAnchorPoint("TOPLEFT")
     container:SetFlowLayoutGrowthDirection(AnchorUtil.FlowDirection.Right, AnchorUtil.FlowDirection.Down)
-    local activeSortMode = INITIAL_PROTOTYPE_SORT_MODE
+    local activeSortMode = groupConfig.sortMode
     local activeSort = SORT_MODES[activeSortMode]
     container:AddAuraGroup(DEBUFF_AURA_GROUP_KEY, "HARMFUL", {
-        maxFrameCount = MAX_AURAS,
+        maxFrameCount = groupConfig.maxBars,
         initializeFrame = InitializeDebuffAuraButton,
         sortMethod = activeSort.method,
         sortDirection = activeSort.direction,
         layout = {
-            elementWidth = DEBUFF_BAR_STYLE.width,
-            elementHeight = DEBUFF_BAR_STYLE.height,
-            elementSpacing = DEBUFF_BAR_SPACING,
+            elementWidth = barStyle.width,
+            elementHeight = barStyle.height,
+            elementSpacing = groupConfig.spacing,
         },
     })
 
@@ -1551,11 +1877,18 @@ local function CreateManagedDebuffPrototype(buffContainer)
 end
 
 local function InitializeEnchantmentAuraButton(auraButton)
-    InitializeManagedBarPresentation(auraButton, ENCHANTMENT_BAR_STYLE)
+    InitializeManagedBarPresentation(
+        auraButton,
+        ManagedPrototype.currentBarStyles.ENCHANTMENTS,
+        "ENCHANTMENTS"
+    )
     auraButton:SetCancelAuraButtons("RightButtonDown")
 end
 
 local function CreateManagedEnchantmentPrototype(debuffContainer)
+    local groupConfig = ManagedPrototype.startupConfig.ENCHANTMENTS
+    local barStyle = groupConfig.barStyle
+    local headerStyle = groupConfig.headerStyle
     local host = CreateFrame(
         "Frame",
         "OdysseusBuffBarsManagedEnchantmentPrototypeHost",
@@ -1563,11 +1896,13 @@ local function CreateManagedEnchantmentPrototype(debuffContainer)
         "DisableUntrustedLayoutScriptsTemplate"
     )
     host:SetSize(
-        ENCHANTMENT_HEADER_STYLE.width + (HOST_PADDING * 2),
-        ENCHANTMENT_HEADER_STYLE.height + ENCHANTMENT_HEADER_STYLE.firstRowGap
+        headerStyle.width + (HOST_PADDING * 2),
+        headerStyle.height + headerStyle.firstRowGap
     )
     host:SetPoint("TOPLEFT", debuffContainer, "BOTTOMLEFT", -HOST_PADDING, -MANAGED_GROUP_GAP)
     host:SetFrameStrata("MEDIUM")
+    host:SetScale(groupConfig.scale)
+    host:SetAlpha(groupConfig.alpha)
     host:Hide()
 
     local header = CreateFrame(
@@ -1577,7 +1912,7 @@ local function CreateManagedEnchantmentPrototype(debuffContainer)
         _G.BackdropTemplateMixin and "BackdropTemplate"
     )
     header:SetPoint("TOPLEFT", host, "TOPLEFT", HOST_PADDING, 0)
-    StyleManagedGroupHeader(header, ENCHANTMENT_HEADER_STYLE)
+    StyleManagedGroupHeader(header, headerStyle)
 
     local container = CreateFrame(
         "AuraContainer",
@@ -1591,7 +1926,7 @@ local function CreateManagedEnchantmentPrototype(debuffContainer)
         host,
         "TOPLEFT",
         HOST_PADDING,
-        -(ENCHANTMENT_HEADER_STYLE.height + ENCHANTMENT_HEADER_STYLE.firstRowGap)
+        -(headerStyle.height + headerStyle.firstRowGap)
     )
     container:SetSize(1, 1)
     container:SetEnabled(false)
@@ -1600,9 +1935,9 @@ local function CreateManagedEnchantmentPrototype(debuffContainer)
     container:SetFlowLayoutAnchorPoint("TOPLEFT")
     container:SetFlowLayoutGrowthDirection(AnchorUtil.FlowDirection.Right, AnchorUtil.FlowDirection.Down)
     container:SetItemEnchantmentLayout({
-        elementWidth = ENCHANTMENT_BAR_STYLE.width,
-        elementHeight = ENCHANTMENT_BAR_STYLE.height,
-        elementSpacing = ENCHANTMENT_BAR_SPACING,
+        elementWidth = barStyle.width,
+        elementHeight = barStyle.height,
+        elementSpacing = groupConfig.spacing,
     })
     container:SetItemEnchantmentSortMethod(
         AuraContainerItemEnchantmentSortMethod.Duration,
@@ -1616,17 +1951,17 @@ local function CreateManagedEnchantmentPrototype(debuffContainer)
         initializeFrame = InitializeEnchantmentAuraButton,
         hidePermanent = false,
     })
-    local activeSort = SORT_MODES[INITIAL_PROTOTYPE_SORT_MODE]
+    local activeSort = SORT_MODES[groupConfig.sortMode]
     container:AddAuraGroup(ENHANCEMENT_AURA_GROUP_KEY, "HELPFUL", {
         candidateFilters = CompileManagedEnhancementCandidateFilters(),
-        maxFrameCount = MAX_AURAS,
+        maxFrameCount = groupConfig.maxBars,
         initializeFrame = InitializeEnchantmentAuraButton,
         sortMethod = activeSort.method,
         sortDirection = activeSort.direction,
         layout = {
-            elementWidth = ENCHANTMENT_BAR_STYLE.width,
-            elementHeight = ENCHANTMENT_BAR_STYLE.height,
-            elementSpacing = ENCHANTMENT_BAR_SPACING,
+            elementWidth = barStyle.width,
+            elementHeight = barStyle.height,
+            elementSpacing = groupConfig.spacing,
         },
     })
 
@@ -1641,6 +1976,29 @@ local function CreateManagedEnchantmentPrototype(debuffContainer)
     RefreshFishingLureRow("prototype initialization")
 end
 
-CreateManagedAuraPrototype()
-CreateManagedDebuffPrototype(ManagedPrototype.container)
-CreateManagedEnchantmentPrototype(ManagedPrototype.debuffContainer)
+function ManagedPrototype:Initialize()
+    if self.initialized or self.initializing then
+        return self.initialized == true
+    end
+
+    local startupConfig = BuildManagedStartupConfig()
+    if not startupConfig then
+        return false
+    end
+
+    self.initializing = true
+    self.startupConfig = startupConfig
+    self.currentBarStyles = BuildCurrentBarStyles(startupConfig)
+    self.presentationOwners = {
+        BUFFS = setmetatable({}, { __mode = "k" }),
+        DEBUFFS = setmetatable({}, { __mode = "k" }),
+        ENCHANTMENTS = setmetatable({}, { __mode = "k" }),
+    }
+    CreateManagedAuraPrototype()
+    CreateManagedDebuffPrototype(self.container)
+    CreateManagedEnchantmentPrototype(self.debuffContainer)
+    self:RefreshCandidateFilters()
+    self.initializing = nil
+    self.initialized = true
+    return true
+end

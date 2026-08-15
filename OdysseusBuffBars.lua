@@ -257,6 +257,10 @@ function OBB:OnAddonLoaded(name)
         end
     end
 
+    if self.ManagedPrototype and self.ManagedPrototype.Initialize then
+        self.ManagedPrototype:Initialize()
+    end
+
     if self.Config then
         self.Config:Initialize()
     end

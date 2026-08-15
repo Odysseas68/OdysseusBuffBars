@@ -25,17 +25,48 @@ Managed rows retain native AuraButton ownership, duration text/bar, tooltips, so
 
 ## SavedVariables and configuration
 
+Managed construction begins only after the addon has adopted SavedVariables, filled defaults, completed migrations, normalized every group, and assigned `OBB.db`:
+
+```text
+ADDON_LOADED
+-> SavedVariables adoption/defaults/migrations
+-> ManagedPrototype:Initialize()
+-> managed UI/event construction
+```
+
+`ManagedPrototype:Initialize()` is idempotent. The managed Lua file does not construct containers, event frames, or the fishing-lure row at file-load time. Initialization builds a prototype-owned startup snapshot with copied style/color values rather than retaining mutable SavedVariables color-table references.
+
+The existing configuration layer remains the only owner of control behavior and `syncGroupBars` fan-out. After it mutates SavedVariables, one centralized apply bridges both renderers:
+
+```text
+OdysseusBuffBarsDB
+        |
+existing config layer
+        |
+Config:Apply()
+        +- legacy RefreshAll()
+        L- ManagedPrototype:ApplyConfiguration()
+                    |
+          managed presentation state
+```
+
+At startup, all three managed groups consume `name`, width, height, spacing, font size, complete bar/background RGBA, icon side, scale, and alpha. BUFFS and DEBUFFS also consume compatible saved sort and maximum-bar settings. ENCHANTMENTS deliberately retains its separate prototype sort/cap behavior because one legacy value cannot exactly govern `HelpfulEnhancements`, native item-enchantment rows, and the ordinary fishing-lure row together.
+
+Live out-of-combat synchronization is currently limited to font size and complete bar/background RGBA. It updates tracked presentation descendants for existing rows, while the current presentation state is also used by newly assigned, created, or reused managed rows and by the fishing-lure presentation. It does not enumerate active managed children, infer active counts, or inspect aura identity. Geometry, spacing, icon side, scale, alpha, header text, sort, maximum bars, placement, chaining, and growth remain startup-only or pending as applicable.
+
 The managed BUFFS filter compiler reuses `groupSettings.filters.whitelist` and `groupSettings.filters.blacklist`. The existing legacy filter editor remains the single editing UI and synchronizes the long-lived managed group out of combat. No managed-only SavedVariables or duplicate filter editor were added.
 
 The managed DEBUFFS group intentionally does not use candidate spell-ID maps or connect the existing DEBUFFS filter editor. Under the Retail 12.1 managed security model, non-`NeverSecret` harmful auras on the assistable player unit skip identity include/exclude maps, so general legacy whitelist/blacklist parity is unavailable. Existing saved numeric IDs remain intact pending a final product-policy decision; this is a deliberate compatibility limitation, not a broken filter implementation.
 
-The managed ENCHANTMENTS prototype has no SavedVariables, persistence, or configuration integration. Native item enchantments remain separate from the `HelpfulEnhancements` managed HELPFUL group and the ordinary fishing-lure exception. Readable active HELPFUL spell metadata is classified through `well fed`, `flask`/`phial`, `augment rune`, and `bobber` markers; the resulting session-only spell-ID membership is applied as ENCHANTMENTS includes and BUFFS exclusions. Duration is not semantic classification. No item IDs, hardcoded routing spell-ID table, duration thresholds, or persisted discovery data are used.
+The managed ENCHANTMENTS prototype consumes compatible startup presentation settings and the narrow live font/color slice, but it has no exact combined saved sort/maximum-bar mapping, managed position persistence, or full configuration parity. Native item enchantments remain separate from the `HelpfulEnhancements` managed HELPFUL group and the ordinary fishing-lure exception. Readable active HELPFUL spell metadata is classified through `well fed`, `flask`/`phial`, `augment rune`, and `bobber` markers; the resulting session-only spell-ID membership is applied as ENCHANTMENTS includes and BUFFS exclusions. Duration is not semantic classification. No item IDs, hardcoded routing spell-ID table, duration thresholds, or persisted discovery data are used.
 
-Prototype position and sort selection are not persisted. Static visual parity is complete, but existing configuration still changes only the legacy UI. Managed restyling/layout synchronization and full configuration integration remain pending.
+Static visual parity and the Phase A.1/C.1 configuration checkpoint are runtime validated. Live out-of-combat restyling currently covers only font and bar/background colors; broader geometry/layout synchronization, managed position persistence, and production integration remain pending.
 
 ## Combat restrictions
 
 Managed aura updates, duration presentation, sorting, and already-applied candidate filters continue to operate during combat. Dragging, sort changes, BUFFS filter mutation, HELPFUL enhancement rediscovery, and fishing-lure API refreshes are blocked or deferred during combat; pending routing/lure refreshes retry after `PLAYER_REGEN_ENABLED`.
+
+`ManagedPrototype:ApplyConfiguration()` also refuses managed presentation mutation during combat and returns `false, "combat lockdown"`. It does not queue or defer configuration changes. The normal configuration UI already prevents its mutation paths during combat; this is not combat-capable live restyling.
 
 The legacy direct scanner becomes unavailable or secret in Retail 12.1 combat. Its `pcall` containment limits repeated failures but cannot restore correct state, and its indexed aura tooltip path is suppressed on Retail 12.1+. These are legacy limitations, not managed-frame failures.
 
@@ -45,5 +76,5 @@ The legacy direct scanner becomes unavailable or secret in Retail 12.1 combat. I
 - The managed player-DEBUFFS prototype has core Retail Live runtime validation, including all three native sort mappings, native combat tooltip behavior, and dynamic BUFFS-to-DEBUFFS layout propagation, but remains isolated, broadly filtered, and not production-integrated.
 - The managed ENCHANTMENTS prototype has validated MainHand Phoenix Oil behavior, quiet-turn cold-login recovery, FOOD/FLASK_PHIAL/AUGMENT_RUNE/FISHING_BOBBER routing, and the ordinary fishing-lure lifecycle. Native weapon rows support right-click cancellation; the fishing-lure row does not. OffHand, simultaneous slots, native duration ordering, combat cancellation, permanent/zero-duration behavior, Ranged, final temporary-enchant naming, and broader native enchant coverage remain pending.
 - Blizzard-managed default buff icons still reappear when combat begins even when the legacy `Hide Blizzard Icons` option hides them out of combat. This is unresolved and separate from the managed AuraContainer work.
-- A known real private harmful aura, optional explicit secrecy/`NeverSecret` tests, the DEBUFFS filtering product decision, broader native item-enchantment/effect coverage, managed configuration synchronization, persistence, production cutover, rollback policy, and removal of the legacy scanner remain future work.
+- A known real private harmful aura, optional explicit secrecy/`NeverSecret` tests, the DEBUFFS filtering product decision, broader native item-enchantment/effect coverage, geometry/layout configuration synchronization, persistence, production cutover, rollback policy, and removal of the legacy scanner remain future work.
 - Detailed architectural history, validation evidence, and rollback boundaries are preserved in `MANAGED_AURACONTAINER_MIGRATION.md`.

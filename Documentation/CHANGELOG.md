@@ -30,6 +30,9 @@ Historical development prior to the creation of this document is intentionally n
 - Unified managed BUFFS, DEBUFFS, and ENCHANTMENTS row construction through `InitializeManagedBarPresentation` and group headers through `StyleManagedGroupHeader`.
 - Matched all three prototype groups to the accepted legacy static presentation: `260 x 18` rows and headers, three-pixel spacing, full-coordinate icons, legacy text geometry/backdrop, and group-specific colors.
 - Fixed fishing-lure tooltip taint by owning `GameTooltip` from `UIParent` at `ANCHOR_CURSOR` instead of the ordinary row whose layout depends on restricted managed bounds.
+- Moved idempotent managed prototype initialization into `OBB:OnAddonLoaded()` after SavedVariables adoption, defaults, migrations, group normalization, and `OBB.db` readiness; managed frames and event objects are no longer constructed at Lua file load.
+- Added copied startup consumption of existing group name, geometry, spacing, font, complete bar/background colors, icon side, scale, and alpha, plus compatible BUFFS/DEBUFFS sort and maximum-bar settings.
+- Bridged the existing out-of-combat `Config:Apply()` path to centralized managed presentation synchronization for font size and complete bar/background colors without duplicating `syncGroupBars` behavior.
 
 ### Compatibility
 
@@ -44,7 +47,7 @@ Historical development prior to the creation of this document is intentionally n
 - Validated native Default, Name, and Time Left sorting, including legacy-compatible timeless-first and longest-to-shortest Time Left ordering.
 - Validated whitelist/blacklist semantics, whitelist precedence, and automatic synchronization with the existing filter editor.
 - Observed no Lua errors, taint, or blocked actions during the managed player-BUFFS validation.
-- Managed DEBUFFS production integration, Enhancements, final configuration integration, Blizzard BuffFrame visibility, and production cutover remain incomplete.
+- Managed DEBUFFS/ENCHANTMENTS production integration, final configuration parity, Blizzard BuffFrame visibility, and production cutover remain incomplete.
 
 ### Live validation
 
@@ -65,4 +68,5 @@ Historical development prior to the creation of this document is intentionally n
 - Validated Bright Baubles fishing-lure detection through the dynamically resolved profession-tool slot, visible countdown, natural expiration and scheduled API recheck, row hiding, and reapplication without presence polling.
 - Validated the fishing-tool inventory tooltip after the restricted-layout ownership fix; it exposes a generic lure effect rather than the original lure item name.
 - Confirmed native weapon-enchant right-click cancellation remains available while the ordinary fishing-lure row intentionally performs no cancellation action.
-- Kept managed configuration synchronization, safe runtime restyling, remaining placement/growth options, broader native enchant/effect coverage, persistence, production cutover, rollback policy, and eventual legacy cleanup pending.
+- Runtime-validated Phase A.1 startup/reload configuration consumption and the narrow Phase C.1 live out-of-combat font/color slice, including existing and newly assigned/created/reused managed rows, with native interaction and combat behavior retained in the supplied test scope.
+- Kept live geometry/layout synchronization, exact ENCHANTMENTS combined sort/cap semantics, broader native enchant/effect coverage, persistence, production cutover, rollback policy, and eventual legacy cleanup pending.

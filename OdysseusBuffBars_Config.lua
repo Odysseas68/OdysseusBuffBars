@@ -716,6 +716,9 @@ function Config:Apply()
         return
     end
     OBB:RefreshAll()
+    if OBB.ManagedPrototype and OBB.ManagedPrototype.ApplyConfiguration then
+        OBB.ManagedPrototype:ApplyConfiguration("config apply")
+    end
     if self.frame and self.frame:IsShown() then
         local page = self.pages[OBB.db.config.page]
         if page and page.Refresh then
