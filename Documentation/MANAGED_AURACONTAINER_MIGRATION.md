@@ -1,6 +1,6 @@
 # Managed AuraContainer Migration
 
-Phase A, managed AuraButton presentation, Phase B.2 dynamic self-sizing, native managed sorting, player-BUFFS whitelist/blacklist semantics, and automatic synchronization from the existing BUFFS filter editor are validated on the Retail 12.1 PTR. A second isolated player-DEBUFFS prototype has core runtime behavior validated on Retail Live `12.1.0.69273`, including all three native sort mappings, native combat tooltips, and dynamic BUFFS-to-DEBUFFS layout propagation; targeted private-aura and optional restriction-focused validation remains pending. A third isolated managed ENCHANTMENTS prototype registers native MainHand and OffHand item-enchantment providers below DEBUFFS. Its quiet-turn recovery and core MainHand temporary-enchantment lifecycle are validated on Retail Live across cold login, reload, fresh reapplication, native tooltip, and cancellation in the tested non-combat context; broader parity remains pending. All three managed frames remain parallel prototypes; no production aura group uses the managed backend.
+Phase A, managed AuraButton presentation, Phase B.2 dynamic self-sizing, native managed sorting, player-BUFFS whitelist/blacklist semantics, and automatic synchronization from the existing BUFFS filter editor are validated on the Retail 12.1 PTR. A second isolated player-DEBUFFS prototype has core runtime behavior validated on Retail Live `12.1.0.69273`, including all three native sort mappings, native combat tooltips, and dynamic BUFFS-to-DEBUFFS layout propagation; targeted private-aura and optional restriction-focused validation remains pending. A third isolated managed ENCHANTMENTS prototype combines native MainHand and OffHand item-enchantment providers with a managed `HelpfulEnhancements` aura group. Its quiet-turn recovery, core MainHand lifecycle, and semantic Food, Flask/Phial, and Augment Rune routing are substantially runtime validated on Retail Live; broader native item-enchantment parity remains pending. All three managed areas remain parallel prototypes; no production aura group uses the managed backend.
 
 Evidence labels used below:
 
@@ -17,14 +17,14 @@ Current milestone status:
 | Parallel managed player-BUFFS implementation | Implemented and PTR validated for core lifecycle, presentation, sorting, filtering, and existing-editor synchronization. |
 | Phase B.2 dynamic self-sizing | PTR validated. |
 | Isolated managed player-DEBUFFS implementation | Core runtime behavior validated on Retail Live with a broad `HARMFUL` group, all three sort mappings, native combat tooltips, and dynamic BUFFS-to-DEBUFFS anchoring; targeted private-aura validation and integration pending. |
-| Isolated managed ENCHANTMENTS implementation | MainHand and OffHand native item-enchantment providers implemented; quiet-turn recovery and the tested MainHand Phoenix Oil lifecycle are Live validated, while OffHand and broader presentation/interaction parity remain pending. |
+| Isolated managed ENCHANTMENTS implementation | MainHand and OffHand native item-enchantment providers plus the `HelpfulEnhancements` managed HELPFUL group are implemented. Quiet-turn recovery, the tested MainHand Phoenix Oil lifecycle, and dynamic semantic Food, Flask/Phial, and Augment Rune routing are Live validated; OffHand and broader native item-enchantment parity remain pending. |
 | Final visual parity, persistent position/sort, and full configuration integration | Pending. |
-| DEBUFFS/ENCHANTMENTS production integration, curated enhancement-aura policy, and production cutover | Pending. |
+| DEBUFFS/ENCHANTMENTS production integration and production cutover | Pending; the validated enhancement-routing policy is still prototype-only. |
 | Blizzard BuffFrame visibility during combat | Unresolved and separate from the managed implementation. |
 
 ## 1. Current Architecture
 
-The production/legacy path is a standalone custom aura-bar implementation built around direct aura scanning. Parallel managed player-BUFFS, player-DEBUFFS, and native item-enchantment prototypes validate the intended replacement architecture without taking ownership from that legacy path.
+The production/legacy path is a standalone custom aura-bar implementation built around direct aura scanning. Parallel managed player-BUFFS, player-DEBUFFS, and ENCHANTMENTS prototypes validate the intended replacement architecture without taking ownership from that legacy path. Managed ENCHANTMENTS contains both native item-enchantment sources and a separate managed HELPFUL aura group; HELPFUL entries are not converted into Blizzard item enchantments.
 
 Runtime flow:
 
@@ -118,7 +118,7 @@ Additional verified findings:
 | Custom bar populated from aura data | Requires extracting data the addon may no longer access. |
 | Index-based tooltip | Aura index is fragile and may be restricted; managed buttons provide native identity-aware tooltips. |
 | Separate secure cancel overlay | Reimplements behavior already owned by AuraButton and depends on addon-provided identity/index. |
-| Name-based enhancement heuristics | Managed candidate filters are based on supported criteria, not unrestricted aura-name inspection. |
+| Legacy name-based enhancement heuristics | They cannot be carried forward unchanged. The validated prototype instead classifies readable active spell metadata, then applies the resulting spell-ID membership through managed candidate filters. |
 | Timed/timeless filtering | No verified general-purpose native selector provides exact parity. `maxDuration` is not a complete replacement. |
 | Whitelist and blacklist | Native spell-ID candidate filtering is PTR validated for player BUFFS. General player-DEBUFFS parity is unavailable because non-`NeverSecret` harmful auras on the assistable player unit skip identity maps; product policy remains unresolved. |
 | Three independent movable groups | A container has one unit and one coordinated flow surface. Independent placement favors one container per existing group. |
@@ -191,16 +191,16 @@ Map existing settings to native mechanisms where verified:
 - Default sorting > native default method.
 - Growth and spacing > container flow and group layout options.
 
-Timed-only, timeless-only, and enhancement-name routing remain compatibility gaps rather than safe mappings.
+Timed-only and timeless-only selection remain compatibility gaps rather than safe mappings.
 
 ### Enhancements
 
-The enhancements container can potentially combine:
+The validated ENCHANTMENTS prototype combines:
 
-- A managed helpful-aura group for explicitly supported enhancement auras.
-- Native item-enchantment entries for main hand, off hand, and ranged slots.
+- A long-lived managed `HelpfulEnhancements` aura group for dynamically discovered Food, Flask/Phial, and Augment Rune HELPFUL auras.
+- Native item-enchantment entries for MainHand and OffHand. Ranged remains unregistered and unvalidated.
 
-The current heuristic classification cannot be carried forward as if it were reliable managed filtering. Exact combined layout and cancellation parity need PTR validation.
+This is an OBB presentation policy, not a Blizzard item-enchantment classification. The new path does not reuse the legacy aura-name heuristic: it guards readable active aura spell IDs, classifies `C_Spell` name/description metadata with explicit semantic markers, and applies the same session-only membership as ENCHANTMENTS includes and BUFFS exclusions. Broader combined layout and native item-enchantment interaction parity still need Live validation.
 
 ### Identity, caching, and events
 
@@ -351,28 +351,55 @@ Rollback: remove or disable only the isolated DEBUFFS prototype; the validated m
 
 ### Isolated managed ENCHANTMENTS prototype
 
-Status: Core managed MainHand temporary-enchantment lifecycle validated on Retail Live, including cold login, reload, reapplication, native tooltip, and cancellation in the tested non-combat context. Broader ENCHANTMENTS parity and HELPFUL enhancement routing remain in progress. This is not a production ENCHANTMENTS backend.
+Status: Core managed MainHand temporary-enchantment lifecycle and dynamic semantic HELPFUL enhancement routing are validated on Retail Live. Broader native item-enchantment parity remains pending. This is not a production ENCHANTMENTS backend.
 
 - A third ordinary host is created with `DisableUntrustedLayoutScriptsTemplate` and anchored one-way from its `TOPLEFT` to the DEBUFFS container's `BOTTOMLEFT`, horizontally realigned by the shared host padding and separated by the same eight-pixel prototype gap.
 - The dependency chain is strictly BUFFS root -> BUFFS container -> DEBUFFS host -> DEBUFFS container -> ENCHANTMENTS host -> ENCHANTMENTS container. ENCHANTMENTS has no independent dragging, persistence, SavedVariables, or configuration integration; moving BUFFS carries all three prototypes through declarative anchors.
-- ENCHANTMENTS owns a third independent `CustomAuraContainerTemplate`. It is configured early, shown before enablement, kept long-lived, and left at the managed one-pixel empty minimum until active item-enchantment frames establish larger FlowLayout bounds.
-- The container calls `AddItemEnchantment(AuraContainerItemEnchantmentSlot.MainHand, options)` and `AddItemEnchantment(AuraContainerItemEnchantmentSlot.OffHand, options)` only. Each registration uses the same bar initializer and `hidePermanent = false`. Ranged is not registered.
-- ENCHANTMENTS does not call `AddAuraGroup`, `SetAuraGroupCandidateFilters`, or `SetAuraGroupSortMethod`; it has no AuraGroup, candidate filter, spell-ID filter, maximum frame count, or legacy whitelist/blacklist connection.
+- ENCHANTMENTS owns a third independent `CustomAuraContainerTemplate`. It is configured early, shown before enablement, kept long-lived, and left at the managed one-pixel empty minimum until active native item-enchantment or `HelpfulEnhancements` frames establish larger FlowLayout bounds.
+- The container calls `AddItemEnchantment(AuraContainerItemEnchantmentSlot.MainHand, options)` and `AddItemEnchantment(AuraContainerItemEnchantmentSlot.OffHand, options)`. Each registration uses the same bar initializer and `hidePermanent = false`. Ranged is not registered.
+- The same container also owns a long-lived `AddAuraGroup("HelpfulEnhancements", "HELPFUL", options)` group. Its candidate filter is updated with dynamically discovered `includeSpellIDs`; managed BUFFS `Helpful` receives the same membership as `excludeSpellIDs` to prevent duplicate presentation. It has no legacy ENCHANTMENTS whitelist/blacklist connection.
 - Each fixed container-owned managed frame registers `SetIcon`, `SetSpellName`, `SetApplicationCount`, `SetDurationText`, and `SetDurationBar`. The primary text is Blizzard's equipped-item name. Blizzard owns application-count clearing, the retained duration object, countdown updates, StatusBar progress, equipment/enchant event refreshes, inactive-frame clearing, and frame reuse.
 - Native item-enchantment sorting is configured once through `SetItemEnchantmentSortMethod(AuraContainerItemEnchantmentSortMethod.Duration, AuraContainerSortDirection.Reverse)`. Native semantics put non-expiring rows first, then timed rows from longest remaining to shortest remaining; no Name, Slot, Default, AuraGroup sort, runtime selector, or addon comparator was added.
 - Tooltip behavior remains the native AuraButton inventory-item path. No addon hover handler, tooltip scraping, tooltip fallback, raw item-link parsing, hardcoded enchant-name map, or `enchantID == spellID` assumption is present.
 - Each managed item-enchantment frame registers `SetCancelAuraButtons("RightButtonDown")`. The intrinsic AuraButton targets its own managed inventory slot through `C_PaperDollInfo.CancelTemporaryEnchantment`; no secure overlay or addon-owned cancellation state is added. Combat cancellation remains a required runtime test, not a source-proven claim.
-- The item-enchantment layout uses the same 250 by 16 vertical bar geometry and two-pixel spacing as the other prototypes. Only active fixed frames participate in FlowLayout; no manual height, aura/button count, equipment polling, enchantment polling, custom countdown `OnUpdate`, or empty-state special case is introduced.
+- The ENCHANTMENTS layout uses the same 250 by 16 vertical bar geometry and two-pixel spacing as the other prototypes. Active fixed item-enchantment frames and active managed `HelpfulEnhancements` frames participate in FlowLayout; no manual height, aura/button count, equipment polling, enchantment polling, custom countdown `OnUpdate`, or empty-state special case is introduced.
 - A Retail Live diagnostic found active MainHand PaperDoll data (`enchantID 8051`, remaining time `1063382`, zero charges, expiring) while the initial managed row was absent. One out-of-combat `enchantmentContainer:UpdateAllAuras()` immediately populated the row, proving an initial lifecycle timing miss rather than a slot, registration, sort, permanence, charge, visibility, or data-availability failure.
 - Repeated cold-login diagnostics refined the race: file load, `PLAYER_LOGIN`, and `PLAYER_ENTERING_WORLD` all observed the enchant as absent; the first player `UNIT_INVENTORY_CHANGED` exposed enchantID `8051` with `remainingTimeMs = 0` and expiration enabled; a subsequent callback exposed usable positive remaining times, including `4698000`, `4510000`, and `4349000`. The managed item-enchantment provider does not subscribe to `UNIT_INVENTORY_CHANGED`, so a world-entry refresh alone cannot recover this transition.
 - Live testing of the first two-callback recovery made the managed row appear automatically but without a timer. Refreshing on callback one consumed the incomplete zero-duration startup snapshot; after PaperDoll reported a positive remaining time (`3838386` observed), one later manual `enchantmentContainer:UpdateAllAuras()` updated the existing row with the correct timer.
 - Later callback-count diagnostics disproved the fixed two-callback policy. Timed-ready publication occurred on callbacks 69, 105, and 430 across cold logins, so callback ordinal is not a readiness contract. Temporarily isolating the legacy synthetic weapon-enchantment append path produced the same managed failure and ruled it out as the cause; the legacy block was restored exactly.
 - The prototype initialization event frame keeps its normal `PLAYER_ENTERING_WORLD` refresh. When that event's `initialLogin` argument is true, the same frame calls `RegisterUnitEvent("UNIT_INVENTORY_CHANGED", "player")` and starts a generation-based quiet-turn coalescer. Each player inventory callback only advances the generation; the first callback schedules one `C_Timer.After(0)` check, and later callbacks cannot schedule a duplicate while that check is pending.
 - Each deferred check compares its captured generation with the current generation. Continued activity schedules one more zero-delay turn using the latest generation. One unchanged deferred turn unregisters the temporary listener, clears the startup generation/pending state, and performs exactly one final `ManagedPrototype.enchantmentContainer:UpdateAllAuras()` call. `/reload` does not enable this listener because `initialLogin` is false; its existing world-entry refresh remains separate.
-- No positive fixed delay, callback-count threshold, ticker, `OnUpdate`, polling loop, PaperDoll inspection, synthetic fallback, `UNIT_AURA`, broad/permanent inventory listener, or custom permanent weapon-event ownership is introduced. Blizzard remains responsible for fresh post-login application, refresh, removal, expiration, and equipment changes after the bounded cold-login recovery ends.
+- The native item-enchantment cold-login recovery adds no positive fixed delay, callback-count threshold, ticker, `OnUpdate`, polling loop, PaperDoll inspection, synthetic fallback, broad/permanent inventory listener, or custom permanent weapon-event ownership. The separate HELPFUL routing path uses player-filtered `UNIT_AURA`; Blizzard remains responsible for native item-enchantment application, refresh, removal, expiration, and equipment changes after the bounded cold-login recovery ends.
 - Two genuine cold logins with MainHand Thalassian Phoenix Oil active validated automatic row and timer recovery without manual refresh, stale zero-duration state, or duplicate rows. `/reload`, fresh post-login reapplication, the native inventory tooltip, and right-click cancellation in the tested non-combat context also passed. No OBB-attributable Lua error, taint, or blocked action was observed in these tests.
 - Native managed primary text displays the equipped weapon name. Retail 12.1 exposes no supported temporary-enchantment-ID-to-localized-name resolver; tooltip scraping, hardcoded mappings, raw item-link parsing, and treating enchant ID as spell ID are rejected. A static slot label remains a later presentation option.
-- Native MainHand/OffHand item enchantments and HELPFUL enhancement auras are separate managed sources. Legacy OBB routes Food and Flask effects into its logical ENCHANTMENTS bucket, while the current managed prototype leaves those HELPFUL effects in BUFFS. Curated HELPFUL enhancement routing is the next separate ENCHANTMENTS research/development step.
+- Native MainHand/OffHand item enchantments and HELPFUL enhancement auras remain separate managed sources even though OBB presents both in ENCHANTMENTS. HELPFUL auras remain managed HELPFUL entries and are never converted into Blizzard item enchantments.
+
+#### Validated semantic HELPFUL enhancement routing
+
+Purpose and classification:
+
+- Food, Flask/Phial, and Augment Rune effects are technically HELPFUL buffs. OBB intentionally presents selected long-lived enhancement effects in ENCHANTMENTS for organization; this is an addon routing policy, not a Blizzard taxonomy claim.
+- The prototype discovers readable active player HELPFUL aura spell IDs and classifies readable `C_Spell.GetSpellName` and `C_Spell.GetSpellDescription` text with case-insensitive literal markers: `well fed` -> `FOOD`, `flask` or `phial` -> `FLASK_PHIAL`, and `augment rune` -> `AUGMENT_RUNE`.
+- No documented `C_Spell` API was found that directly categorizes aura spells as Food, Flask, Phial, or Augment Rune. `C_Spell.IsSpellHelpful` and `C_Spell.IsSelfBuff` returned true for the tested effects, while `C_Spell.IsConsumableSpell` returned false and was not useful as a classifier.
+- Aura duration is display/runtime state, not a semantic classification property. One-hour or other duration thresholds, minimum/maximum duration, and remaining time are excluded from classification. Runtime testing showed that reapplying Flask of Alchemical Chaos at roughly 37 minutes remaining could extend the displayed remainder to roughly two hours; repeated applications and profession bonuses can alter duration behavior. This conclusion also applies to any future potion or consumable research.
+
+Dynamic managed routing:
+
+- The final prototype has no hardcoded routing spell-ID list. The temporary control route for `1232325` was removed; discovered IDs are session-only, are not persisted, add no SavedVariables, and do not create a historical enhancement database.
+- Item IDs are not treated as aura spell IDs. Bloom Skewers item ID `242302` was never used in candidate filters; the observed active Well Fed aura spell ID was `1232325`.
+- The same discovered membership is applied as ENCHANTMENTS `HelpfulEnhancements` `includeSpellIDs` and managed BUFFS `Helpful` `excludeSpellIDs`. The auras remain managed HELPFUL entries, move between OBB presentation groups, and are not duplicated.
+- Automatic discovery runs on `PLAYER_ENTERING_WORLD` and player-filtered `UNIT_AURA`. Restricted update payloads are not parsed for semantic discovery; the prototype performs a safe full HELPFUL rediscovery. No polling or continuous `OnUpdate` scanner is used. The manual diagnostic remains `/run OdysseusBuffBars.ManagedPrototype.DiscoverAndApplyHelpfulEnhancementRouting()`.
+- The last successfully applied set is remembered for the session. Equality is membership-based, independent of table identity and iteration order. `nil` means no successful synchronization yet; an empty table means the empty routing set was successfully applied. Unchanged normal aura events remain silent and skip filter reapplication; changed sets refresh both routing sides, and remembered state updates only after successful application. An empty set remains meaningful and clears stale routing.
+
+Runtime evidence:
+
+- Successfully classified and routed examples were `1232325` Well Fed -> `FOOD`, `432021` Flask of Alchemical Chaos -> `FLASK_PHIAL`, and `1234969` Ethereal Augmentation -> `AUGMENT_RUNE`. Cross-character validation also covered `393438` Draconic Augmentation -> `AUGMENT_RUNE` and `1233712` Hearty Well Fed -> `FOOD`. These are evidence examples, not a permanent supported-ID table.
+- Unrelated tested HELPFUL auras returned no enhancement classification, including Soul Leech, Sign of the Emissary, Hellbent Commander, Ula'tek's Gift, Flight Style: Steady, Void-Touched Orbs, and Wild Imp. This sample does not prove zero false positives across all Retail auras.
+- Initially active Food, Flask, and Rune effects appeared in BUFFS. After discovery and candidate-filter refresh, they moved into ENCHANTMENTS, disappeared from BUFFS, showed no observed duplicates, and retained correct managed timers.
+- The discovered set was exercised for initial population, identical rediscovery, growth, shrink, transition to empty, and repopulation. Observed transitions included `2 -> 3`, `3 -> 2`, and `1 -> 0 -> 1 -> 2`; no stale routed row was observed.
+- `C_TooltipInfo.GetUnitAuraByAuraInstanceID(unitToken, auraInstanceID, filter)` was verified and used for active-aura diagnostics. Well Fed, Ethereal Augmentation, and Flask of Alchemical Chaos tooltips exposed the active aura name, current effect, and remaining time. Tooltip parsing is possible and was researched, but was not selected as the primary classifier because spell metadata was cleaner for these categories.
+- In combat, automatic discovery deferred, manual routing was rejected, and no Lua errors occurred. The observed diagnostic was `automatic routing deferred reason=UNIT_AURA player combat lockdown`. `PLAYER_REGEN_ENABLED` retried pending discovery; an already synchronized two-ID set produced `automatic routing synchronized reason=PLAYER_REGEN_ENABLED discoveredSpellIDs=2`. This validates the deferred retry path, not every possible aura-restriction scenario.
+- A temporary weapon enchant expired independently during HELPFUL routing tests. No native weapon-enchantment behavior changed. Optional future research may look for a supported temporary-enchant effect name instead of the current equipped-item/slot-oriented presentation; it is not solved here.
 - `OBBEnchantDiag` was temporary external research tooling used to establish staged startup publication and variable callback ordinals. The validated prototype has no runtime, repository, or TOC dependency on it, and it can now be retired.
 - Retail Live validation remains required for OffHand, simultaneous MainHand/OffHand behavior, two-enchant duration ordering, combat cancellation, zero/one/multiple charges, same-ID refreshes, permanent/zero-duration behavior, equipment swaps, empty/one-row/two-row sizing, Ranged where exercisable, broader enchant families, and the full BUFFS-to-DEBUFFS-to-ENCHANTMENTS anchor chain.
 
@@ -390,7 +417,7 @@ Rollback: return that group to the contained direct scanner.
 
 - The isolated player-BUFFS prototype has validated maximum capacity, native sorting, whitelist/blacklist mapping, and automatic filter-editor synchronization.
 - Carry those mappings into the production backend without changing the existing SavedVariables schema.
-- Resolve or explicitly document timed/timeless and enhancement-routing limitations.
+- Resolve or explicitly document timed/timeless limitations, and carry the validated semantic enhancement-routing policy into production integration without adding persisted or hardcoded ID tables.
 - Preserve the PTR-validated sort directions rather than inferring behavior from enum names.
 
 Rollback: preserve existing SavedVariables fields and switch the group backend back.
@@ -435,7 +462,7 @@ After all groups pass validation:
 | Stale addon-owned aura caches | High | Stop duplicating managed state as each group migrates. |
 | Cancellation regression | High | Use native AuraButton cancellation and validate in combat. |
 | Timed/timeless parity failure | High | Treat as unresolved product behavior; do not approximate silently. |
-| Enhancement routing parity failure | High | Replace heuristics only with verified filters or explicit curated policy. |
+| Enhancement routing parity failure | High | Retain the validated guarded spell-metadata classifier and paired managed include/exclude filters; broaden categories only with targeted evidence. |
 | Blizzard frames reappearing in combat | High | Do not repeatedly hide managed frames; identify supported behavior. |
 | Post-login setter restrictions | High | Create long-lived structures early and queue uncertain mutations out of combat. |
 | Sort-direction mismatch | Medium | Test known aura sets with distinct names and expiration times. |
@@ -465,8 +492,8 @@ Every phase should also include LuaCheck, load/reload testing, Lua error capture
 2. Where must `DisableUntrustedLayoutScriptsTemplate` be applied if future stack-wide chrome depends on managed bounds?
 3. What product policy should replace general legacy DEBUFFS spell-ID filtering now that non-`NeverSecret` player HARMFUL auras are known to skip identity maps?
 4. Is exact timed-only or timeless-only selection expressible without reading protected aura data?
-5. Can native item enchantments and an ordinary aura group share one Enhancements container with acceptable ordering and layout?
-6. How should enhancement consumables be selected without name-based heuristics?
+5. Does combined native item-enchantment and `HelpfulEnhancements` layout remain correct under simultaneous MainHand, OffHand, and routed-aura churn?
+6. Does the validated semantic spell-metadata classifier remain sufficiently precise across a broader Retail aura population and any future categories?
 7. What supported Retail or Edit Mode mechanism, if any, replaces combat-time hiding of Blizzard aura frames?
 8. Should target, focus, and pet support remain part of the product despite not being exposed in the current configuration UI?
 9. How should the filter editor obtain known spell IDs once live aura discovery no longer reads addon-owned aura records?

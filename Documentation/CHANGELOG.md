@@ -13,6 +13,7 @@ Historical development prior to the creation of this document is intentionally n
 - Added managed player-BUFFS whitelist/blacklist filtering that reuses the existing SavedVariables fields.
 - Added a second isolated managed player-DEBUFFS `CustomAuraContainer` prototype with an independent root and one broad player `HARMFUL` group.
 - Added a third isolated managed ENCHANTMENTS container with native MainHand and OffHand item-enchantment registrations.
+- Added a long-lived managed ENCHANTMENTS `HelpfulEnhancements` HELPFUL group for semantic Food, Flask/Phial, and Augment Rune routing.
 
 ### Changed
 
@@ -23,6 +24,7 @@ Historical development prior to the creation of this document is intentionally n
 - Added temporary Retail 12.1 containment for legacy direct-scanner failures and suppressed the incompatible legacy indexed-aura tooltip path on Retail 12.1+.
 - Anchored the managed DEBUFFS host below the dynamically self-sizing BUFFS container with a one-directional eight-pixel gap and removed independent DEBUFFS dragging.
 - Anchored managed ENCHANTMENTS below DEBUFFS and added initial-login inventory-burst coalescing with one pending zero-delay generation check and one final quiet-turn refresh.
+- Replaced the temporary hardcoded HELPFUL route with session-only discovery from readable active spell metadata and paired ENCHANTMENTS include/BUFFS exclude candidate filters.
 
 ### Compatibility
 
@@ -52,4 +54,6 @@ Historical development prior to the creation of this document is intentionally n
 - Validated the managed MainHand Thalassian Phoenix Oil lifecycle across two genuine cold logins, `/reload`, fresh reapplication, native inventory tooltip, and right-click cancellation in the tested non-combat context.
 - Validated that quiet-turn coalescing repairs cold-login startup without a fixed callback count, positive delay, polling, PaperDoll inspection, per-event full refresh, or synthetic fallback. Diagnostic readiness ordinals 69, 105, and 430 remain evidence only.
 - Observed no OBB-attributable Lua error, taint, or blocked action during the validated MainHand lifecycle tests.
-- Kept OffHand, simultaneous slots, dual-enchant duration ordering, combat cancellation, permanent/zero-duration behavior, Ranged, HELPFUL Food/Flask routing, final naming, persistence, configuration integration, and production cutover pending.
+- Validated semantic Food, Flask/Phial, and Augment Rune classification and dynamic de-duplicated routing across initial population, unchanged rediscovery, grow/shrink, empty-set clearing, and repopulation, including cross-character spell-ID variants.
+- Validated automatic out-of-combat event-driven discovery, redundant-event suppression, combat deferral, and `PLAYER_REGEN_ENABLED` retry without polling, continuous `OnUpdate`, hardcoded routing IDs, item-ID assumptions, duration classification, SavedVariables, or persisted discovery.
+- Kept OffHand, simultaneous slots, dual-enchant duration ordering, combat cancellation, permanent/zero-duration behavior, Ranged, final temporary-enchant naming, persistence, configuration integration, and production cutover pending.

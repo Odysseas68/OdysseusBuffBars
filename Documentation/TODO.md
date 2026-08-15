@@ -60,7 +60,7 @@
 - [x] Use the native equipped-item icon/name, application count, duration text, duration StatusBar, inventory-item tooltip, and `RightButtonDown` cancellation paths.
 - [x] Use ENCHANTMENTS-specific `AuraContainerItemEnchantmentSortMethod.Duration` with `AuraContainerSortDirection.Reverse` for native non-expiring-first, then longest-to-shortest timed ordering; add no selector or other sort mode.
 - [x] Keep item-enchantment lifecycle, equipment/enchant refreshes, frame reuse, stale-value clearing, countdowns, and self-sizing Blizzard-managed without addon polling or `OnUpdate`.
-- [x] Add no ENCHANTMENTS filtering, enchant-name resolver, SavedVariables, persistence, or configuration integration.
+- [x] Add no native item-enchantment filtering, enchant-name resolver, SavedVariables, persistence, or configuration integration; keep semantic HELPFUL routing as a separate managed aura-group source.
 - [x] Confirm on Live that pre-existing MainHand PaperDoll enchantment data can be available while the initial managed row is absent, and that one manual `UpdateAllAuras()` immediately populates it.
 - [x] Prove through repeated cold-login diagnostics that `PLAYER_ENTERING_WORLD` can precede usable timed enchantment data: the first player `UNIT_INVENTORY_CHANGED` exposed enchantID `8051` with zero remaining time, while a subsequent callback exposed a positive remaining duration.
 - [x] Confirm that refreshing on both startup inventory callbacks made the row appear but allowed callback one's incomplete zero-duration snapshot to produce a row without a timer; a later manual `UpdateAllAuras()` after final readiness restored the correct timer.
@@ -68,7 +68,7 @@
 - [x] Confirm that isolating the legacy synthetic weapon-enchantment append path did not change the managed cold-login failure.
 - [x] Keep the `PLAYER_ENTERING_WORLD` managed refresh, and on fresh `initialLogin` only register player-filtered `UNIT_INVENTORY_CHANGED`; coalesce the inventory burst through generation checks scheduled with `C_Timer.After(0)` and perform one final managed refresh after a quiet turn.
 - [x] Unregister the startup inventory listener and clear its generation/pending state before the final refresh.
-- [x] Add no fixed delay, callback-count threshold, polling, PaperDoll inspection, synthetic fallback, `UNIT_AURA`, or permanent inventory-event listener.
+- [x] Add no fixed delay, callback-count threshold, polling, PaperDoll inspection, synthetic fallback, or permanent inventory-event listener to the native item-enchantment cold-login recovery; HELPFUL routing uses a separate player-filtered `UNIT_AURA` path.
 - [x] Live-validate twice that a MainHand enchant active before cold login appears automatically with its timer through the quiet-turn managed refresh, with no manual refresh, duplicate row, or stale zero-duration state.
 - [x] Live-validate MainHand fresh reapplication after login, native equipped-weapon name, native inventory tooltip, and right-click cancellation in the tested non-combat context.
 - [x] Live-validate `/reload` with the MainHand enchant active without enabling the initial-login inventory listener.
@@ -80,8 +80,11 @@
 - [ ] Live-validate combat cancellation and OffHand cancellation; record any restriction, taint, or blocked action without adding a workaround.
 - [ ] Live-validate BUFFS -> DEBUFFS -> ENCHANTMENTS anchor propagation, managed grow/shrink, rapid enchant churn, and Blizzard-owned post-login apply/remove updates.
 - [ ] Exercise and record permanent/zero-duration behavior with `hidePermanent = false` if a suitable case is available.
-- [ ] Research and decide HELPFUL enhancement routing for Food, Flask, and similar effects; do not restore name heuristics or direct aura scans.
-- [ ] Decide final row naming/presentation between Blizzard's equipped-weapon name and a static slot label; do not scrape tooltips or hardcode enchant-ID mappings.
+- [x] Research and Live-validate semantic classification of readable active HELPFUL spell metadata for Food, Flask/Phial, and Augment Rune effects; use no duration thresholds, item IDs, or hardcoded routing spell-ID table.
+- [x] Live-validate paired managed ENCHANTMENTS includes and BUFFS exclusions with no duplicate presentation across initial population, repeated identical discovery, growth, shrink, empty-set clearing, and repopulation.
+- [x] Live-validate automatic out-of-combat discovery, membership-based redundant-event suppression, combat deferral, and pending `PLAYER_REGEN_ENABLED` retry without polling or continuous `OnUpdate` scanning.
+- [x] Cross-character validate different aura spell IDs, including Well Fed/Hearty Well Fed and Ethereal/Draconic Augmentation, while retaining runtime IDs as evidence rather than a compatibility table.
+- [ ] Decide final native temporary weapon-enchant naming/presentation between Blizzard's equipped-weapon name, a static slot label, or a supported effect-name source; do not scrape tooltips or hardcode enchant-ID mappings.
 - [ ] Evaluate Ranged registration only in a Retail context that can exercise inventory slot 18.
 
 ## Remaining Migration Work
@@ -91,7 +94,7 @@
 - [ ] Persist sort selection and complete final configuration integration.
 - [ ] Redesign filter-row discovery for a fully managed backend if supported discovery is still required; do not depend on direct aura identity scanning.
 - [ ] Decide the DEBUFFS filtering product policy after targeted validation, then integrate and cut over DEBUFFS separately.
-- [ ] Complete Live validation of the isolated native item-enchantment prototype, then decide production ENCHANTMENTS integration and any later curated HELPFUL enhancement-aura policy.
+- [ ] Complete broader Live validation of native MainHand/OffHand item-enchantment lifecycle and interaction, then integrate the validated native and semantic HELPFUL sources into production ENCHANTMENTS.
 - [ ] Research supported/Edit Mode handling for Blizzard BuffFrame visibility; do not claim the combat reappearance issue is fixed.
 - [ ] Cut over player BUFFS to exactly one production backend and remove its duplicate legacy display.
 - [ ] Validate final production configuration, combat behavior, rollback, and SavedVariables compatibility.
