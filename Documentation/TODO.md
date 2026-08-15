@@ -32,6 +32,14 @@
 - [x] Block filter mutation during combat while the active managed filter continues governing aura updates.
 - [x] Restore configuration availability after combat and retain correct filter behavior after `/reload`.
 
+### Validated static visual parity
+
+- [x] Runtime-compare managed BUFFS, DEBUFFS, and ENCHANTMENTS against the legacy renderer at `260 x 18` rows, three-pixel spacing, full-coordinate `18 x 18` icons, accepted fonts/text geometry, count/duration placement, and group-specific colors.
+- [x] Match legacy-style `260 x 18` group headers, backdrop/border, centered labels, and the four-pixel header-to-first-row gap.
+- [x] Centralize managed row presentation in `InitializeManagedBarPresentation(auraButton, style)` and header styling in `StyleManagedGroupHeader(header, style)`.
+- [x] Runtime-validate the shared row/header helper extraction on BUFFS without observed regression before applying it to DEBUFFS and ENCHANTMENTS.
+- [x] Retain Blizzard-owned AuraButton lifecycle, duration text/bar, tooltips, sorting, supported cancellation, and managed container self-sizing.
+
 ## Live 12.1 Isolated Managed Player-DEBUFFS Prototype
 
 - [x] Implement a second independent ordinary root and `CustomAuraContainerTemplate` for player DEBUFFS without changing the validated managed BUFFS group.
@@ -84,17 +92,29 @@
 - [x] Live-validate paired managed ENCHANTMENTS includes and BUFFS exclusions with no duplicate presentation across initial population, repeated identical discovery, growth, shrink, empty-set clearing, and repopulation.
 - [x] Live-validate automatic out-of-combat discovery, membership-based redundant-event suppression, combat deferral, and pending `PLAYER_REGEN_ENABLED` retry without polling or continuous `OnUpdate` scanning.
 - [x] Cross-character validate different aura spell IDs, including Well Fed/Hearty Well Fed and Ethereal/Draconic Augmentation, while retaining runtime IDs as evidence rather than a compatibility table.
+- [x] Add and runtime-validate `FISHING_BOBBER` through the case-insensitive literal `bobber` semantic marker without a bobber spell-ID table, item/toy identity, or duration rule.
+- [x] Validate Limited Edition Rocket Bobber aura spell ID `1222880` moving from managed BUFFS to managed ENCHANTMENTS while remaining an ordinary Blizzard HELPFUL aura.
+- [x] Resolve the fishing tool dynamically from `C_TradeSkillUI.GetProfessionSlots(Enum.Profession.Fishing)` and `Enum.InventoryType.IndexProfessionToolType`, with slot 28 accepted only as a source-backed API-returned fallback.
+- [x] Add the explicit addon-owned `Fishing Lure` row because managed item-enchantment providers cannot register the fishing profession-tool slot; do not describe it as a managed AuraButton.
+- [x] Runtime-validate Bright Baubles apply, visible countdown, natural expiration with one scheduled API recheck, row hiding, and reapplication without presence polling.
+- [x] Fix the lure tooltip `UntrustedLayoutScriptExecution` by owning `GameTooltip` from `UIParent` at `ANCHOR_CURSOR`; validate the fishing-tool inventory tooltip without observed taint.
+- [x] Keep native weapon-enchant right-click cancellation distinct from the fishing-lure row, which currently performs no cancellation action.
 - [ ] Decide final native temporary weapon-enchant naming/presentation between Blizzard's equipped-weapon name, a static slot label, or a supported effect-name source; do not scrape tooltips or hardcode enchant-ID mappings.
 - [ ] Evaluate Ranged registration only in a Retail context that can exercise inventory slot 18.
 
 ## Remaining Migration Work
 
-- [ ] Complete visual parity and final managed bar styling.
+- [ ] Connect and synchronize legacy configuration with managed presentation and layout; current visual parity is static prototype styling only.
+- [ ] Determine a safe runtime restyling/configuration update policy for managed rows and headers.
+- [ ] Validate remaining placement and growth options after managed configuration synchronization.
 - [ ] Persist managed prototype position.
 - [ ] Persist sort selection and complete final configuration integration.
 - [ ] Redesign filter-row discovery for a fully managed backend if supported discovery is still required; do not depend on direct aura identity scanning.
 - [ ] Decide the DEBUFFS filtering product policy after targeted validation, then integrate and cut over DEBUFFS separately.
 - [ ] Complete broader Live validation of native MainHand/OffHand item-enchantment lifecycle and interaction, then integrate the validated native and semantic HELPFUL sources into production ENCHANTMENTS.
+- [ ] Broaden runtime testing across classes, effects, bobbers, profession tools, and lure variants without converting observed IDs into compatibility tables.
+- [ ] Optionally research a supported localized temporary-enchant effect name beyond equipped-item/slot presentation.
+- [ ] Optionally research safe profession-tool lure cancellation; do not claim slot-28 cancellation until runtime validated.
 - [ ] Research supported/Edit Mode handling for Blizzard BuffFrame visibility; do not claim the combat reappearance issue is fixed.
 - [ ] Cut over player BUFFS to exactly one production backend and remove its duplicate legacy display.
 - [ ] Validate final production configuration, combat behavior, rollback, and SavedVariables compatibility.

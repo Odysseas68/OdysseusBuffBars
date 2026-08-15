@@ -14,6 +14,8 @@ Historical development prior to the creation of this document is intentionally n
 - Added a second isolated managed player-DEBUFFS `CustomAuraContainer` prototype with an independent root and one broad player `HARMFUL` group.
 - Added a third isolated managed ENCHANTMENTS container with native MainHand and OffHand item-enchantment registrations.
 - Added a long-lived managed ENCHANTMENTS `HelpfulEnhancements` HELPFUL group for semantic Food, Flask/Phial, and Augment Rune routing.
+- Added `FISHING_BOBBER` semantic routing through readable spell metadata without bobber spell-ID, item/toy, or duration tables.
+- Added an event/API-driven ordinary `Fishing Lure` row for fishing profession-tool temporary enchants, which are outside the managed MainHand/OffHand/Ranged provider surface.
 
 ### Changed
 
@@ -25,6 +27,9 @@ Historical development prior to the creation of this document is intentionally n
 - Anchored the managed DEBUFFS host below the dynamically self-sizing BUFFS container with a one-directional eight-pixel gap and removed independent DEBUFFS dragging.
 - Anchored managed ENCHANTMENTS below DEBUFFS and added initial-login inventory-burst coalescing with one pending zero-delay generation check and one final quiet-turn refresh.
 - Replaced the temporary hardcoded HELPFUL route with session-only discovery from readable active spell metadata and paired ENCHANTMENTS include/BUFFS exclude candidate filters.
+- Unified managed BUFFS, DEBUFFS, and ENCHANTMENTS row construction through `InitializeManagedBarPresentation` and group headers through `StyleManagedGroupHeader`.
+- Matched all three prototype groups to the accepted legacy static presentation: `260 x 18` rows and headers, three-pixel spacing, full-coordinate icons, legacy text geometry/backdrop, and group-specific colors.
+- Fixed fishing-lure tooltip taint by owning `GameTooltip` from `UIParent` at `ANCHOR_CURSOR` instead of the ordinary row whose layout depends on restricted managed bounds.
 
 ### Compatibility
 
@@ -56,4 +61,8 @@ Historical development prior to the creation of this document is intentionally n
 - Observed no OBB-attributable Lua error, taint, or blocked action during the validated MainHand lifecycle tests.
 - Validated semantic Food, Flask/Phial, and Augment Rune classification and dynamic de-duplicated routing across initial population, unchanged rediscovery, grow/shrink, empty-set clearing, and repopulation, including cross-character spell-ID variants.
 - Validated automatic out-of-combat event-driven discovery, redundant-event suppression, combat deferral, and `PLAYER_REGEN_ENABLED` retry without polling, continuous `OnUpdate`, hardcoded routing IDs, item-ID assumptions, duration classification, SavedVariables, or persisted discovery.
-- Kept OffHand, simultaneous slots, dual-enchant duration ordering, combat cancellation, permanent/zero-duration behavior, Ranged, final temporary-enchant naming, persistence, configuration integration, and production cutover pending.
+- Validated Limited Edition Rocket Bobber spell ID `1222880` as an ordinary HELPFUL aura routed to ENCHANTMENTS through `FISHING_BOBBER`, including unchanged-set synchronization.
+- Validated Bright Baubles fishing-lure detection through the dynamically resolved profession-tool slot, visible countdown, natural expiration and scheduled API recheck, row hiding, and reapplication without presence polling.
+- Validated the fishing-tool inventory tooltip after the restricted-layout ownership fix; it exposes a generic lure effect rather than the original lure item name.
+- Confirmed native weapon-enchant right-click cancellation remains available while the ordinary fishing-lure row intentionally performs no cancellation action.
+- Kept managed configuration synchronization, safe runtime restyling, remaining placement/growth options, broader native enchant/effect coverage, persistence, production cutover, rollback policy, and eventual legacy cleanup pending.

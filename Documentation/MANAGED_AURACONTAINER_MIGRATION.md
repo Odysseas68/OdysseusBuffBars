@@ -1,6 +1,6 @@
 # Managed AuraContainer Migration
 
-Phase A, managed AuraButton presentation, Phase B.2 dynamic self-sizing, native managed sorting, player-BUFFS whitelist/blacklist semantics, and automatic synchronization from the existing BUFFS filter editor are validated on the Retail 12.1 PTR. A second isolated player-DEBUFFS prototype has core runtime behavior validated on Retail Live `12.1.0.69273`, including all three native sort mappings, native combat tooltips, and dynamic BUFFS-to-DEBUFFS layout propagation; targeted private-aura and optional restriction-focused validation remains pending. A third isolated managed ENCHANTMENTS prototype combines native MainHand and OffHand item-enchantment providers with a managed `HelpfulEnhancements` aura group. Its quiet-turn recovery, core MainHand lifecycle, and semantic Food, Flask/Phial, and Augment Rune routing are substantially runtime validated on Retail Live; broader native item-enchantment parity remains pending. All three managed areas remain parallel prototypes; no production aura group uses the managed backend.
+Phase A, managed AuraButton presentation, Phase B.2 dynamic self-sizing, native managed sorting, player-BUFFS whitelist/blacklist semantics, and automatic synchronization from the existing BUFFS filter editor are validated on the Retail 12.1 PTR. The isolated BUFFS, DEBUFFS, and ENCHANTMENTS prototypes now also pass Retail Live runtime comparison against the legacy static visual presentation. ENCHANTMENTS combines native MainHand/OffHand rows, routed HELPFUL enhancement auras, and one explicit addon-owned fishing profession-tool lure row because Blizzard's managed item-enchantment provider cannot register that profession slot. These remain parallel prototypes; managed configuration synchronization and production cutover are not complete.
 
 Evidence labels used below:
 
@@ -17,14 +17,15 @@ Current milestone status:
 | Parallel managed player-BUFFS implementation | Implemented and PTR validated for core lifecycle, presentation, sorting, filtering, and existing-editor synchronization. |
 | Phase B.2 dynamic self-sizing | PTR validated. |
 | Isolated managed player-DEBUFFS implementation | Core runtime behavior validated on Retail Live with a broad `HARMFUL` group, all three sort mappings, native combat tooltips, and dynamic BUFFS-to-DEBUFFS anchoring; targeted private-aura validation and integration pending. |
-| Isolated managed ENCHANTMENTS implementation | MainHand and OffHand native item-enchantment providers plus the `HelpfulEnhancements` managed HELPFUL group are implemented. Quiet-turn recovery, the tested MainHand Phoenix Oil lifecycle, and dynamic semantic Food, Flask/Phial, and Augment Rune routing are Live validated; OffHand and broader native item-enchantment parity remain pending. |
-| Final visual parity, persistent position/sort, and full configuration integration | Pending. |
+| Isolated managed ENCHANTMENTS implementation | Native MainHand/OffHand rows, the `HelpfulEnhancements` managed HELPFUL group, and the ordinary fishing-lure exception are implemented. MainHand lifecycle, Food/Flask/Phial/Augment Rune/Fishing Bobber routing, lure apply/expire/reapply, and static visual parity are Live validated; broader native item-enchantment parity remains pending. |
+| Static managed visual parity | Runtime validated for BUFFS, DEBUFFS, and ENCHANTMENTS at `260 x 18`, three-pixel row spacing, legacy-style headers, and group-specific colors. Styling remains prototype-static. |
+| Persistent position/sort and full configuration integration | Pending; current configuration changes only the legacy UI. |
 | DEBUFFS/ENCHANTMENTS production integration and production cutover | Pending; the validated enhancement-routing policy is still prototype-only. |
 | Blizzard BuffFrame visibility during combat | Unresolved and separate from the managed implementation. |
 
 ## 1. Current Architecture
 
-The production/legacy path is a standalone custom aura-bar implementation built around direct aura scanning. Parallel managed player-BUFFS, player-DEBUFFS, and ENCHANTMENTS prototypes validate the intended replacement architecture without taking ownership from that legacy path. Managed ENCHANTMENTS contains both native item-enchantment sources and a separate managed HELPFUL aura group; HELPFUL entries are not converted into Blizzard item enchantments.
+The production/legacy path is a standalone custom aura-bar implementation built around direct aura scanning. Parallel managed player-BUFFS, player-DEBUFFS, and ENCHANTMENTS prototypes validate the intended replacement architecture without taking ownership from that legacy path. Managed ENCHANTMENTS contains native item-enchantment sources and a separate managed HELPFUL aura group; HELPFUL entries are not converted into Blizzard item enchantments. A small ordinary fishing-lure row is anchored with ENCHANTMENTS as an explicit exception and is not a managed AuraButton.
 
 Runtime flow:
 
@@ -126,6 +127,7 @@ Additional verified findings:
 | Blizzard-frame hiding | Blizzard now reasserts management during combat. Repeated insecure hiding is not a sustainable replacement for supported behavior. |
 | Filter discovery cache | The current cache depends on addon-readable aura identity. Its purpose and population method must be redesigned. |
 | Runtime configuration | Public setters exist, but post-login and combat accessibility must be tested rather than assumed. |
+| Fishing profession-tool lure | Managed item-enchantment slots cover MainHand, OffHand, and Ranged, not the fishing profession-tool slot. OBB uses one event/API-driven ordinary row rather than misrepresenting it as a managed AuraButton. |
 
 Verified legacy Retail 12.1 limitations:
 
@@ -179,6 +181,25 @@ Its initializer should construct and register the required descendants:
 
 The addon may apply static group styling during initialization, but should not mirror managed aura state into a second ordinary-bar model.
 
+The current prototype centralizes that static presentation in two helpers:
+
+- `InitializeManagedBarPresentation(auraButton, style)` creates the common row background, DurationBar, Icon, SpellName, DurationText, ApplicationCount, text layer, fonts, anchors, colors, and full icon coordinates, then registers the native AuraButton presentation elements. It does not own sorting, filtering, candidate groups, aura identity, duration calculations, event handling, cancellation policy, or host positioning.
+- `StyleManagedGroupHeader(header, style)` applies static header size, backdrop, background, border, and centered label presentation. It does not own dragging, host movement, sorting, group chaining, or configuration.
+
+The shared row/header helper extraction was first applied to BUFFS and runtime validated with no observed BUFFS regression before DEBUFFS and ENCHANTMENTS were switched to the same architecture.
+
+Current static style parity:
+
+| Group | Fill | Background |
+|---|---|---|
+| BUFFS | `{0.3, 0.5, 1.0, 0.8}` | `{0.0, 0.5, 1.0, 0.1}` |
+| DEBUFFS | `{1.0, 0.0, 0.0, 0.8}` | `{1.0, 0.0, 0.0, 0.1}` |
+| ENCHANTMENTS | `{0.5, 0.0, 0.5, 0.8}` | `{0.5, 0.0, 0.5, 0.1}` |
+
+All three use `260 x 18` rows, three-pixel row spacing, `18 x 18` icons with `{0, 1, 0, 1}` coordinates, 11-size name/duration text, 10-size outlined count text, and accepted legacy icon/bar/text geometry and placement. Their legacy-style headers use `260 x 18` geometry, the legacy backdrop/border, centered labels, and a four-pixel gap before the first row. Runtime visual comparison passed for all three groups.
+
+This parity is static prototype styling. Existing configuration still changes only the legacy renderer; managed restyling and layout synchronization have not been implemented.
+
 ### Filtering and sorting
 
 Map existing settings to native mechanisms where verified:
@@ -195,10 +216,11 @@ Timed-only and timeless-only selection remain compatibility gaps rather than saf
 
 ### Enhancements
 
-The validated ENCHANTMENTS prototype combines:
+The validated ENCHANTMENTS presentation combines:
 
-- A long-lived managed `HelpfulEnhancements` aura group for dynamically discovered Food, Flask/Phial, and Augment Rune HELPFUL auras.
+- A long-lived managed `HelpfulEnhancements` aura group for dynamically discovered Food, Flask/Phial, Augment Rune, and Fishing Bobber HELPFUL auras.
 - Native item-enchantment entries for MainHand and OffHand. Ranged remains unregistered and unvalidated.
+- One addon-owned fishing profession-tool lure row below the managed container, because that slot is outside the managed provider's MainHand/OffHand/Ranged surface.
 
 This is an OBB presentation policy, not a Blizzard item-enchantment classification. The new path does not reuse the legacy aura-name heuristic: it guards readable active aura spell IDs, classifies `C_Spell` name/description metadata with explicit semantic markers, and applies the same session-only membership as ENCHANTMENTS includes and BUFFS exclusions. Broader combined layout and native item-enchantment interaction parity still need Live validation.
 
@@ -261,10 +283,10 @@ Rollback: remove or disable the prototype without touching the direct scanner.
 
 ### Phase B — Managed bar-presentation prototype
 
-Status: Core managed presentation and lifecycle are implemented and PTR validated. Final visual parity and production integration remain pending.
+Status: Core managed presentation and lifecycle are implemented and PTR validated. Static visual parity is runtime validated for BUFFS, DEBUFFS, and ENCHANTMENTS; configuration synchronization and production integration remain pending.
 
-- The diagnostic group now displays at most thirty vertically stacked AuraButtons, each 250 by 16 pixels with two pixels of vertical spacing and a 16 by 16 icon.
-- The ordinary position root is fixed at the 22-pixel header height; it no longer reserves vertical space from the thirty-button capacity.
+- The earlier diagnostic group used 250 by 16 rows, two-pixel spacing, and a 22-pixel header. That geometry is preserved as historical prototype context but has been superseded by the runtime-validated legacy-parity style.
+- The current group displays at most thirty vertically stacked AuraButtons at 260 by 18 pixels with three pixels of spacing and full-coordinate 18 by 18 icons. The ordinary root reserves the 18-pixel header plus the four-pixel header-to-first-row gap, not the thirty-button capacity.
 - `SetFlowLayoutAxis(AnchorUtil.FlowLayoutAxis.Vertical)`, `SetFlowLayoutAnchorPoint("TOPLEFT")`, and `SetFlowLayoutGrowthDirection(...Right, ...Down)` configure the container-owned vertical layout before the aura group is added.
 - Each managed button creates addon-styled static background and text-layer descendants while remaining owned by the container.
 - `SetIcon` registers the left-side icon texture.
@@ -288,6 +310,8 @@ Phase B.2 dynamic layout implementation:
 - The container retains its one-pixel initial size before Blizzard's first managed layout.
 
 Phase B.2 PTR validation passed for dynamic grow/shrink, near-empty collapse, more than ten displayed buffs, thirty-frame capacity without permanently reserved empty space, combat updates, duration presentation, timeless clearing, application counts, native tooltip and right-click cancellation, combat drag lock, post-combat dragging, and reload. The header/root remained usable, and no Lua errors, taint, blocked actions, anchor loops, protected-frame errors, or managed-reuse layout failures were observed. Prototype position is still not persisted.
+
+Subsequent Retail Live visual comparison passed for BUFFS, DEBUFFS, and ENCHANTMENTS with the shared row/header helpers, accepted legacy geometry, fonts, text placement, and group colors. Native AuraButton ownership, managed duration text/bar, native tooltips, native sorting, supported cancellation, and container self-sizing remain Blizzard-owned.
 
 Native managed sorting implementation:
 
@@ -319,7 +343,7 @@ Managed player-BUFFS filtering implementation:
 
 Managed whitelist/blacklist semantics, native sorting, managed grow/shrink, tooltip, cancellation, and automatic editor synchronization passed PTR validation. Manual add, remove, and checkbox changes immediately updated both frames out of combat; clearing the whitelist activated blacklist mode; the current native sort and self-sizing remained active; and reload retained the compiled policy. In combat, the editor was unavailable and managed filter mutation remained blocked while the already-active filter continued governing managed aura updates. No errors, taint, or blocked actions were observed.
 
-The validated player-BUFFS prototype covers the core managed lifecycle, presentation, timed and timeless transitions, application counts, filtering, sorting, interaction, combat updates, and reload behavior. Final visual parity, persistent position and sort choice, full configuration integration, and production backend cutover remain pending.
+The validated player-BUFFS prototype covers the core managed lifecycle, presentation, timed and timeless transitions, application counts, filtering, sorting, interaction, combat updates, reload behavior, and static visual parity. Persistent position and sort choice, managed configuration synchronization, and production backend cutover remain pending.
 
 Rollback: existing bars remain authoritative.
 
@@ -330,7 +354,7 @@ Status: Core managed player-DEBUFFS runtime behavior validated on Retail Live. T
 - The DEBUFFS slice retains its own ordinary header/root and `CustomAuraContainerTemplate`, with independent frame names, local sort state, and managed lifecycle. Its position is no longer independent: the BUFFS root remains the primary movable root, and the DEBUFFS host follows the bottom of the self-sizing BUFFS container.
 - The DEBUFFS host is created with `DisableUntrustedLayoutScriptsTemplate` and anchored one-way from its `TOPLEFT` to the BUFFS container's `BOTTOMLEFT`, horizontally realigned by the existing host padding and separated by an eight-pixel prototype gap. No BUFFS frame is anchored back to DEBUFFS, so the dependency remains strictly BUFFS root -> BUFFS container -> DEBUFFS host -> DEBUFFS container.
 - Independent DEBUFFS dragging is removed. Moving the BUFFS root out of combat moves both managed groups through the now-validated anchor propagation; no new SavedVariables persistence is added.
-- The container uses `SetUnit("player")` and one `AddAuraGroup("Harmful", "HARMFUL", options)` declaration with a maximum capacity of 30 and the validated vertical 250 by 16 layout with two-pixel spacing.
+- The container uses `SetUnit("player")` and one `AddAuraGroup("Harmful", "HARMFUL", options)` declaration with a maximum capacity of 30 and the runtime-validated vertical 260 by 18 layout with three-pixel spacing.
 - The group is intentionally broad. It supplies no candidate spell-ID filters and does not connect the legacy DEBUFFS whitelist/blacklist editor because non-`NeverSecret` player HARMFUL auras skip managed identity maps.
 - Blizzard's default managed source selection supplies the public-plus-private path. The addon does not add a private source/group, enumerate private identities, or copy private aura data.
 - Each container-owned AuraButton registers `SetIcon`, `SetSpellName`, `SetApplicationCount`, `SetDurationText`, and `SetDurationBar`; Blizzard owns duration updates, clearing on reuse, and presentation under restrictions.
@@ -351,7 +375,7 @@ Rollback: remove or disable only the isolated DEBUFFS prototype; the validated m
 
 ### Isolated managed ENCHANTMENTS prototype
 
-Status: Core managed MainHand temporary-enchantment lifecycle and dynamic semantic HELPFUL enhancement routing are validated on Retail Live. Broader native item-enchantment parity remains pending. This is not a production ENCHANTMENTS backend.
+Status: Core managed MainHand temporary-enchantment lifecycle, dynamic semantic HELPFUL enhancement routing, the fishing profession-tool lure exception, and static visual parity are validated on Retail Live. Broader native item-enchantment parity and production/configuration integration remain pending. This is not a production ENCHANTMENTS backend.
 
 - A third ordinary host is created with `DisableUntrustedLayoutScriptsTemplate` and anchored one-way from its `TOPLEFT` to the DEBUFFS container's `BOTTOMLEFT`, horizontally realigned by the shared host padding and separated by the same eight-pixel prototype gap.
 - The dependency chain is strictly BUFFS root -> BUFFS container -> DEBUFFS host -> DEBUFFS container -> ENCHANTMENTS host -> ENCHANTMENTS container. ENCHANTMENTS has no independent dragging, persistence, SavedVariables, or configuration integration; moving BUFFS carries all three prototypes through declarative anchors.
@@ -362,7 +386,7 @@ Status: Core managed MainHand temporary-enchantment lifecycle and dynamic semant
 - Native item-enchantment sorting is configured once through `SetItemEnchantmentSortMethod(AuraContainerItemEnchantmentSortMethod.Duration, AuraContainerSortDirection.Reverse)`. Native semantics put non-expiring rows first, then timed rows from longest remaining to shortest remaining; no Name, Slot, Default, AuraGroup sort, runtime selector, or addon comparator was added.
 - Tooltip behavior remains the native AuraButton inventory-item path. No addon hover handler, tooltip scraping, tooltip fallback, raw item-link parsing, hardcoded enchant-name map, or `enchantID == spellID` assumption is present.
 - Each managed item-enchantment frame registers `SetCancelAuraButtons("RightButtonDown")`. The intrinsic AuraButton targets its own managed inventory slot through `C_PaperDollInfo.CancelTemporaryEnchantment`; no secure overlay or addon-owned cancellation state is added. Combat cancellation remains a required runtime test, not a source-proven claim.
-- The ENCHANTMENTS layout uses the same 250 by 16 vertical bar geometry and two-pixel spacing as the other prototypes. Active fixed item-enchantment frames and active managed `HelpfulEnhancements` frames participate in FlowLayout; no manual height, aura/button count, equipment polling, enchantment polling, custom countdown `OnUpdate`, or empty-state special case is introduced.
+- Managed ENCHANTMENTS rows use the shared 260 by 18 presentation and three-pixel FlowLayout spacing. Active fixed item-enchantment frames and active managed `HelpfulEnhancements` frames participate in Blizzard FlowLayout. The separate ordinary fishing-lure row uses the same static ENCHANTMENTS style below the managed container but is not part of FlowLayout and is not a managed AuraButton.
 - A Retail Live diagnostic found active MainHand PaperDoll data (`enchantID 8051`, remaining time `1063382`, zero charges, expiring) while the initial managed row was absent. One out-of-combat `enchantmentContainer:UpdateAllAuras()` immediately populated the row, proving an initial lifecycle timing miss rather than a slot, registration, sort, permanence, charge, visibility, or data-availability failure.
 - Repeated cold-login diagnostics refined the race: file load, `PLAYER_LOGIN`, and `PLAYER_ENTERING_WORLD` all observed the enchant as absent; the first player `UNIT_INVENTORY_CHANGED` exposed enchantID `8051` with `remainingTimeMs = 0` and expiration enabled; a subsequent callback exposed usable positive remaining times, including `4698000`, `4510000`, and `4349000`. The managed item-enchantment provider does not subscribe to `UNIT_INVENTORY_CHANGED`, so a world-entry refresh alone cannot recover this transition.
 - Live testing of the first two-callback recovery made the managed row appear automatically but without a timer. Refreshing on callback one consumed the incomplete zero-duration startup snapshot; after PaperDoll reported a positive remaining time (`3838386` observed), one later manual `enchantmentContainer:UpdateAllAuras()` updated the existing row with the correct timer.
@@ -378,9 +402,10 @@ Status: Core managed MainHand temporary-enchantment lifecycle and dynamic semant
 
 Purpose and classification:
 
-- Food, Flask/Phial, and Augment Rune effects are technically HELPFUL buffs. OBB intentionally presents selected long-lived enhancement effects in ENCHANTMENTS for organization; this is an addon routing policy, not a Blizzard taxonomy claim.
-- The prototype discovers readable active player HELPFUL aura spell IDs and classifies readable `C_Spell.GetSpellName` and `C_Spell.GetSpellDescription` text with case-insensitive literal markers: `well fed` -> `FOOD`, `flask` or `phial` -> `FLASK_PHIAL`, and `augment rune` -> `AUGMENT_RUNE`.
-- No documented `C_Spell` API was found that directly categorizes aura spells as Food, Flask, Phial, or Augment Rune. `C_Spell.IsSpellHelpful` and `C_Spell.IsSelfBuff` returned true for the tested effects, while `C_Spell.IsConsumableSpell` returned false and was not useful as a classifier.
+- Food, Flask/Phial, Augment Rune, and Fishing Bobber effects are technically HELPFUL buffs. OBB intentionally presents selected enhancement effects in ENCHANTMENTS for organization; this is an addon routing policy, not a Blizzard taxonomy claim.
+- The prototype discovers readable active player HELPFUL aura spell IDs and classifies readable `C_Spell.GetSpellName` and `C_Spell.GetSpellDescription` text with case-insensitive literal markers: `well fed` -> `FOOD`, `flask` or `phial` -> `FLASK_PHIAL`, `augment rune` -> `AUGMENT_RUNE`, and `bobber` -> `FISHING_BOBBER`.
+- The bobber rule uses no spell-ID table, item ID, toy ID, or duration requirement. It is a localization-sensitive semantic heuristic, not a formal Blizzard Bobber classification API.
+- No documented `C_Spell` API was found that directly categorizes aura spells as Food, Flask, Phial, Augment Rune, or Fishing Bobber. `C_Spell.IsSpellHelpful` and `C_Spell.IsSelfBuff` returned true for the tested consumable effects, while `C_Spell.IsConsumableSpell` returned false and was not useful as a classifier.
 - Aura duration is display/runtime state, not a semantic classification property. One-hour or other duration thresholds, minimum/maximum duration, and remaining time are excluded from classification. Runtime testing showed that reapplying Flask of Alchemical Chaos at roughly 37 minutes remaining could extend the displayed remainder to roughly two hours; repeated applications and profession bonuses can alter duration behavior. This conclusion also applies to any future potion or consumable research.
 
 Dynamic managed routing:
@@ -400,6 +425,19 @@ Runtime evidence:
 - `C_TooltipInfo.GetUnitAuraByAuraInstanceID(unitToken, auraInstanceID, filter)` was verified and used for active-aura diagnostics. Well Fed, Ethereal Augmentation, and Flask of Alchemical Chaos tooltips exposed the active aura name, current effect, and remaining time. Tooltip parsing is possible and was researched, but was not selected as the primary classifier because spell metadata was cleaner for these categories.
 - In combat, automatic discovery deferred, manual routing was rejected, and no Lua errors occurred. The observed diagnostic was `automatic routing deferred reason=UNIT_AURA player combat lockdown`. `PLAYER_REGEN_ENABLED` retried pending discovery; an already synchronized two-ID set produced `automatic routing synchronized reason=PLAYER_REGEN_ENABLED discoveredSpellIDs=2`. This validates the deferred retry path, not every possible aura-restriction scenario.
 - A temporary weapon enchant expired independently during HELPFUL routing tests. No native weapon-enchantment behavior changed. Optional future research may look for a supported temporary-enchant effect name instead of the current equipped-item/slot-oriented presentation; it is not solved here.
+- Limited Edition Rocket Bobber was observed as ordinary player HELPFUL aura spell ID `1222880`. It classified as `FISHING_BOBBER`, moved from managed BUFFS to managed ENCHANTMENTS, remained synchronized on a manual rerun, and displayed correctly in ENCHANTMENTS. Blizzard's default BuffFrame also showed it as an ordinary HELPFUL aura; OBB changed only its own managed presentation policy.
+
+#### Fishing profession-tool lure exception
+
+- Fishing lures are temporary enchantments on a profession tool, not bobber HELPFUL auras. Bright Baubles item ID `6532` was the runtime test item, but the item ID is evidence only and is not implementation identity.
+- The prototype obtains fishing profession slots through `C_TradeSkillUI.GetProfessionSlots(Enum.Profession.Fishing)`; runtime output contained slots 28, 29, and 30. It identifies the equipped tool through `Enum.InventoryType.IndexProfessionToolType`. Slot 28 is only a source-backed fallback and is accepted only when the profession-slot API also returned it.
+- Lure state is read through `C_PaperDollInfo.GetTemporaryEnchantmentInfo(fishingToolSlot)`. Before application it returned no temporary enchant. After Bright Baubles it returned `enchantID = 265`, approximately `590000` remaining milliseconds, zero charges, and `hasExpirationTime = true`. Enchant ID 265 is not hardcoded or treated as stable identity.
+- Blizzard's managed item-enchantment provider supports MainHand, OffHand, and Ranged slots only; it cannot register the fishing profession-tool temporary enchant. OBB therefore uses one small addon-owned ordinary row associated with ENCHANTMENTS. This row is an explicit architectural exception, not a managed AuraButton.
+- The row visually matches ENCHANTMENTS, uses the fishing-tool icon, the static label `Fishing Lure`, remaining-time text/bar, and meaningful nonzero charges when available. A narrow local `OnUpdate` timer updates presentation only; it does not continuously poll the enchant API. Presence and state remain event/API driven, with one scheduled API recheck at expected expiration.
+- Runtime lifecycle validation passed: no lure kept the row hidden; applying the lure to slot 28 showed the row and countdown; natural expiration reached zero, triggered the scheduled API recheck, and hid the row; reapplication produced a new slot-28 temporary enchant and made the hidden row reappear. No polling loop is used for presence detection.
+- The initial tooltip made the ordinary lure row the `GameTooltip` owner and triggered `UntrustedLayoutScriptExecution` because that row's layout depends on the restricted, self-sizing ENCHANTMENTS container. The fix owns the tooltip from `UIParent`, uses `ANCHOR_CURSOR`, and calls `GameTooltip:SetInventoryItem("player", fishingToolSlot)`. Runtime testing then showed the fishing-rod inventory tooltip without observed taint. This is a restricted-layout ownership lesson, not evidence that the original lure item name is available.
+- The fishing-tool tooltip represented the effect generically as `Fishing Lure (+7 Fishing Skill) (...)`; it did not expose the original Bright Baubles name.
+- Native managed weapon-enchantment rows retain runtime-validated right-click cancellation. The ordinary fishing-lure row has no cancellation action on left or right click. Although `C_PaperDollInfo.CancelTemporaryEnchantment(slot)` is documented/restricted, slot-28 profession-tool cancellation has not been runtime validated and is not claimed as supported.
 - `OBBEnchantDiag` was temporary external research tooling used to establish staged startup publication and variable callback ordinals. The validated prototype has no runtime, repository, or TOC dependency on it, and it can now be retired.
 - Retail Live validation remains required for OffHand, simultaneous MainHand/OffHand behavior, two-enchant duration ordering, combat cancellation, zero/one/multiple charges, same-ID refreshes, permanent/zero-duration behavior, equipment swaps, empty/one-row/two-row sizing, Ranged where exercisable, broader enchant families, and the full BUFFS-to-DEBUFFS-to-ENCHANTMENTS anchor chain.
 
@@ -417,7 +455,7 @@ Rollback: return that group to the contained direct scanner.
 
 - The isolated player-BUFFS prototype has validated maximum capacity, native sorting, whitelist/blacklist mapping, and automatic filter-editor synchronization.
 - Carry those mappings into the production backend without changing the existing SavedVariables schema.
-- Resolve or explicitly document timed/timeless limitations, and carry the validated semantic enhancement-routing policy into production integration without adding persisted or hardcoded ID tables.
+- Resolve or explicitly document timed/timeless limitations, carry the validated semantic enhancement-routing policy into production integration without persisted or hardcoded ID tables, and connect legacy configuration to the static managed presentation through a safe runtime-restyling policy.
 - Preserve the PTR-validated sort directions rather than inferring behavior from enum names.
 
 Rollback: preserve existing SavedVariables fields and switch the group backend back.
@@ -463,6 +501,7 @@ After all groups pass validation:
 | Cancellation regression | High | Use native AuraButton cancellation and validate in combat. |
 | Timed/timeless parity failure | High | Treat as unresolved product behavior; do not approximate silently. |
 | Enhancement routing parity failure | High | Retain the validated guarded spell-metadata classifier and paired managed include/exclude filters; broaden categories only with targeted evidence. |
+| Restricted-layout tooltip taint | High | Do not own tooltips from ordinary frames whose layout depends on restricted managed bounds; use an independent owner such as `UIParent`. |
 | Blizzard frames reappearing in combat | High | Do not repeatedly hide managed frames; identify supported behavior. |
 | Post-login setter restrictions | High | Create long-lived structures early and queue uncertain mutations out of combat. |
 | Sort-direction mismatch | Medium | Test known aura sets with distinct names and expiration times. |
@@ -479,7 +518,7 @@ After all groups pass validation:
 | B | Timed and permanent aura application/removal, duration refresh, stack changes, frame retention, layout resizing. |
 | C | Buff updates in and out of combat, no duplicate displays, clean backend rollback, reload persistence. |
 | D | Name/default/expiration sorting, direction, maximum count, include/exclude IDs, readable and secret auras. |
-| E | Buffs, debuffs, enhancements, independent positioning, chaining, growth, target changes, focus and pet lifecycle. |
+| E | Buffs, debuffs, enhancements, fishing bobber routing, fishing-lure apply/expire/reapply, independent positioning, chaining, and growth. |
 | F | Tooltip behavior, right-click cancellation, non-cancellable debuffs, enchant cancellation, combat interaction. |
 | G | Blizzard icons outside combat, during combat, after combat, after Edit Mode, and after reload. |
 | H | No remaining direct scanner call sites, containment removed, scanner events removed, caches no longer authoritative. |
@@ -500,5 +539,6 @@ Every phase should also include LuaCheck, load/reload testing, Lua error capture
 10. Does an actual private player HARMFUL aura traverse the verified default public-plus-private source path with correct presentation, sorting, tooltip, and removal behavior on Retail Live?
 11. Is one container per group acceptable under realistic multi-group combat load?
 12. Which public names and semantics survive the final PTR-to-Live transition?
+13. Can profession-tool lure cancellation be supported safely through a documented public path, and does slot 28 accept `C_PaperDollInfo.CancelTemporaryEnchantment` at runtime?
 
 The permanent direction is clear: the direct scanner should become a temporary compatibility backend, while Blizzard-managed containers and AuraButtons become the authoritative aura lifecycle and presentation model. The unresolved items above should be answered experimentally before implementation is committed to production behavior.

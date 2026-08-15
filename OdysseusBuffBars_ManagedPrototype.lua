@@ -24,16 +24,110 @@ local ManagedPrototype = {}
 OBB.ManagedPrototype = ManagedPrototype
 OBB.managedAuraPrototype = ManagedPrototype
 
-local BAR_WIDTH = 250
-local BAR_HEIGHT = 16
-local BAR_SPACING = 2
+local BUFF_BAR_SPACING = 3
+local BUFF_BAR_STYLE = {
+    width = 260,
+    height = 18,
+    fontSize = 11,
+    countFontSize = 10,
+    iconTexCoords = { 0, 1, 0, 1 },
+    iconGap = 4,
+    namePadding = 5,
+    durationWidth = 56,
+    durationRightPadding = 5,
+    nameDurationGap = 6,
+    fillColor = { 0.3, 0.5, 1.0, 0.8 },
+    backgroundColor = { 0.0, 0.5, 1.0, 0.1 },
+    countFontFlags = "OUTLINE",
+    countOffsetX = -1,
+    countOffsetY = 1,
+}
+local BUFF_HEADER_STYLE = {
+    width = 260,
+    height = 18,
+    firstRowGap = 4,
+    backdrop = {
+        bgFile = [[Interface\Tooltips\UI-Tooltip-Background]],
+        edgeFile = [[Interface\Tooltips\UI-Tooltip-Border]],
+        edgeSize = 8,
+        insets = { left = 2, right = 2, top = 2, bottom = 2 },
+    },
+    backgroundColor = { 0, 0, 0, 0.7 },
+    fontObject = "GameFontHighlightSmall",
+    text = "BUFFS",
+}
+local DEBUFF_BAR_SPACING = 3
+local DEBUFF_BAR_STYLE = {
+    width = 260,
+    height = 18,
+    fontSize = 11,
+    countFontSize = 10,
+    iconTexCoords = { 0, 1, 0, 1 },
+    iconGap = 4,
+    namePadding = 5,
+    durationWidth = 56,
+    durationRightPadding = 5,
+    nameDurationGap = 6,
+    fillColor = { 1.0, 0.0, 0.0, 0.8 },
+    backgroundColor = { 1.0, 0.0, 0.0, 0.1 },
+    countFontFlags = "OUTLINE",
+    countOffsetX = -1,
+    countOffsetY = 1,
+}
+local DEBUFF_HEADER_STYLE = {
+    width = 260,
+    height = 18,
+    firstRowGap = 4,
+    backdrop = {
+        bgFile = [[Interface\Tooltips\UI-Tooltip-Background]],
+        edgeFile = [[Interface\Tooltips\UI-Tooltip-Border]],
+        edgeSize = 8,
+        insets = { left = 2, right = 2, top = 2, bottom = 2 },
+    },
+    backgroundColor = { 0, 0, 0, 0.7 },
+    fontObject = "GameFontHighlightSmall",
+    text = "DEBUFFS",
+}
+local ENCHANTMENT_BAR_SPACING = 3
+local ENCHANTMENT_BAR_STYLE = {
+    width = 260,
+    height = 18,
+    fontSize = 11,
+    countFontSize = 10,
+    iconTexCoords = { 0, 1, 0, 1 },
+    iconGap = 4,
+    namePadding = 5,
+    durationWidth = 56,
+    durationRightPadding = 5,
+    nameDurationGap = 6,
+    fillColor = { 0.5, 0.0, 0.5, 0.8 },
+    backgroundColor = { 0.5, 0.0, 0.5, 0.1 },
+    countFontFlags = "OUTLINE",
+    countOffsetX = -1,
+    countOffsetY = 1,
+}
+local ENCHANTMENT_HEADER_STYLE = {
+    width = 260,
+    height = 18,
+    firstRowGap = 4,
+    backdrop = {
+        bgFile = [[Interface\Tooltips\UI-Tooltip-Background]],
+        edgeFile = [[Interface\Tooltips\UI-Tooltip-Border]],
+        edgeSize = 8,
+        insets = { left = 2, right = 2, top = 2, bottom = 2 },
+    },
+    backgroundColor = { 0, 0, 0, 0.7 },
+    fontObject = "GameFontHighlightSmall",
+    text = "ENCHANTMENTS",
+}
 local MAX_AURAS = 30
 local HOST_PADDING = 4
-local HOST_HEADER_HEIGHT = 22
 local MANAGED_GROUP_GAP = 8
 local AURA_GROUP_KEY = "Helpful"
 local DEBUFF_AURA_GROUP_KEY = "Harmful"
 local ENHANCEMENT_AURA_GROUP_KEY = "HelpfulEnhancements"
+local FISHING_TOOL_SLOT_FALLBACK = 28
+local FISHING_LURE_TIMER_INTERVAL = 0.1
 local INITIAL_PROTOTYPE_SORT_MODE = "TIMELEFT"
 
 local SORT_MODES = {
@@ -246,6 +340,9 @@ function ManagedPrototype.ClassifyHelpfulEnhancement(spellID)
     if HasSemanticMarker(nameText, descriptionText, "augment rune") then
         return "AUGMENT_RUNE"
     end
+    if HasSemanticMarker(nameText, descriptionText, "bobber") then
+        return "FISHING_BOBBER"
+    end
 
     return nil
 end
@@ -303,6 +400,7 @@ local function IsRoutedHelpfulEnhancementClassification(classification)
     return classification == "FOOD"
         or classification == "FLASK_PHIAL"
         or classification == "AUGMENT_RUNE"
+        or classification == "FISHING_BOBBER"
 end
 
 local function CollectDiscoveredHelpfulEnhancements(auras, printDetails)
@@ -485,6 +583,295 @@ local function AttemptAutomaticHelpfulEnhancementDiscovery(reason, reportUnchang
     PrintDiagnostic(
         "automatic routing succeeded reason=" .. reason
             .. " discoveredSpellIDs=" .. discoveredCount
+    )
+end
+
+local fishingLureEventFrame
+local fishingLureRefreshPending
+local RefreshFishingLureRow
+
+local function SetFishingLureRefreshPending(pending)
+    fishingLureRefreshPending = pending or nil
+    if not fishingLureEventFrame then
+        return
+    end
+
+    if fishingLureRefreshPending then
+        fishingLureEventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+    else
+        fishingLureEventFrame:UnregisterEvent("PLAYER_REGEN_ENABLED")
+    end
+end
+
+local function ResolveFishingToolSlot()
+    local tradeSkillAPI = _G.C_TradeSkillUI
+    local enum = _G.Enum
+    if type(tradeSkillAPI) ~= "table"
+        or type(enum) ~= "table"
+        or type(enum.Profession) ~= "table"
+        or enum.Profession.Fishing == nil
+    then
+        return nil, "fishing profession API unavailable"
+    end
+
+    local slotsSuccess, fishingSlots = CallDiagnosticAPI(
+        tradeSkillAPI,
+        "GetProfessionSlots",
+        enum.Profession.Fishing
+    )
+    if not slotsSuccess or not IsReadableDiagnosticValue(fishingSlots) or type(fishingSlots) ~= "table" then
+        return nil, "fishing profession slots unavailable"
+    end
+
+    local fallbackAvailable
+    local professionToolInventoryType = enum.InventoryType and enum.InventoryType.IndexProfessionToolType
+    local itemAPI = _G.C_Item
+    local getInventoryItemID = _G.GetInventoryItemID
+
+    for _, inventorySlot in ipairs(fishingSlots) do
+        if IsReadableDiagnosticValue(inventorySlot) and type(inventorySlot) == "number" then
+            if inventorySlot == FISHING_TOOL_SLOT_FALLBACK then
+                fallbackAvailable = true
+            end
+
+            if professionToolInventoryType ~= nil
+                and type(itemAPI) == "table"
+                and type(getInventoryItemID) == "function"
+            then
+                local itemSuccess, itemID = pcall(getInventoryItemID, "player", inventorySlot)
+                if itemSuccess and IsReadableDiagnosticValue(itemID) then
+                    local inventoryTypeSuccess, inventoryType = CallDiagnosticAPI(
+                        itemAPI,
+                        "GetItemInventoryTypeByID",
+                        itemID
+                    )
+                    if inventoryTypeSuccess
+                        and IsReadableDiagnosticValue(inventoryType)
+                        and inventoryType == professionToolInventoryType
+                    then
+                        return inventorySlot, "profession-tool inventory type"
+                    end
+                end
+            end
+        end
+    end
+
+    -- Blizzard_ProfessionsCrafting.xml names slot 28 FishingToolSlot. Only use
+    -- that source-backed fallback when the public fishing-slot API also returns it.
+    if fallbackAvailable then
+        return FISHING_TOOL_SLOT_FALLBACK, "source-backed fishing-tool fallback"
+    end
+
+    return nil, "fishing tool slot not found"
+end
+
+local function FormatFishingLureRemainingTime(remainingSeconds)
+    local engine = OBB.Engine
+    if not engine or type(engine.FormatWeaponEnchantTime) ~= "function" then
+        return ""
+    end
+
+    local success, text = pcall(engine.FormatWeaponEnchantTime, engine, remainingSeconds)
+    if success and IsReadableDiagnosticValue(text) and type(text) == "string" then
+        return text
+    end
+
+    return ""
+end
+
+local function HideFishingLureRow(row)
+    row.expirationRefreshGeneration = (row.expirationRefreshGeneration or 0) + 1
+    row:SetScript("OnUpdate", nil)
+    row.timerElapsed = nil
+    row.inventorySlot = nil
+    row.enchantID = nil
+    row.remainingTimeMs = nil
+    row.chargesRemaining = nil
+    row.hasExpirationTime = nil
+    row.expirationTime = nil
+    row.durationSeconds = nil
+    row:Hide()
+end
+
+local function ScheduleFishingLureExpirationRefresh(row, remainingSeconds)
+    row.expirationRefreshGeneration = (row.expirationRefreshGeneration or 0) + 1
+    local generation = row.expirationRefreshGeneration
+    local timerAPI = _G.C_Timer
+    if type(timerAPI) ~= "table" or type(timerAPI.After) ~= "function" then
+        return
+    end
+
+    timerAPI.After(remainingSeconds + FISHING_LURE_TIMER_INTERVAL, function()
+        if row.expirationRefreshGeneration ~= generation or not row:IsShown() then
+            return
+        end
+        RefreshFishingLureRow("expected expiration")
+    end)
+end
+
+local function UpdateFishingLureTimer(row, elapsed)
+    row.timerElapsed = (row.timerElapsed or 0) + elapsed
+    if row.timerElapsed < FISHING_LURE_TIMER_INTERVAL then
+        return
+    end
+    row.timerElapsed = 0
+
+    if not row.expirationTime then
+        return
+    end
+
+    local getTime = _G.GetTime
+    if type(getTime) ~= "function" then
+        return
+    end
+
+    local remainingSeconds = math.max(0, row.expirationTime - getTime())
+    row.durationBar:SetValue(remainingSeconds)
+    row.durationText:SetText(FormatFishingLureRemainingTime(remainingSeconds))
+end
+
+local function ShowFishingLureRow(row, inventorySlot, enchantInfo, iconTexture)
+    local getTime = _G.GetTime
+    if type(getTime) ~= "function" then
+        return false
+    end
+
+    local enchantID = enchantInfo.enchantID
+    local remainingTimeMs = enchantInfo.remainingTimeMs
+    local chargesRemaining = enchantInfo.chargesRemaining
+    local hasExpirationTime = enchantInfo.hasExpirationTime
+    if not IsReadableDiagnosticValue(enchantID)
+        or type(enchantID) ~= "number"
+        or not IsReadableDiagnosticValue(remainingTimeMs)
+        or type(remainingTimeMs) ~= "number"
+        or remainingTimeMs < 0
+        or not IsReadableDiagnosticValue(chargesRemaining)
+        or type(chargesRemaining) ~= "number"
+        or not IsReadableDiagnosticValue(hasExpirationTime)
+        or type(hasExpirationTime) ~= "boolean"
+    then
+        return false
+    end
+
+    local remainingSeconds = remainingTimeMs / 1000
+    local expirationTime = hasExpirationTime and (getTime() + remainingSeconds) or nil
+    local enchantChanged = row.enchantID ~= enchantID
+    local expirationKindChanged = row.hasExpirationTime ~= nil
+        and row.hasExpirationTime ~= hasExpirationTime
+    local remainingIncreased = row.remainingTimeMs ~= nil
+        and remainingTimeMs > row.remainingTimeMs
+    local expirationExtended = expirationTime
+        and row.expirationTime
+        and expirationTime > row.expirationTime + 1
+
+    if enchantChanged
+        or not row.durationSeconds
+        or expirationKindChanged
+        or remainingIncreased
+        or expirationExtended
+    then
+        row.durationSeconds = remainingSeconds
+    end
+
+    row.inventorySlot = inventorySlot
+    row.enchantID = enchantID
+    row.remainingTimeMs = remainingTimeMs
+    row.chargesRemaining = chargesRemaining
+    row.hasExpirationTime = hasExpirationTime
+    row.expirationTime = expirationTime
+    row.icon:SetTexture(iconTexture or _G.QUESTION_MARK_ICON)
+    row.countText:SetText(chargesRemaining > 0 and tostring(chargesRemaining) or "")
+
+    if expirationTime and remainingSeconds > 0 then
+        row.durationBar:SetMinMaxValues(0, math.max(row.durationSeconds, 1))
+        row.durationBar:SetValue(remainingSeconds)
+        row.durationText:SetText(FormatFishingLureRemainingTime(remainingSeconds))
+        row.timerElapsed = 0
+        row:SetScript("OnUpdate", UpdateFishingLureTimer)
+        ScheduleFishingLureExpirationRefresh(row, remainingSeconds)
+    else
+        row.expirationRefreshGeneration = (row.expirationRefreshGeneration or 0) + 1
+        row.durationBar:SetMinMaxValues(0, 1)
+        row.durationBar:SetValue(0)
+        row.durationText:SetText("")
+        row:SetScript("OnUpdate", nil)
+    end
+
+    row:Show()
+    return true
+end
+
+RefreshFishingLureRow = function(_reason)
+    local row = ManagedPrototype.fishingLureRow
+    if not row then
+        return false
+    end
+    if _G.InCombatLockdown and _G.InCombatLockdown() then
+        SetFishingLureRefreshPending(true)
+        return false
+    end
+
+    local inventorySlot, resolution = ResolveFishingToolSlot()
+    ManagedPrototype.fishingToolSlot = inventorySlot
+    ManagedPrototype.fishingToolSlotResolution = resolution
+    if not inventorySlot then
+        HideFishingLureRow(row)
+        SetFishingLureRefreshPending(false)
+        return true
+    end
+
+    local enchantSuccess, enchantInfo = CallDiagnosticAPI(
+        _G.C_PaperDollInfo,
+        "GetTemporaryEnchantmentInfo",
+        inventorySlot
+    )
+    if not enchantSuccess then
+        return false
+    end
+    if enchantInfo == nil then
+        HideFishingLureRow(row)
+        SetFishingLureRefreshPending(false)
+        return true
+    end
+    if not IsReadableDiagnosticValue(enchantInfo) or type(enchantInfo) ~= "table" then
+        return false
+    end
+
+    local iconTexture
+    local getInventoryItemTexture = _G.GetInventoryItemTexture
+    if type(getInventoryItemTexture) == "function" then
+        local iconSuccess, resolvedIcon = pcall(getInventoryItemTexture, "player", inventorySlot)
+        if iconSuccess then
+            iconTexture = resolvedIcon
+        end
+    end
+
+    local shown = ShowFishingLureRow(row, inventorySlot, enchantInfo, iconTexture)
+    if shown then
+        SetFishingLureRefreshPending(false)
+    end
+    return shown
+end
+
+function ManagedPrototype.DumpFishingLureState()
+    local refreshState
+    if _G.InCombatLockdown and _G.InCombatLockdown() then
+        SetFishingLureRefreshPending(true)
+        refreshState = "deferred-combat"
+    else
+        refreshState = RefreshFishingLureRow("manual diagnostic") and "refreshed" or "refresh-failed"
+    end
+
+    local row = ManagedPrototype.fishingLureRow
+    PrintDiagnostic(
+        "fishing lure refresh=" .. refreshState
+            .. " toolSlot=" .. FormatDiagnosticValue(ManagedPrototype.fishingToolSlot)
+            .. " slotResolution=" .. FormatDiagnosticValue(ManagedPrototype.fishingToolSlotResolution)
+            .. " enchantID=" .. FormatDiagnosticValue(row and row.enchantID)
+            .. " remainingTimeMs=" .. FormatDiagnosticValue(row and row.remainingTimeMs)
+            .. " chargesRemaining=" .. FormatDiagnosticValue(row and row.chargesRemaining)
+            .. " hasExpirationTime=" .. FormatDiagnosticValue(row and row.hasExpirationTime)
+            .. " rowState=" .. ((row and row:IsShown()) and "visible" or "hidden")
     )
 end
 
@@ -694,46 +1081,66 @@ function ManagedPrototype.DumpKnownAuraTooltips()
     end
 end
 
-local function InitializeAuraButton(auraButton)
-    auraButton:SetSize(BAR_WIDTH, BAR_HEIGHT)
+local function InitializeManagedBarPresentation(auraButton, style)
+    auraButton:SetSize(style.width, style.height)
 
     local background = auraButton:CreateTexture(nil, "BACKGROUND")
-    background:SetAllPoints()
-    background:SetColorTexture(0.02, 0.05, 0.10, 0.85)
+    background:SetPoint("TOPLEFT", auraButton, "TOPLEFT", style.height + style.iconGap, 0)
+    background:SetPoint("BOTTOMRIGHT", auraButton, "BOTTOMRIGHT")
+    background:SetColorTexture(
+        style.backgroundColor[1],
+        style.backgroundColor[2],
+        style.backgroundColor[3],
+        style.backgroundColor[4]
+    )
 
     local durationBar = CreateFrame("StatusBar", nil, auraButton)
-    durationBar:SetPoint("TOPLEFT", auraButton, "TOPLEFT", BAR_HEIGHT + 2, 0)
+    durationBar:SetPoint("TOPLEFT", auraButton, "TOPLEFT", style.height + style.iconGap, 0)
     durationBar:SetPoint("BOTTOMRIGHT", auraButton, "BOTTOMRIGHT")
     durationBar:SetFrameLevel(auraButton:GetFrameLevel() + 1)
     durationBar:SetStatusBarTexture([[Interface\TargetingFrame\UI-StatusBar]])
-    durationBar:SetStatusBarColor(0.18, 0.42, 0.72, 0.8)
+    durationBar:SetStatusBarColor(
+        style.fillColor[1],
+        style.fillColor[2],
+        style.fillColor[3],
+        style.fillColor[4]
+    )
 
     local icon = auraButton:CreateTexture(nil, "ARTWORK")
     icon:SetPoint("LEFT", auraButton, "LEFT")
-    icon:SetSize(BAR_HEIGHT, BAR_HEIGHT)
-    icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    icon:SetSize(style.height, style.height)
+    icon:SetTexCoord(
+        style.iconTexCoords[1],
+        style.iconTexCoords[2],
+        style.iconTexCoords[3],
+        style.iconTexCoords[4]
+    )
 
     local textLayer = CreateFrame("Frame", nil, auraButton)
     textLayer:SetAllPoints()
     textLayer:SetFrameLevel(durationBar:GetFrameLevel() + 1)
 
+    local font = _G.STANDARD_TEXT_FONT or [[Fonts\FRIZQT__.TTF]]
     local nameText = textLayer:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    nameText:SetPoint("LEFT", auraButton, "LEFT", BAR_HEIGHT + 6, 0)
+    nameText:SetFont(font, style.fontSize, "")
+    nameText:SetPoint("LEFT", background, "LEFT", style.namePadding, 0)
     nameText:SetJustifyH("LEFT")
     nameText:SetJustifyV("MIDDLE")
     nameText:SetWordWrap(false)
 
     local durationText = textLayer:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    durationText:SetPoint("RIGHT", auraButton, "RIGHT", -5, 0)
-    durationText:SetWidth(52)
+    durationText:SetFont(font, style.fontSize, "")
+    durationText:SetPoint("RIGHT", auraButton, "RIGHT", -style.durationRightPadding, 0)
+    durationText:SetWidth(style.durationWidth)
     durationText:SetJustifyH("RIGHT")
     durationText:SetJustifyV("MIDDLE")
     durationText:SetWordWrap(false)
 
-    nameText:SetPoint("RIGHT", durationText, "LEFT", -5, 0)
+    nameText:SetPoint("RIGHT", durationText, "LEFT", -style.nameDurationGap, 0)
 
     local countText = textLayer:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
-    countText:SetPoint("BOTTOMRIGHT", auraButton, "BOTTOMLEFT", BAR_HEIGHT - 1, 1)
+    countText:SetFont(font, style.countFontSize, style.countFontFlags)
+    countText:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", style.countOffsetX, style.countOffsetY)
     countText:SetJustifyH("RIGHT")
     countText:SetJustifyV("BOTTOM")
 
@@ -744,30 +1151,185 @@ local function InitializeAuraButton(auraButton)
     auraButton:SetDurationBar(durationBar, {
         direction = Enum.StatusBarTimerDirection.RemainingTime,
     })
+end
+
+local function InitializeAuraButton(auraButton)
+    InitializeManagedBarPresentation(auraButton, BUFF_BAR_STYLE)
     auraButton:SetCancelAuraButtons("RightButtonDown")
+end
+
+local function CreateFishingLureRow(host, container)
+    local style = ENCHANTMENT_BAR_STYLE
+    local row = _G.CreateFrame("Button", "OdysseusBuffBarsManagedFishingLureRow", host)
+    row:SetSize(style.width, style.height)
+    row:SetPoint("TOPLEFT", container, "BOTTOMLEFT", 0, -ENCHANTMENT_BAR_SPACING)
+    row:Hide()
+
+    local background = row:CreateTexture(nil, "BACKGROUND")
+    background:SetPoint("TOPLEFT", row, "TOPLEFT", style.height + style.iconGap, 0)
+    background:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT")
+    background:SetColorTexture(
+        style.backgroundColor[1],
+        style.backgroundColor[2],
+        style.backgroundColor[3],
+        style.backgroundColor[4]
+    )
+
+    local durationBar = _G.CreateFrame("StatusBar", nil, row)
+    durationBar:SetPoint("TOPLEFT", row, "TOPLEFT", style.height + style.iconGap, 0)
+    durationBar:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT")
+    durationBar:SetFrameLevel(row:GetFrameLevel() + 1)
+    durationBar:SetStatusBarTexture([[Interface\TargetingFrame\UI-StatusBar]])
+    durationBar:SetStatusBarColor(
+        style.fillColor[1],
+        style.fillColor[2],
+        style.fillColor[3],
+        style.fillColor[4]
+    )
+
+    local icon = row:CreateTexture(nil, "ARTWORK")
+    icon:SetPoint("LEFT", row, "LEFT")
+    icon:SetSize(style.height, style.height)
+    icon:SetTexCoord(
+        style.iconTexCoords[1],
+        style.iconTexCoords[2],
+        style.iconTexCoords[3],
+        style.iconTexCoords[4]
+    )
+
+    local textLayer = _G.CreateFrame("Frame", nil, row)
+    textLayer:SetAllPoints()
+    textLayer:SetFrameLevel(durationBar:GetFrameLevel() + 1)
+
+    local font = _G.STANDARD_TEXT_FONT or [[Fonts\FRIZQT__.TTF]]
+    local nameText = textLayer:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    nameText:SetFont(font, style.fontSize, "")
+    nameText:SetPoint("LEFT", background, "LEFT", style.namePadding, 0)
+    nameText:SetJustifyH("LEFT")
+    nameText:SetJustifyV("MIDDLE")
+    nameText:SetWordWrap(false)
+    nameText:SetText("Fishing Lure")
+
+    local durationText = textLayer:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    durationText:SetFont(font, style.fontSize, "")
+    durationText:SetPoint("RIGHT", row, "RIGHT", -style.durationRightPadding, 0)
+    durationText:SetWidth(style.durationWidth)
+    durationText:SetJustifyH("RIGHT")
+    durationText:SetJustifyV("MIDDLE")
+    durationText:SetWordWrap(false)
+
+    nameText:SetPoint("RIGHT", durationText, "LEFT", -style.nameDurationGap, 0)
+
+    local countText = textLayer:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
+    countText:SetFont(font, style.countFontSize, style.countFontFlags)
+    countText:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", style.countOffsetX, style.countOffsetY)
+    countText:SetJustifyH("RIGHT")
+    countText:SetJustifyV("BOTTOM")
+
+    row.icon = icon
+    row.durationBar = durationBar
+    row.durationText = durationText
+    row.countText = countText
+    row:SetScript("OnEnter", function(self)
+        local tooltip = _G.GameTooltip
+        if not self.inventorySlot or not tooltip or type(tooltip.SetInventoryItem) ~= "function" then
+            return
+        end
+
+        tooltip:SetOwner(_G.UIParent, "ANCHOR_CURSOR")
+        local success = pcall(tooltip.SetInventoryItem, tooltip, "player", self.inventorySlot)
+        if not success then
+            tooltip:Hide()
+        end
+    end)
+    row:SetScript("OnLeave", function()
+        if _G.GameTooltip then
+            _G.GameTooltip:Hide()
+        end
+    end)
+
+    return row
+end
+
+local function CreateFishingLureEventFrame()
+    local eventFrame = _G.CreateFrame("Frame")
+    local inventoryGeneration = 0
+    local inventoryCheckPending
+
+    local function ScheduleInventoryQuietTurn()
+        if inventoryCheckPending then
+            return
+        end
+
+        inventoryCheckPending = true
+        local scheduledGeneration = inventoryGeneration
+        _G.C_Timer.After(0, function()
+            inventoryCheckPending = nil
+            if inventoryGeneration ~= scheduledGeneration then
+                ScheduleInventoryQuietTurn()
+                return
+            end
+            RefreshFishingLureRow("UNIT_INVENTORY_CHANGED player quiet turn")
+        end)
+    end
+
+    fishingLureEventFrame = eventFrame
+    ManagedPrototype.fishingLureEventFrame = eventFrame
+    eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    eventFrame:RegisterUnitEvent("UNIT_INVENTORY_CHANGED", "player")
+    eventFrame:RegisterEvent("PROFESSION_EQUIPMENT_CHANGED")
+    eventFrame:SetScript("OnEvent", function(_, event, eventArg1, eventArg2)
+        if event == "PLAYER_ENTERING_WORLD" then
+            RefreshFishingLureRow("PLAYER_ENTERING_WORLD")
+        elseif event == "UNIT_INVENTORY_CHANGED" and eventArg1 == "player" then
+            inventoryGeneration = inventoryGeneration + 1
+            ScheduleInventoryQuietTurn()
+        elseif event == "PROFESSION_EQUIPMENT_CHANGED" and eventArg2 then
+            RefreshFishingLureRow("PROFESSION_EQUIPMENT_CHANGED tool")
+        elseif event == "PLAYER_REGEN_ENABLED" and fishingLureRefreshPending then
+            RefreshFishingLureRow("PLAYER_REGEN_ENABLED")
+        end
+    end)
+end
+
+local function StyleManagedGroupHeader(header, style)
+    header:SetSize(style.width, style.height)
+    header:SetBackdrop(style.backdrop)
+    header:SetBackdropColor(
+        style.backgroundColor[1],
+        style.backgroundColor[2],
+        style.backgroundColor[3],
+        style.backgroundColor[4]
+    )
+
+    local label = header:CreateFontString(nil, "OVERLAY", style.fontObject)
+    label:SetAllPoints(header)
+    label:SetJustifyH("CENTER")
+    label:SetJustifyV("MIDDLE")
+    label:SetWordWrap(false)
+    label:SetText(style.text)
 end
 
 local function CreateManagedAuraPrototype()
     local host = CreateFrame("Frame", "OdysseusBuffBarsManagedPrototypeHost", UIParent)
-    host:SetSize(BAR_WIDTH + (HOST_PADDING * 2), HOST_HEADER_HEIGHT)
+    host:SetSize(
+        BUFF_HEADER_STYLE.width + (HOST_PADDING * 2),
+        BUFF_HEADER_STYLE.height + BUFF_HEADER_STYLE.firstRowGap
+    )
     host:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 24, -180)
     host:SetFrameStrata("MEDIUM")
     host:SetMovable(true)
     host:SetClampedToScreen(true)
     host:Hide()
 
-    local background = host:CreateTexture(nil, "BACKGROUND")
-    background:SetAllPoints()
-    background:SetColorTexture(0, 0, 0, 0.7)
-
-    local label = host:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    label:SetPoint("TOPLEFT", host, "TOPLEFT", HOST_PADDING, -4)
-    label:SetText("OBB Managed Bars")
-
-    local dragHandle = CreateFrame("Button", nil, host)
-    dragHandle:SetPoint("TOPLEFT", host, "TOPLEFT")
-    dragHandle:SetPoint("TOPRIGHT", host, "TOPRIGHT")
-    dragHandle:SetHeight(HOST_HEADER_HEIGHT)
+    local dragHandle = CreateFrame(
+        "Button",
+        nil,
+        host,
+        _G.BackdropTemplateMixin and "BackdropTemplate"
+    )
+    dragHandle:SetPoint("TOPLEFT", host, "TOPLEFT", HOST_PADDING, 0)
+    StyleManagedGroupHeader(dragHandle, BUFF_HEADER_STYLE)
     dragHandle:RegisterForDrag("LeftButton")
     dragHandle:SetScript("OnDragStart", function()
         if InCombatLockdown and InCombatLockdown() then
@@ -786,7 +1348,13 @@ local function CreateManagedAuraPrototype()
         "CustomAuraContainerTemplate"
     )
     container:Hide()
-    container:SetPoint("TOPLEFT", host, "TOPLEFT", HOST_PADDING, -HOST_HEADER_HEIGHT)
+    container:SetPoint(
+        "TOPLEFT",
+        host,
+        "TOPLEFT",
+        HOST_PADDING,
+        -(BUFF_HEADER_STYLE.height + BUFF_HEADER_STYLE.firstRowGap)
+    )
     container:SetSize(1, 1)
     container:SetEnabled(false)
     container:SetUnit("player")
@@ -802,15 +1370,15 @@ local function CreateManagedAuraPrototype()
         sortMethod = activeSort.method,
         sortDirection = activeSort.direction,
         layout = {
-            elementWidth = BAR_WIDTH,
-            elementHeight = BAR_HEIGHT,
-            elementSpacing = BAR_SPACING,
+            elementWidth = BUFF_BAR_STYLE.width,
+            elementHeight = BUFF_BAR_STYLE.height,
+            elementSpacing = BUFF_BAR_SPACING,
         },
     })
 
     local sortButton = CreateFrame("Button", nil, host, "UIPanelButtonTemplate")
     sortButton:SetSize(94, 18)
-    sortButton:SetPoint("TOPRIGHT", host, "TOPRIGHT", -2, -2)
+    sortButton:SetPoint("TOPRIGHT", dragHandle, "TOPRIGHT", -2, -2)
     sortButton:SetFrameLevel(dragHandle:GetFrameLevel() + 1)
     sortButton:SetText("Sort: " .. activeSort.label)
     sortButton:SetScript("OnClick", function()
@@ -896,55 +1464,7 @@ local function CreateManagedAuraPrototype()
 end
 
 local function InitializeDebuffAuraButton(auraButton)
-    auraButton:SetSize(BAR_WIDTH, BAR_HEIGHT)
-
-    local background = auraButton:CreateTexture(nil, "BACKGROUND")
-    background:SetAllPoints()
-    background:SetColorTexture(0.10, 0.02, 0.02, 0.85)
-
-    local durationBar = CreateFrame("StatusBar", nil, auraButton)
-    durationBar:SetPoint("TOPLEFT", auraButton, "TOPLEFT", BAR_HEIGHT + 2, 0)
-    durationBar:SetPoint("BOTTOMRIGHT", auraButton, "BOTTOMRIGHT")
-    durationBar:SetFrameLevel(auraButton:GetFrameLevel() + 1)
-    durationBar:SetStatusBarTexture([[Interface\TargetingFrame\UI-StatusBar]])
-    durationBar:SetStatusBarColor(0.72, 0.18, 0.18, 0.8)
-
-    local icon = auraButton:CreateTexture(nil, "ARTWORK")
-    icon:SetPoint("LEFT", auraButton, "LEFT")
-    icon:SetSize(BAR_HEIGHT, BAR_HEIGHT)
-    icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-
-    local textLayer = CreateFrame("Frame", nil, auraButton)
-    textLayer:SetAllPoints()
-    textLayer:SetFrameLevel(durationBar:GetFrameLevel() + 1)
-
-    local nameText = textLayer:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    nameText:SetPoint("LEFT", auraButton, "LEFT", BAR_HEIGHT + 6, 0)
-    nameText:SetJustifyH("LEFT")
-    nameText:SetJustifyV("MIDDLE")
-    nameText:SetWordWrap(false)
-
-    local durationText = textLayer:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    durationText:SetPoint("RIGHT", auraButton, "RIGHT", -5, 0)
-    durationText:SetWidth(52)
-    durationText:SetJustifyH("RIGHT")
-    durationText:SetJustifyV("MIDDLE")
-    durationText:SetWordWrap(false)
-
-    nameText:SetPoint("RIGHT", durationText, "LEFT", -5, 0)
-
-    local countText = textLayer:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
-    countText:SetPoint("BOTTOMRIGHT", auraButton, "BOTTOMLEFT", BAR_HEIGHT - 1, 1)
-    countText:SetJustifyH("RIGHT")
-    countText:SetJustifyV("BOTTOM")
-
-    auraButton:SetIcon(icon)
-    auraButton:SetSpellName(nameText)
-    auraButton:SetApplicationCount(countText)
-    auraButton:SetDurationText(durationText)
-    auraButton:SetDurationBar(durationBar, {
-        direction = Enum.StatusBarTimerDirection.RemainingTime,
-    })
+    InitializeManagedBarPresentation(auraButton, DEBUFF_BAR_STYLE)
 end
 
 local function CreateManagedDebuffPrototype(buffContainer)
@@ -954,18 +1474,22 @@ local function CreateManagedDebuffPrototype(buffContainer)
         UIParent,
         "DisableUntrustedLayoutScriptsTemplate"
     )
-    host:SetSize(BAR_WIDTH + (HOST_PADDING * 2), HOST_HEADER_HEIGHT)
+    host:SetSize(
+        DEBUFF_HEADER_STYLE.width + (HOST_PADDING * 2),
+        DEBUFF_HEADER_STYLE.height + DEBUFF_HEADER_STYLE.firstRowGap
+    )
     host:SetPoint("TOPLEFT", buffContainer, "BOTTOMLEFT", -HOST_PADDING, -MANAGED_GROUP_GAP)
     host:SetFrameStrata("MEDIUM")
     host:Hide()
 
-    local background = host:CreateTexture(nil, "BACKGROUND")
-    background:SetAllPoints()
-    background:SetColorTexture(0.12, 0, 0, 0.75)
-
-    local label = host:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    label:SetPoint("TOPLEFT", host, "TOPLEFT", HOST_PADDING, -4)
-    label:SetText("OBB Managed DEBUFFS")
+    local header = CreateFrame(
+        "Frame",
+        nil,
+        host,
+        _G.BackdropTemplateMixin and "BackdropTemplate"
+    )
+    header:SetPoint("TOPLEFT", host, "TOPLEFT", HOST_PADDING, 0)
+    StyleManagedGroupHeader(header, DEBUFF_HEADER_STYLE)
 
     local container = CreateFrame(
         "AuraContainer",
@@ -974,7 +1498,13 @@ local function CreateManagedDebuffPrototype(buffContainer)
         "CustomAuraContainerTemplate"
     )
     container:Hide()
-    container:SetPoint("TOPLEFT", host, "TOPLEFT", HOST_PADDING, -HOST_HEADER_HEIGHT)
+    container:SetPoint(
+        "TOPLEFT",
+        host,
+        "TOPLEFT",
+        HOST_PADDING,
+        -(DEBUFF_HEADER_STYLE.height + DEBUFF_HEADER_STYLE.firstRowGap)
+    )
     container:SetSize(1, 1)
     container:SetEnabled(false)
     container:SetUnit("player")
@@ -989,16 +1519,16 @@ local function CreateManagedDebuffPrototype(buffContainer)
         sortMethod = activeSort.method,
         sortDirection = activeSort.direction,
         layout = {
-            elementWidth = BAR_WIDTH,
-            elementHeight = BAR_HEIGHT,
-            elementSpacing = BAR_SPACING,
+            elementWidth = DEBUFF_BAR_STYLE.width,
+            elementHeight = DEBUFF_BAR_STYLE.height,
+            elementSpacing = DEBUFF_BAR_SPACING,
         },
     })
 
     local sortButton = CreateFrame("Button", nil, host, "UIPanelButtonTemplate")
     sortButton:SetSize(94, 18)
-    sortButton:SetPoint("TOPRIGHT", host, "TOPRIGHT", -2, -2)
-    sortButton:SetFrameLevel(host:GetFrameLevel() + 1)
+    sortButton:SetPoint("TOPRIGHT", header, "TOPRIGHT", -2, -2)
+    sortButton:SetFrameLevel(header:GetFrameLevel() + 1)
     sortButton:SetText("Sort: " .. activeSort.label)
     sortButton:SetScript("OnClick", function()
         if InCombatLockdown and InCombatLockdown() then
@@ -1021,55 +1551,7 @@ local function CreateManagedDebuffPrototype(buffContainer)
 end
 
 local function InitializeEnchantmentAuraButton(auraButton)
-    auraButton:SetSize(BAR_WIDTH, BAR_HEIGHT)
-
-    local background = auraButton:CreateTexture(nil, "BACKGROUND")
-    background:SetAllPoints()
-    background:SetColorTexture(0.08, 0.02, 0.10, 0.85)
-
-    local durationBar = CreateFrame("StatusBar", nil, auraButton)
-    durationBar:SetPoint("TOPLEFT", auraButton, "TOPLEFT", BAR_HEIGHT + 2, 0)
-    durationBar:SetPoint("BOTTOMRIGHT", auraButton, "BOTTOMRIGHT")
-    durationBar:SetFrameLevel(auraButton:GetFrameLevel() + 1)
-    durationBar:SetStatusBarTexture([[Interface\TargetingFrame\UI-StatusBar]])
-    durationBar:SetStatusBarColor(0.48, 0.20, 0.62, 0.8)
-
-    local icon = auraButton:CreateTexture(nil, "ARTWORK")
-    icon:SetPoint("LEFT", auraButton, "LEFT")
-    icon:SetSize(BAR_HEIGHT, BAR_HEIGHT)
-    icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-
-    local textLayer = CreateFrame("Frame", nil, auraButton)
-    textLayer:SetAllPoints()
-    textLayer:SetFrameLevel(durationBar:GetFrameLevel() + 1)
-
-    local nameText = textLayer:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    nameText:SetPoint("LEFT", auraButton, "LEFT", BAR_HEIGHT + 6, 0)
-    nameText:SetJustifyH("LEFT")
-    nameText:SetJustifyV("MIDDLE")
-    nameText:SetWordWrap(false)
-
-    local durationText = textLayer:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    durationText:SetPoint("RIGHT", auraButton, "RIGHT", -5, 0)
-    durationText:SetWidth(52)
-    durationText:SetJustifyH("RIGHT")
-    durationText:SetJustifyV("MIDDLE")
-    durationText:SetWordWrap(false)
-
-    nameText:SetPoint("RIGHT", durationText, "LEFT", -5, 0)
-
-    local countText = textLayer:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
-    countText:SetPoint("BOTTOMRIGHT", auraButton, "BOTTOMLEFT", BAR_HEIGHT - 1, 1)
-    countText:SetJustifyH("RIGHT")
-    countText:SetJustifyV("BOTTOM")
-
-    auraButton:SetIcon(icon)
-    auraButton:SetSpellName(nameText)
-    auraButton:SetApplicationCount(countText)
-    auraButton:SetDurationText(durationText)
-    auraButton:SetDurationBar(durationBar, {
-        direction = Enum.StatusBarTimerDirection.RemainingTime,
-    })
+    InitializeManagedBarPresentation(auraButton, ENCHANTMENT_BAR_STYLE)
     auraButton:SetCancelAuraButtons("RightButtonDown")
 end
 
@@ -1080,18 +1562,22 @@ local function CreateManagedEnchantmentPrototype(debuffContainer)
         UIParent,
         "DisableUntrustedLayoutScriptsTemplate"
     )
-    host:SetSize(BAR_WIDTH + (HOST_PADDING * 2), HOST_HEADER_HEIGHT)
+    host:SetSize(
+        ENCHANTMENT_HEADER_STYLE.width + (HOST_PADDING * 2),
+        ENCHANTMENT_HEADER_STYLE.height + ENCHANTMENT_HEADER_STYLE.firstRowGap
+    )
     host:SetPoint("TOPLEFT", debuffContainer, "BOTTOMLEFT", -HOST_PADDING, -MANAGED_GROUP_GAP)
     host:SetFrameStrata("MEDIUM")
     host:Hide()
 
-    local background = host:CreateTexture(nil, "BACKGROUND")
-    background:SetAllPoints()
-    background:SetColorTexture(0.10, 0.02, 0.12, 0.75)
-
-    local label = host:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    label:SetPoint("TOPLEFT", host, "TOPLEFT", HOST_PADDING, -4)
-    label:SetText("OBB Managed ENCHANTMENTS")
+    local header = CreateFrame(
+        "Frame",
+        nil,
+        host,
+        _G.BackdropTemplateMixin and "BackdropTemplate"
+    )
+    header:SetPoint("TOPLEFT", host, "TOPLEFT", HOST_PADDING, 0)
+    StyleManagedGroupHeader(header, ENCHANTMENT_HEADER_STYLE)
 
     local container = CreateFrame(
         "AuraContainer",
@@ -1100,7 +1586,13 @@ local function CreateManagedEnchantmentPrototype(debuffContainer)
         "CustomAuraContainerTemplate"
     )
     container:Hide()
-    container:SetPoint("TOPLEFT", host, "TOPLEFT", HOST_PADDING, -HOST_HEADER_HEIGHT)
+    container:SetPoint(
+        "TOPLEFT",
+        host,
+        "TOPLEFT",
+        HOST_PADDING,
+        -(ENCHANTMENT_HEADER_STYLE.height + ENCHANTMENT_HEADER_STYLE.firstRowGap)
+    )
     container:SetSize(1, 1)
     container:SetEnabled(false)
     container:SetUnit("player")
@@ -1108,9 +1600,9 @@ local function CreateManagedEnchantmentPrototype(debuffContainer)
     container:SetFlowLayoutAnchorPoint("TOPLEFT")
     container:SetFlowLayoutGrowthDirection(AnchorUtil.FlowDirection.Right, AnchorUtil.FlowDirection.Down)
     container:SetItemEnchantmentLayout({
-        elementWidth = BAR_WIDTH,
-        elementHeight = BAR_HEIGHT,
-        elementSpacing = BAR_SPACING,
+        elementWidth = ENCHANTMENT_BAR_STYLE.width,
+        elementHeight = ENCHANTMENT_BAR_STYLE.height,
+        elementSpacing = ENCHANTMENT_BAR_SPACING,
     })
     container:SetItemEnchantmentSortMethod(
         AuraContainerItemEnchantmentSortMethod.Duration,
@@ -1132,18 +1624,21 @@ local function CreateManagedEnchantmentPrototype(debuffContainer)
         sortMethod = activeSort.method,
         sortDirection = activeSort.direction,
         layout = {
-            elementWidth = BAR_WIDTH,
-            elementHeight = BAR_HEIGHT,
-            elementSpacing = BAR_SPACING,
+            elementWidth = ENCHANTMENT_BAR_STYLE.width,
+            elementHeight = ENCHANTMENT_BAR_STYLE.height,
+            elementSpacing = ENCHANTMENT_BAR_SPACING,
         },
     })
 
     ManagedPrototype.enchantmentHost = host
     ManagedPrototype.enchantmentContainer = container
+    ManagedPrototype.fishingLureRow = CreateFishingLureRow(host, container)
 
     host:Show()
     container:Show()
     container:SetEnabled(true)
+    CreateFishingLureEventFrame()
+    RefreshFishingLureRow("prototype initialization")
 end
 
 CreateManagedAuraPrototype()
