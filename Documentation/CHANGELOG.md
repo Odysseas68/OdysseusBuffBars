@@ -32,7 +32,8 @@ Historical development prior to the creation of this document is intentionally n
 - Fixed fishing-lure tooltip taint by owning `GameTooltip` from `UIParent` at `ANCHOR_CURSOR` instead of the ordinary row whose layout depends on restricted managed bounds.
 - Moved idempotent managed prototype initialization into `OBB:OnAddonLoaded()` after SavedVariables adoption, defaults, migrations, group normalization, and `OBB.db` readiness; managed frames and event objects are no longer constructed at Lua file load.
 - Added copied startup consumption of existing group name, geometry, spacing, font, complete bar/background colors, icon side, scale, and alpha, plus compatible BUFFS/DEBUFFS sort and maximum-bar settings.
-- Bridged the existing out-of-combat `Config:Apply()` path to centralized managed presentation synchronization for font size and complete bar/background colors without duplicating `syncGroupBars` behavior.
+- Bridged the existing out-of-combat `Config:Apply()` path to centralized managed presentation/layout synchronization for font size, complete bar/background colors, width, height, and row spacing without duplicating `syncGroupBars` behavior.
+- Silenced routine automatic managed-routing diagnostics by default behind a local debug gate while retaining explicit manual diagnostics and unexpected discovery/filter failure output.
 
 ### Compatibility
 
@@ -68,5 +69,7 @@ Historical development prior to the creation of this document is intentionally n
 - Validated Bright Baubles fishing-lure detection through the dynamically resolved profession-tool slot, visible countdown, natural expiration and scheduled API recheck, row hiding, and reapplication without presence polling.
 - Validated the fishing-tool inventory tooltip after the restricted-layout ownership fix; it exposes a generic lure effect rather than the original lure item name.
 - Confirmed native weapon-enchant right-click cancellation remains available while the ordinary fishing-lure row intentionally performs no cancellation action.
-- Runtime-validated Phase A.1 startup/reload configuration consumption and the narrow Phase C.1 live out-of-combat font/color slice, including existing and newly assigned/created/reused managed rows, with native interaction and combat behavior retained in the supplied test scope.
-- Kept live geometry/layout synchronization, exact ENCHANTMENTS combined sort/cap semantics, broader native enchant/effect coverage, persistence, production cutover, rollback policy, and eventual legacy cleanup pending.
+- Runtime-validated Phase A.1 startup/reload configuration consumption and the Phase C.1 live out-of-combat font/color/width/height/spacing slice across existing and newly assigned/created/reused rows, headers, `Sync Group Bars`, and width/height/spacing change ordering.
+- Runtime-validated square icon resizing, `height + iconGap` boundaries for LEFT and RIGHT startup icon sides, public AuraGroup/item-enchantment layout replacement, fishing-lure spacing, group chaining, and combat regression without manual container sizing or managed-child enumeration.
+- Runtime-validated routine diagnostic silence for normal aura/rune gain and removal while preserving semantic routing and explicit manual diagnostic output.
+- Kept live icon-side reanchoring, scale/alpha, growth, placement/position, remaining behavior/filter settings, exact ENCHANTMENTS combined sort/cap semantics, broader native enchant/effect coverage, persistence, production cutover, rollback policy, and eventual legacy cleanup pending.

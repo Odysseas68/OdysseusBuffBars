@@ -48,9 +48,15 @@
 - [x] Keep ENCHANTMENTS saved sort/maximum-bar consumption deferred because one legacy value cannot exactly map across `HelpfulEnhancements`, native item-enchantment rows, and the ordinary fishing-lure row.
 - [x] Complete the narrow Phase C.1 bridge from `Config:Apply()` to centralized `ManagedPrototype:ApplyConfiguration()` after the existing legacy refresh.
 - [x] Runtime-validate live out-of-combat font-size and full bar/background RGBA synchronization without `/reload` across BUFFS, DEBUFFS, ENCHANTMENTS, native item-enchantment rows, and fishing-lure presentation.
+- [x] Runtime-validate live width synchronization across existing/future rows, native item-enchantment rows, the fishing lure, headers, `Sync Group Bars`, combat regression, and vertical chaining without manually sizing managed containers.
+- [x] Runtime-validate live height synchronization for row roots, square icons, the `height + iconGap` colored boundary, LEFT/RIGHT startup icon sides, fixed 18-pixel headers, future rows, and width/height order independence.
+- [x] Runtime-validate live row spacing through `SetAuraGroupLayout` and `SetItemEnchantmentLayout`, including the ordinary lure gap, future rows, `Sync Group Bars`, combat regression, and width/height/spacing order independence.
 - [x] Runtime-validate existing `syncGroupBars` fan-out for supported managed properties while keeping fan-out ownership in the existing config layer.
 - [x] Apply the current presentation state to existing and future/created/reused rows through initializer-owned weak-key presentation tracking without enumerating active managed children or aura identity.
 - [x] Preserve the combat guard: managed live apply returns `false, "combat lockdown"` and does not defer configuration presentation changes.
+- [x] Silence routine automatic managed-routing diagnostics by default while preserving explicit manual diagnostics and unexpected discovery/filter failure output without adding SavedVariables.
+- [ ] Implement and runtime-validate live managed `iconSide` reanchoring; until then, managed icon-side changes require `/reload` even though legacy bars update live.
+- [ ] Runtime-validate live scale and alpha synchronization without broadening managed layout ownership.
 
 ## Live 12.1 Isolated Managed Player-DEBUFFS Prototype
 
@@ -80,7 +86,7 @@
 - [x] Use the native equipped-item icon/name, application count, duration text, duration StatusBar, inventory-item tooltip, and `RightButtonDown` cancellation paths.
 - [x] Use ENCHANTMENTS-specific `AuraContainerItemEnchantmentSortMethod.Duration` with `AuraContainerSortDirection.Reverse` for native non-expiring-first, then longest-to-shortest timed ordering; add no selector or other sort mode.
 - [x] Keep item-enchantment lifecycle, equipment/enchant refreshes, frame reuse, stale-value clearing, countdowns, and self-sizing Blizzard-managed without addon polling or `OnUpdate`.
-- [x] Add no native item-enchantment filtering, enchant-name resolver, independent SavedVariables, or persistence; keep semantic HELPFUL routing as a separate managed aura-group source. Later configuration work remains limited to compatible startup presentation and live font/color synchronization.
+- [x] Add no native item-enchantment filtering, enchant-name resolver, independent SavedVariables, or persistence; keep semantic HELPFUL routing as a separate managed aura-group source. Current live presentation/layout support is limited to font, bar/background colors, width, height, and spacing.
 - [x] Confirm on Live that pre-existing MainHand PaperDoll enchantment data can be available while the initial managed row is absent, and that one manual `UpdateAllAuras()` immediately populates it.
 - [x] Prove through repeated cold-login diagnostics that `PLAYER_ENTERING_WORLD` can precede usable timed enchantment data: the first player `UNIT_INVENTORY_CHANGED` exposed enchantID `8051` with zero remaining time, while a subsequent callback exposed a positive remaining duration.
 - [x] Confirm that refreshing on both startup inventory callbacks made the row appear but allowed callback one's incomplete zero-duration snapshot to produce a row without a timer; a later manual `UpdateAllAuras()` after final readiness restored the correct timer.
@@ -116,9 +122,9 @@
 
 ## Remaining Migration Work
 
-- [ ] Implement and runtime-validate the next configuration slice: safe live managed width/height, spacing, icon-side, scale/alpha, and related header/row geometry updates.
+- [ ] Implement the next configuration slices: live icon-side reanchoring, scale/alpha, growth direction, host placement/position synchronization, and remaining behavior/filter settings.
 - [ ] Add live `growUp`, arbitrary placement/chaining, SCREEN/BELOW/LEFT/RIGHT synchronization, and research the unsupported ABOVE architecture without taking layout ownership from Blizzard.
-- [ ] Retain startup-only status for geometry/layout properties until each live mutation path is explicitly implemented and runtime validated.
+- [ ] Retain startup/reload-only status for unsupported geometry/layout properties until each live mutation path is explicitly implemented and runtime validated.
 - [ ] Persist managed prototype position.
 - [ ] Persist sort selection and complete final configuration integration, including timed/timeless parity and saved override composition beyond current behavior.
 - [ ] Resolve exact ENCHANTMENTS combined sort/maximum-bar semantics and native item-enchantment filtering/hiding parity before claiming configuration equivalence.

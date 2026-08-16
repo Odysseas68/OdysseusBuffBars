@@ -1,6 +1,6 @@
 # Managed AuraContainer Migration
 
-Phase A, managed AuraButton presentation, Phase B.2 dynamic self-sizing, native managed sorting, player-BUFFS whitelist/blacklist semantics, and automatic synchronization from the existing BUFFS filter editor are validated on the Retail 12.1 PTR. The isolated BUFFS, DEBUFFS, and ENCHANTMENTS prototypes pass Retail Live runtime comparison against the legacy static visual presentation. Phase A.1 now consumes copied existing configuration only after SavedVariables normalization, and the narrow Phase C.1 slice live-synchronizes font and bar/background colors through the normal out-of-combat config path. ENCHANTMENTS combines native MainHand/OffHand rows, routed HELPFUL enhancement auras, and one explicit addon-owned fishing profession-tool lure row. These remain parallel prototypes; broader configuration parity and production cutover are not complete.
+Phase A, managed AuraButton presentation, Phase B.2 dynamic self-sizing, native managed sorting, player-BUFFS whitelist/blacklist semantics, and automatic synchronization from the existing BUFFS filter editor are validated on the Retail 12.1 PTR. The isolated BUFFS, DEBUFFS, and ENCHANTMENTS prototypes pass Retail Live runtime comparison against the legacy visual presentation. Phase A.1 consumes copied existing configuration only after SavedVariables normalization, and Phase C.1 now live-synchronizes font, bar/background colors, width, height, and row spacing through the normal out-of-combat config path. Routine automatic routing diagnostics are silent by default while manual diagnostics and unexpected failures remain available. ENCHANTMENTS combines native MainHand/OffHand rows, routed HELPFUL enhancement auras, and one explicit addon-owned fishing profession-tool lure row. These remain parallel prototypes; broader configuration parity and production cutover are not complete.
 
 Evidence labels used below:
 
@@ -18,10 +18,10 @@ Current milestone status:
 | Phase B.2 dynamic self-sizing | PTR validated. |
 | Isolated managed player-DEBUFFS implementation | Core runtime behavior validated on Retail Live with a broad `HARMFUL` group, all three sort mappings, native combat tooltips, and dynamic BUFFS-to-DEBUFFS anchoring; targeted private-aura validation and integration pending. |
 | Isolated managed ENCHANTMENTS implementation | Native MainHand/OffHand rows, the `HelpfulEnhancements` managed HELPFUL group, and the ordinary fishing-lure exception are implemented. MainHand lifecycle, Food/Flask/Phial/Augment Rune/Fishing Bobber routing, lure apply/expire/reapply, and static visual parity are Live validated; broader native item-enchantment parity remains pending. |
-| Static managed visual parity | Runtime validated for BUFFS, DEBUFFS, and ENCHANTMENTS at `260 x 18`, three-pixel row spacing, legacy-style headers, and group-specific colors. Styling remains prototype-static. |
+| Managed visual parity | Runtime validated for BUFFS, DEBUFFS, and ENCHANTMENTS from the accepted `260 x 18`, three-pixel-spacing baseline, with live OOC font, color, width, height, and spacing synchronization. |
 | Phase A.1 startup configuration consumption | Runtime validated. Initialization occurs after SavedVariables adoption/defaults/migrations/normalization and consumes a copied configuration snapshot. |
-| Phase C.1 live presentation synchronization | Runtime validated out of combat for `fontSize`, complete `barColor`, and complete `barBgColor`; broader live geometry/layout settings remain pending. |
-| Persistent position/sort and full configuration integration | Partial. BUFFS/DEBUFFS consume compatible startup sort/maxBars values; exact combined ENCHANTMENTS semantics, live geometry/layout, and production integration remain pending. |
+| Phase C.1 live presentation synchronization | Runtime validated out of combat for `fontSize`, complete `barColor`, complete `barBgColor`, `width`, `height`, and `spacing`. |
+| Persistent position/sort and full configuration integration | Partial. Live `iconSide`, scale/alpha, growth, placement/position, remaining behavior/filter settings, exact combined ENCHANTMENTS semantics, and production integration remain pending. |
 | DEBUFFS/ENCHANTMENTS production integration and production cutover | Pending; the validated enhancement-routing policy is still prototype-only. |
 | Blizzard BuffFrame visibility during combat | Unresolved and separate from the managed implementation. |
 
@@ -128,7 +128,7 @@ Additional verified findings:
 | Custom bar count and host resizing | Managed layout and visibility can be secret-dependent; addon code must not infer active aura counts from provider capacity. |
 | Blizzard-frame hiding | Blizzard now reasserts management during combat. Repeated insecure hiding is not a sustainable replacement for supported behavior. |
 | Filter discovery cache | The current cache depends on addon-readable aura identity. Its purpose and population method must be redesigned. |
-| Runtime configuration | The narrow out-of-combat font/color slice is runtime validated. Geometry, layout, placement, and other post-login mutations must still be implemented and tested rather than assumed. |
+| Runtime configuration | The out-of-combat font/color/width/height/spacing slice is runtime validated. Icon-side reanchoring, scale/alpha, growth, placement, and other post-login mutations must still be implemented and tested rather than assumed. |
 | Fishing profession-tool lure | Managed item-enchantment slots cover MainHand, OffHand, and Ranged, not the fishing profession-tool slot. OBB uses one event/API-driven ordinary row rather than misrepresenting it as a managed AuraButton. |
 
 Verified legacy Retail 12.1 limitations:
@@ -200,7 +200,7 @@ Current static style parity:
 
 All three use `260 x 18` rows, three-pixel row spacing, `18 x 18` icons with `{0, 1, 0, 1}` coordinates, 11-size name/duration text, 10-size outlined count text, and accepted legacy icon/bar/text geometry and placement. Their legacy-style headers use `260 x 18` geometry, the legacy backdrop/border, centered labels, and a four-pixel gap before the first row. Runtime visual comparison passed for all three groups.
 
-This visual baseline is no longer completely disconnected from configuration. Phase A.1 consumes compatible existing settings at startup, and Phase C.1 updates font and bar/background colors live out of combat. Live geometry/layout mutation remains unimplemented.
+This accepted baseline is no longer static after startup. Phase A.1 consumes compatible existing settings at startup, and Phase C.1 updates font, bar/background colors, width, height, and row spacing live out of combat. Header height remains fixed at 18 pixels; live icon-side reanchoring and broader geometry/layout mutation remain pending.
 
 ### Configuration synchronization checkpoint: Phase A.1 and Phase C.1
 
@@ -234,10 +234,11 @@ BUFFS and DEBUFFS additionally consume their compatible saved `sort` and `maxBar
 The existing configuration layer remains authoritative for controls, SavedVariables mutation, and `syncGroupBars` fan-out. The managed backend does not duplicate that policy:
 
 ```text
-existing config mutation
+existing config mutation / syncGroupBars fan-out
+-> SavedVariables update
 -> Config:Apply()
    +- OBB:RefreshAll()                         (legacy renderer)
-   L- ManagedPrototype:ApplyConfiguration()    (managed presentation)
+   L- ManagedPrototype:ApplyConfiguration()    (managed presentation/layout)
 ```
 
 `ApplyConfiguration()` currently reads and live-applies only:
@@ -245,20 +246,25 @@ existing config mutation
 - `fontSize`
 - complete RGBA `barColor`
 - complete RGBA `barBgColor`
+- `width`
+- `height`
+- `spacing`
 
-Font application updates SpellName, DurationText, and ApplicationCount; the count size is `math.max(10, fontSize - 1)`. Color application updates the DurationBar and row background RGBA. This supported live slice covers BUFFS, DEBUFFS, `HelpfulEnhancements`, native managed item-enchantment rows, and the fishing-lure presentation.
+Font application updates SpellName, DurationText, and ApplicationCount; the count size is `math.max(10, fontSize - 1)`. Color application updates the DurationBar and row background RGBA. Width updates existing row roots, future/reused rows, and group headers while preserving Blizzard-owned self-sizing. Height updates row roots, square icons, and the `height + iconGap` colored-region boundary while keeping header height fixed at 18 pixels and retaining the startup icon side. Spacing updates `elementSpacing` and the ordinary fishing-lure gap without changing the four-pixel header gap or the eight-pixel inter-group chain gap.
+
+The layout bridge uses the public `SetAuraGroupLayout` path for BUFFS, DEBUFFS, and `HelpfulEnhancements`, plus `SetItemEnchantmentLayout` for native ENCHANTMENTS rows. Replacement layout tables use the current managed width, height, and spacing together, so those three settings remain order-independent. The addon does not enumerate managed children, infer active counts, or manually resize a self-sizing container.
 
 Initializer-created presentation references are retained in prototype-owned weak-key structures. A live apply updates those legitimate references without enumerating managed children, inferring active counts, or inspecting aura identity. The current live presentation state is also used when future rows are assigned, created, or reused.
 
-Runtime validation passed for startup/reload consumption of width, height, spacing, font, saved bar/background colors, RIGHT icon placement, scale/alpha, and the compatible BUFFS/DEBUFFS sort/maxBars behavior exercised by this slice. Runtime validation also passed without `/reload` for BUFFS/DEBUFFS/ENCHANTMENTS font changes, Bar Alpha, Background Alpha, existing `Sync Group Bars` fan-out for supported properties, and newly assigned/created/reused rows receiving the current presentation. Within the supplied test scope, native managed presentation, tooltips, BUFF cancellation, DEBUFF behavior, weapon temporary-enchantment behavior, fishing-lure presentation/tooltip, aura updates, and combat behavior continued working.
+Runtime validation passed for startup/reload consumption of width, height, spacing, font, saved bar/background colors, RIGHT icon placement, scale/alpha, and the compatible BUFFS/DEBUFFS sort/maxBars behavior exercised by this slice. Runtime validation also passed without `/reload` for BUFFS/DEBUFFS/ENCHANTMENTS font, color, width, height, and spacing changes; existing `Sync Group Bars` fan-out; width/height/spacing order independence; LEFT and RIGHT startup icon-side geometry during height changes; headers; native item-enchantment rows; the fishing lure; and newly assigned/created/reused rows. Within the supplied test scope, native managed presentation, tooltips, BUFF and weapon-enchantment cancellation, DEBUFF behavior, fishing-lure presentation/tooltip, aura updates, group chaining, and combat behavior continued working.
 
 `ApplyConfiguration()` is out-of-combat only. It defensively returns `false, "combat lockdown"` during combat and does not defer a configuration presentation update. The existing configuration UI already prevents its normal mutation paths during combat. This checkpoint must not be described as combat-capable live restyling.
 
 Configuration status is therefore deliberately split:
 
-- **Runtime-validated live OOC:** `fontSize`, `barColor`, and `barBgColor`.
-- **Runtime-validated startup/reload:** name/header where applicable, width, height, spacing, icon side, scale, alpha, and compatible BUFFS/DEBUFFS sort/maxBars, in addition to the three live-supported properties.
-- **Pending/research:** live geometry and spacing, icon reanchoring, live scale/alpha, `growUp`, arbitrary placement/chaining, SCREEN/BELOW/LEFT/RIGHT synchronization, ABOVE architecture, timed/timeless parity, DEBUFF filter parity, exact combined ENCHANTMENTS sort/maxBars semantics, native item-enchantment filtering/hiding parity, additional saved-override composition, production cutover, and legacy removal.
+- **Runtime-validated live OOC:** `fontSize`, `barColor`, `barBgColor`, `width`, `height`, and `spacing`.
+- **Runtime-validated startup/reload:** name/header where applicable, icon side, scale, alpha, and compatible BUFFS/DEBUFFS sort/maxBars, in addition to the live-supported properties. Managed `iconSide` still requires `/reload` even though the legacy renderer applies it live.
+- **Pending/research:** live icon-side reanchoring, live scale/alpha, `growUp`, arbitrary placement/chaining, SCREEN/BELOW/LEFT/RIGHT synchronization, ABOVE architecture, timed/timeless parity, DEBUFF filter parity, exact combined ENCHANTMENTS sort/maxBars semantics, native item-enchantment filtering/hiding parity, additional saved-override composition, production cutover, and legacy removal.
 
 This synchronization does not change ownership. Blizzard continues to own managed AuraButton assignment, aura identity, SpellName/DurationText content, DurationBar timing, native tooltips, native BUFF and weapon-enchantment cancellation, and managed container sizing/layout. OBB owns only its permitted presentation/configuration layer and the existing ordinary fishing-lure row. The lure's detection, slot resolution, timer, tooltip ownership/anchor, and unsupported cancellation behavior are unchanged.
 
@@ -345,10 +351,10 @@ Rollback: remove or disable the prototype without touching the direct scanner.
 
 ### Phase B — Managed bar-presentation prototype
 
-Status: Core managed presentation and lifecycle are implemented and PTR validated. Static visual parity and the Phase A.1/C.1 configuration checkpoint are runtime validated; broader configuration parity and production integration remain pending.
+Status: Core managed presentation and lifecycle are implemented and PTR validated. Visual parity and the Phase A.1/C.1 live font/color/width/height/spacing checkpoint are runtime validated; broader configuration parity and production integration remain pending.
 
 - The earlier diagnostic group used 250 by 16 rows, two-pixel spacing, and a 22-pixel header. That geometry is preserved as historical prototype context but has been superseded by the runtime-validated legacy-parity style.
-- The current group displays at most thirty vertically stacked AuraButtons at 260 by 18 pixels with three pixels of spacing and full-coordinate 18 by 18 icons. The ordinary root reserves the 18-pixel header plus the four-pixel header-to-first-row gap, not the thirty-button capacity.
+- The accepted default baseline displays at most thirty vertically stacked AuraButtons at 260 by 18 pixels with three pixels of spacing and full-coordinate 18 by 18 icons. Width, height, and spacing can now change live out of combat. The ordinary root reserves the fixed 18-pixel header plus the four-pixel header-to-first-row gap, not the thirty-button capacity.
 - `SetFlowLayoutAxis(AnchorUtil.FlowLayoutAxis.Vertical)`, `SetFlowLayoutAnchorPoint("TOPLEFT")`, and `SetFlowLayoutGrowthDirection(...Right, ...Down)` configure the container-owned vertical layout before the aura group is added.
 - Each managed button creates addon-styled static background and text-layer descendants while remaining owned by the container.
 - `SetIcon` registers the left-side icon texture.
@@ -384,7 +390,7 @@ Native managed sorting implementation:
 - Default preserves Blizzard's native default ordering and is not described as duration sorting or timeless grouping.
 - Name orders timed and timeless auras together alphabetically while preserving managed application counts and duration presentation.
 - A prototype-only header button cycles `TIMELEFT` -> `DEFAULT` -> `NAME` -> `TIMELEFT` at runtime through the verified public `SetAuraGroupSortMethod` method. Changes are blocked during combat; already configured native sorting continues to govern combat aura updates.
-- Phase A.1 now consumes compatible saved BUFFS/DEBUFFS sort values during startup. Live sort synchronization and exact combined ENCHANTMENTS semantics remain outside the Phase C.1 font/color slice.
+- Phase A.1 consumes compatible saved BUFFS/DEBUFFS sort values during startup. Live sort synchronization and exact combined ENCHANTMENTS semantics remain outside the Phase C.1 presentation/layout slice.
 - Sorting remains entirely managed: no aura reads, Lua comparator, manual AuraButton reordering, polling, or private layout access is used.
 
 Native sorting passed PTR runtime validation.
@@ -405,7 +411,7 @@ Managed player-BUFFS filtering implementation:
 
 Managed whitelist/blacklist semantics, native sorting, managed grow/shrink, tooltip, cancellation, and automatic editor synchronization passed PTR validation. Manual add, remove, and checkbox changes immediately updated both frames out of combat; clearing the whitelist activated blacklist mode; the current native sort and self-sizing remained active; and reload retained the compiled policy. In combat, the editor was unavailable and managed filter mutation remained blocked while the already-active filter continued governing managed aura updates. No errors, taint, or blocked actions were observed.
 
-The validated player-BUFFS prototype covers the core managed lifecycle, presentation, timed and timeless transitions, application counts, filtering, sorting, interaction, combat updates, reload behavior, static visual parity, startup configuration consumption, and live out-of-combat font/color synchronization. Live geometry/layout synchronization, persistent managed position, and production backend cutover remain pending.
+The validated player-BUFFS prototype covers the core managed lifecycle, presentation, timed and timeless transitions, application counts, filtering, sorting, interaction, combat updates, reload behavior, visual parity, startup configuration consumption, and live out-of-combat font/color/width/height/spacing synchronization. Live icon-side reanchoring, scale/alpha, growth/placement, persistent managed position, and production backend cutover remain pending.
 
 Rollback: existing bars remain authoritative.
 
@@ -424,7 +430,7 @@ Status: Core managed player-DEBUFFS runtime behavior validated on Retail Live. T
 - The DEBUFFS initializer intentionally omits `SetCancelAuraButtons`; no secure cancellation overlay is created.
 - Default, Name, and Time Left use the validated native sort mappings through a DEBUFFS-local selector. Sort mutation is blocked during combat, while the configured managed sort continues to govern updates.
 - Dynamic sizing, pooling, public/private updates, and combat refreshes remain framework-owned. The addon does not count or enumerate buttons, poll, scan `UNIT_AURA`, read aura identity, or call private managed/layout methods.
-- The legacy DEBUFFS scanner, renderer, configuration, SavedVariables, and Blizzard-frame handling remain present. The managed prototype consumes compatible DEBUFFS startup presentation, sort, and maximum-bar settings plus the live font/color slice; managed root position and broader live layout remain unintegrated.
+- The legacy DEBUFFS scanner, renderer, configuration, SavedVariables, and Blizzard-frame handling remain present. The managed prototype consumes compatible DEBUFFS startup presentation, sort, and maximum-bar settings plus the live font/color/width/height/spacing slice; managed root position and broader live layout remain unintegrated.
 - Retail Live validation on `12.1.0.69273`, interface `120100`, confirmed broad player/HARMFUL display, multiple simultaneous debuffs, combat additions/refreshes/removals, icons, names, application counts, duration text and StatusBars, dynamic grow/shrink, and simultaneous managed BUFFS/DEBUFFS operation.
 - All three DEBUFFS sort mappings are runtime validated: Default uses `AuraContainerSortMethod.Default` with `AuraContainerSortDirection.Normal`, Name uses `AuraContainerSortMethod.NameOnly` with `AuraContainerSortDirection.Normal`, and Time Left uses `AuraContainerSortMethod.ExpirationOnly` with `AuraContainerSortDirection.Reverse`. Blizzard's Default semantic ordering is not reinterpreted beyond that verified mapping, and combat additions/removals/refreshes continued working in all tested modes.
 - The native managed DEBUFF tooltip is runtime validated in combat. No custom indexed-aura lookup or fallback is required.
@@ -437,10 +443,10 @@ Rollback: remove or disable only the isolated DEBUFFS prototype; the validated m
 
 ### Isolated managed ENCHANTMENTS prototype
 
-Status: Core managed MainHand temporary-enchantment lifecycle, dynamic semantic HELPFUL enhancement routing, the fishing profession-tool lure exception, static visual parity, compatible startup presentation, and live out-of-combat font/color synchronization are validated on Retail Live. Exact combined sort/cap semantics, broader native item-enchantment parity, and production integration remain pending. This is not a production ENCHANTMENTS backend.
+Status: Core managed MainHand temporary-enchantment lifecycle, dynamic semantic HELPFUL enhancement routing, the fishing profession-tool lure exception, visual parity, compatible startup presentation, and live out-of-combat font/color/width/height/spacing synchronization are validated on Retail Live. Exact combined sort/cap semantics, broader native item-enchantment parity, and production integration remain pending. This is not a production ENCHANTMENTS backend.
 
 - A third ordinary host is created with `DisableUntrustedLayoutScriptsTemplate` and anchored one-way from its `TOPLEFT` to the DEBUFFS container's `BOTTOMLEFT`, horizontally realigned by the shared host padding and separated by the same eight-pixel prototype gap.
-- The dependency chain is strictly BUFFS root -> BUFFS container -> DEBUFFS host -> DEBUFFS container -> ENCHANTMENTS host -> ENCHANTMENTS container. ENCHANTMENTS has no independent dragging or position persistence. It consumes compatible startup presentation and live font/color values, but not the saved legacy sort/maxBars semantics; moving BUFFS carries all three prototypes through declarative anchors.
+- The dependency chain is strictly BUFFS root -> BUFFS container -> DEBUFFS host -> DEBUFFS container -> ENCHANTMENTS host -> ENCHANTMENTS container. ENCHANTMENTS has no independent dragging or position persistence. It consumes compatible startup presentation and live font/color/width/height/spacing values, but not the saved legacy sort/maxBars semantics; moving BUFFS carries all three prototypes through declarative anchors.
 - ENCHANTMENTS owns a third independent `CustomAuraContainerTemplate`. It is configured early, shown before enablement, kept long-lived, and left at the managed one-pixel empty minimum until active native item-enchantment or `HelpfulEnhancements` frames establish larger FlowLayout bounds.
 - The container calls `AddItemEnchantment(AuraContainerItemEnchantmentSlot.MainHand, options)` and `AddItemEnchantment(AuraContainerItemEnchantmentSlot.OffHand, options)`. Each registration uses the same bar initializer and `hidePermanent = false`. Ranged is not registered.
 - The same container also owns a long-lived `AddAuraGroup("HelpfulEnhancements", "HELPFUL", options)` group. Its candidate filter is updated with dynamically discovered `includeSpellIDs`; managed BUFFS `Helpful` receives the same membership as `excludeSpellIDs` to prevent duplicate presentation. It has no legacy ENCHANTMENTS whitelist/blacklist connection.
@@ -448,7 +454,7 @@ Status: Core managed MainHand temporary-enchantment lifecycle, dynamic semantic 
 - Native item-enchantment sorting is configured once through `SetItemEnchantmentSortMethod(AuraContainerItemEnchantmentSortMethod.Duration, AuraContainerSortDirection.Reverse)`. Native semantics put non-expiring rows first, then timed rows from longest remaining to shortest remaining; no Name, Slot, Default, AuraGroup sort, runtime selector, or addon comparator was added.
 - Tooltip behavior remains the native AuraButton inventory-item path. No addon hover handler, tooltip scraping, tooltip fallback, raw item-link parsing, hardcoded enchant-name map, or `enchantID == spellID` assumption is present.
 - Each managed item-enchantment frame registers `SetCancelAuraButtons("RightButtonDown")`. The intrinsic AuraButton targets its own managed inventory slot through `C_PaperDollInfo.CancelTemporaryEnchantment`; no secure overlay or addon-owned cancellation state is added. Combat cancellation remains a required runtime test, not a source-proven claim.
-- Managed ENCHANTMENTS rows use the shared 260 by 18 presentation and three-pixel FlowLayout spacing. Active fixed item-enchantment frames and active managed `HelpfulEnhancements` frames participate in Blizzard FlowLayout. The separate ordinary fishing-lure row uses the same static ENCHANTMENTS style below the managed container but is not part of FlowLayout and is not a managed AuraButton.
+- Managed ENCHANTMENTS rows begin from the shared 260 by 18 presentation and three-pixel FlowLayout spacing. Active fixed item-enchantment frames and active managed `HelpfulEnhancements` frames participate in Blizzard FlowLayout and receive the current live width, height, and spacing. The separate ordinary fishing-lure row uses the same current ENCHANTMENTS presentation below the managed container, with its gap synchronized to current row spacing, but is not part of FlowLayout and is not a managed AuraButton.
 - A Retail Live diagnostic found active MainHand PaperDoll data (`enchantID 8051`, remaining time `1063382`, zero charges, expiring) while the initial managed row was absent. One out-of-combat `enchantmentContainer:UpdateAllAuras()` immediately populated the row, proving an initial lifecycle timing miss rather than a slot, registration, sort, permanence, charge, visibility, or data-availability failure.
 - Repeated cold-login diagnostics refined the race: file load, `PLAYER_LOGIN`, and `PLAYER_ENTERING_WORLD` all observed the enchant as absent; the first player `UNIT_INVENTORY_CHANGED` exposed enchantID `8051` with `remainingTimeMs = 0` and expiration enabled; a subsequent callback exposed usable positive remaining times, including `4698000`, `4510000`, and `4349000`. The managed item-enchantment provider does not subscribe to `UNIT_INVENTORY_CHANGED`, so a world-entry refresh alone cannot recover this transition.
 - Live testing of the first two-callback recovery made the managed row appear automatically but without a timer. Refreshing on callback one consumed the incomplete zero-duration startup snapshot; after PaperDoll reported a positive remaining time (`3838386` observed), one later manual `enchantmentContainer:UpdateAllAuras()` updated the existing row with the correct timer.
@@ -485,7 +491,7 @@ Runtime evidence:
 - Initially active Food, Flask, and Rune effects appeared in BUFFS. After discovery and candidate-filter refresh, they moved into ENCHANTMENTS, disappeared from BUFFS, showed no observed duplicates, and retained correct managed timers.
 - The discovered set was exercised for initial population, identical rediscovery, growth, shrink, transition to empty, and repopulation. Observed transitions included `2 -> 3`, `3 -> 2`, and `1 -> 0 -> 1 -> 2`; no stale routed row was observed.
 - `C_TooltipInfo.GetUnitAuraByAuraInstanceID(unitToken, auraInstanceID, filter)` was verified and used for active-aura diagnostics. Well Fed, Ethereal Augmentation, and Flask of Alchemical Chaos tooltips exposed the active aura name, current effect, and remaining time. Tooltip parsing is possible and was researched, but was not selected as the primary classifier because spell metadata was cleaner for these categories.
-- In combat, automatic discovery deferred, manual routing was rejected, and no Lua errors occurred. The observed diagnostic was `automatic routing deferred reason=UNIT_AURA player combat lockdown`. `PLAYER_REGEN_ENABLED` retried pending discovery; an already synchronized two-ID set produced `automatic routing synchronized reason=PLAYER_REGEN_ENABLED discoveredSpellIDs=2`. This validates the deferred retry path, not every possible aura-restriction scenario.
+- In earlier routing validation, automatic discovery deferred in combat, manual routing was rejected, and no Lua errors occurred. The observed diagnostics confirmed the deferred `PLAYER_REGEN_ENABLED` retry path. The current checkpoint gates routine automatic routing messages behind a local debug flag, so normal gain/removal and unchanged synchronization are silent by default. Explicit manual diagnostics still print, and unexpected discovery/filter failures remain visible; no SavedVariables debug option was added.
 - A temporary weapon enchant expired independently during HELPFUL routing tests. No native weapon-enchantment behavior changed. Optional future research may look for a supported temporary-enchant effect name instead of the current equipped-item/slot-oriented presentation; it is not solved here.
 - Limited Edition Rocket Bobber was observed as ordinary player HELPFUL aura spell ID `1222880`. It classified as `FISHING_BOBBER`, moved from managed BUFFS to managed ENCHANTMENTS, remained synchronized on a manual rerun, and displayed correctly in ENCHANTMENTS. Blizzard's default BuffFrame also showed it as an ordinary HELPFUL aura; OBB changed only its own managed presentation policy.
 
@@ -517,7 +523,7 @@ Rollback: return that group to the contained direct scanner.
 
 - The isolated player-BUFFS prototype has validated maximum capacity, native sorting, whitelist/blacklist mapping, and automatic filter-editor synchronization.
 - Carry those mappings into the production backend without changing the existing SavedVariables schema.
-- Resolve or explicitly document timed/timeless limitations, carry the validated semantic enhancement-routing policy into production integration without persisted or hardcoded ID tables, and extend the validated font/color configuration bridge to safe managed geometry/layout synchronization.
+- Resolve or explicitly document timed/timeless limitations, carry the validated semantic enhancement-routing policy into production integration without persisted or hardcoded ID tables, and extend the validated live font/color/width/height/spacing bridge to icon-side reanchoring, scale/alpha, growth, placement, and remaining supported behavior only after targeted validation.
 - Preserve the PTR-validated sort directions rather than inferring behavior from enum names.
 
 Rollback: preserve existing SavedVariables fields and switch the group backend back.

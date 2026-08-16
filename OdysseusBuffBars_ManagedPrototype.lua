@@ -364,18 +364,26 @@ local function BuildManagedStartupConfig()
 end
 
 local function BuildCurrentBarStyles(startupConfig)
-    -- Geometry remains copied from the immutable startup snapshot; only the
-    -- explicitly supported presentation fields advance during live apply.
-    return {
-        BUFFS = CopyManagedBarStyle(startupConfig.BUFFS.barStyle),
-        DEBUFFS = CopyManagedBarStyle(startupConfig.DEBUFFS.barStyle),
-        ENCHANTMENTS = CopyManagedBarStyle(startupConfig.ENCHANTMENTS.barStyle),
-    }
+    -- Begin from the immutable startup snapshot; only explicitly supported
+    -- fields advance during live apply.
+    local currentStyles = {}
+
+    for _, group in ipairs(MANAGED_GROUPS) do
+        local startupGroup = startupConfig[group.key]
+        local style = CopyManagedBarStyle(startupGroup.barStyle)
+        style.spacing = startupGroup.spacing
+        currentStyles[group.key] = style
+    end
+
+    return currentStyles
 end
 
-local function BuildLivePresentationStyle(settings, fallback)
+local function BuildLivePresentationStyle(settings, fallback, fallbackSpacing)
     local fontSize = GetValidatedNumber(settings and settings.fontSize, fallback.fontSize, 8, 24)
     return {
+        width = GetValidatedNumber(settings and settings.width, fallback.width, 120, 500),
+        height = GetValidatedNumber(settings and settings.height, fallback.height, 12, 36),
+        spacing = GetValidatedNumber(settings and settings.spacing, fallbackSpacing, 0, 16),
         fontSize = fontSize,
         countFontSize = math.max(10, fontSize - 1),
         fillColor = CopyColor(settings and settings.barColor, fallback.fillColor),
@@ -507,6 +515,15 @@ end
 
 local function PrintDiagnostic(message)
     print("|cff66ccffOBB managed tooltip|r: " .. message)
+end
+
+local MANAGED_DEBUG = false
+
+local function DebugPrint(message)
+    if not MANAGED_DEBUG then
+        return
+    end
+    PrintDiagnostic(message)
 end
 
 local function CallDiagnosticAPI(apiTable, apiName, ...)
@@ -785,7 +802,7 @@ end
 local function AttemptAutomaticHelpfulEnhancementDiscovery(reason, reportUnchangedSynchronization)
     if _G.InCombatLockdown and _G.InCombatLockdown() then
         if not automaticDiscoveryPending then
-            PrintDiagnostic("automatic routing deferred reason=" .. reason .. " combat lockdown")
+            DebugPrint("automatic routing deferred reason=" .. reason .. " combat lockdown")
         end
         SetAutomaticHelpfulEnhancementDiscoveryPending(true)
         return
@@ -794,14 +811,19 @@ local function AttemptAutomaticHelpfulEnhancementDiscovery(reason, reportUnchang
     local success, discoveredCount, failureReason, routingChanged = RunHelpfulEnhancementDiscovery(false)
     if not success then
         SetAutomaticHelpfulEnhancementDiscoveryPending(true)
-        PrintDiagnostic("automatic routing deferred reason=" .. reason .. " " .. failureReason)
+        local message = "automatic routing deferred reason=" .. reason .. " " .. failureReason
+        if failureReason == "readable player HELPFUL auras are unavailable" then
+            DebugPrint(message)
+        else
+            PrintDiagnostic(message)
+        end
         return
     end
 
     SetAutomaticHelpfulEnhancementDiscoveryPending(false)
     if not routingChanged then
         if reportUnchangedSynchronization then
-            PrintDiagnostic(
+            DebugPrint(
                 "automatic routing synchronized reason=" .. reason
                     .. " discoveredSpellIDs=" .. discoveredCount
             )
@@ -809,7 +831,7 @@ local function AttemptAutomaticHelpfulEnhancementDiscovery(reason, reportUnchang
         return
     end
 
-    PrintDiagnostic(
+    DebugPrint(
         "automatic routing succeeded reason=" .. reason
             .. " discoveredSpellIDs=" .. discoveredCount
     )
@@ -1349,6 +1371,39 @@ local function ApplyManagedPresentationStyle(presentation, style)
     )
 end
 
+local function ApplyManagedRowHeight(owner, presentation, style)
+    local iconOffset = style.height + style.iconGap
+
+    owner:SetHeight(style.height)
+    presentation.icon:SetSize(style.height, style.height)
+    if style.iconSide == "RIGHT" then
+        presentation.background:SetPoint("BOTTOMRIGHT", owner, "BOTTOMRIGHT", -iconOffset, 0)
+    else
+        presentation.background:SetPoint("TOPLEFT", owner, "TOPLEFT", iconOffset, 0)
+    end
+end
+
+local function ApplyManagedLayoutState(prototype, groupKey, style, widthChanged)
+    local layout = {
+        elementWidth = style.width,
+        elementHeight = style.height,
+        elementSpacing = style.spacing,
+    }
+
+    if groupKey == "BUFFS" then
+        prototype.container:SetAuraGroupLayout(AURA_GROUP_KEY, layout)
+    elseif groupKey == "DEBUFFS" then
+        prototype.debuffContainer:SetAuraGroupLayout(DEBUFF_AURA_GROUP_KEY, layout)
+    else
+        prototype.enchantmentContainer:SetAuraGroupLayout(ENHANCEMENT_AURA_GROUP_KEY, layout)
+        prototype.enchantmentContainer:SetItemEnchantmentLayout(layout)
+    end
+
+    if widthChanged then
+        prototype.groupHeaders[groupKey]:SetWidth(style.width)
+    end
+end
+
 function ManagedPrototype:ApplyConfiguration(_reason)
     if not self.initialized
         or not self.startupConfig
@@ -1366,16 +1421,44 @@ function ManagedPrototype:ApplyConfiguration(_reason)
 
     for _, group in ipairs(MANAGED_GROUPS) do
         local currentStyle = self.currentBarStyles[group.key]
-        local startupStyle = self.startupConfig[group.key].barStyle
-        local liveStyle = BuildLivePresentationStyle(GetGroupSettings(group.id), startupStyle)
+        local startupGroup = self.startupConfig[group.key]
+        local liveStyle = BuildLivePresentationStyle(
+            GetGroupSettings(group.id),
+            startupGroup.barStyle,
+            startupGroup.spacing
+        )
+        local widthChanged = currentStyle.width ~= liveStyle.width
+        local heightChanged = currentStyle.height ~= liveStyle.height
+        local spacingChanged = currentStyle.spacing ~= liveStyle.spacing
 
+        currentStyle.width = liveStyle.width
+        currentStyle.height = liveStyle.height
+        currentStyle.spacing = liveStyle.spacing
         currentStyle.fontSize = liveStyle.fontSize
         currentStyle.countFontSize = liveStyle.countFontSize
         currentStyle.fillColor = liveStyle.fillColor
         currentStyle.backgroundColor = liveStyle.backgroundColor
 
-        for _, presentation in pairs(self.presentationOwners[group.key]) do
+        for owner, presentation in pairs(self.presentationOwners[group.key]) do
+            if widthChanged then
+                owner:SetWidth(currentStyle.width)
+            end
+            if heightChanged then
+                ApplyManagedRowHeight(owner, presentation, currentStyle)
+            end
             ApplyManagedPresentationStyle(presentation, currentStyle)
+        end
+        if widthChanged or heightChanged or spacingChanged then
+            ApplyManagedLayoutState(self, group.key, currentStyle, widthChanged)
+        end
+        if group.key == "ENCHANTMENTS" and spacingChanged then
+            self.fishingLureRow:SetPoint(
+                "TOPLEFT",
+                self.enchantmentContainer,
+                "BOTTOMLEFT",
+                0,
+                -currentStyle.spacing
+            )
         end
     end
 
@@ -1466,6 +1549,7 @@ local function InitializeManagedBarPresentation(auraButton, style, groupKey)
     TrackManagedPresentation(groupKey, auraButton, {
         background = background,
         durationBar = durationBar,
+        icon = icon,
         nameText = nameText,
         durationText = durationText,
         countText = countText,
@@ -1478,11 +1562,10 @@ local function InitializeAuraButton(auraButton)
 end
 
 local function CreateFishingLureRow(host, container)
-    local groupConfig = ManagedPrototype.startupConfig.ENCHANTMENTS
     local style = ManagedPrototype.currentBarStyles.ENCHANTMENTS
     local row = _G.CreateFrame("Button", "OdysseusBuffBarsManagedFishingLureRow", host)
     row:SetSize(style.width, style.height)
-    row:SetPoint("TOPLEFT", container, "BOTTOMLEFT", 0, -groupConfig.spacing)
+    row:SetPoint("TOPLEFT", container, "BOTTOMLEFT", 0, -style.spacing)
     row:Hide()
 
     local background = row:CreateTexture(nil, "BACKGROUND")
@@ -1549,6 +1632,7 @@ local function CreateFishingLureRow(host, container)
     TrackManagedPresentation("ENCHANTMENTS", row, {
         background = background,
         durationBar = durationBar,
+        icon = icon,
         nameText = nameText,
         durationText = durationText,
         countText = countText,
@@ -1723,6 +1807,7 @@ local function CreateManagedAuraPrototype()
     ManagedPrototype.host = host
     ManagedPrototype.container = container
     ManagedPrototype.sortButton = sortButton
+    ManagedPrototype.groupHeaders.BUFFS = dragHandle
 
     host:Show()
     container:Show()
@@ -1870,6 +1955,7 @@ local function CreateManagedDebuffPrototype(buffContainer)
     ManagedPrototype.debuffHost = host
     ManagedPrototype.debuffContainer = container
     ManagedPrototype.debuffSortButton = sortButton
+    ManagedPrototype.groupHeaders.DEBUFFS = header
 
     host:Show()
     container:Show()
@@ -1968,6 +2054,7 @@ local function CreateManagedEnchantmentPrototype(debuffContainer)
     ManagedPrototype.enchantmentHost = host
     ManagedPrototype.enchantmentContainer = container
     ManagedPrototype.fishingLureRow = CreateFishingLureRow(host, container)
+    ManagedPrototype.groupHeaders.ENCHANTMENTS = header
 
     host:Show()
     container:Show()
@@ -1989,6 +2076,7 @@ function ManagedPrototype:Initialize()
     self.initializing = true
     self.startupConfig = startupConfig
     self.currentBarStyles = BuildCurrentBarStyles(startupConfig)
+    self.groupHeaders = {}
     self.presentationOwners = {
         BUFFS = setmetatable({}, { __mode = "k" }),
         DEBUFFS = setmetatable({}, { __mode = "k" }),
