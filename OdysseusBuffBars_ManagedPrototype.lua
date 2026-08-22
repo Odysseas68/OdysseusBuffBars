@@ -179,6 +179,12 @@ local CONFIG_MANAGED_AURA_GROUPS = {
     },
 }
 
+local MANAGED_GROWTH_CONTAINERS = {
+    BUFFS = "container",
+    DEBUFFS = "debuffContainer",
+    ENCHANTMENTS = "enchantmentContainer",
+}
+
 local function GetValidatedNumber(value, fallback, minimum, maximum)
     if type(value) ~= "number" or value ~= value or value == math.huge or value == -math.huge then
         return fallback
@@ -319,7 +325,8 @@ local function BuildManagedGroupConfig(
     fallbackHeaderStyle,
     fallbackSpacing,
     fallbackMaxBars,
-    consumeBehavior
+    consumeAuraGroupBehavior,
+    consumeGrowth
 )
     local settings = GetGroupSettings(groupID)
     local barStyle = BuildManagedBarStyle(settings, fallbackBarStyle)
@@ -331,9 +338,11 @@ local function BuildManagedGroupConfig(
         spacing = GetValidatedNumber(settings and settings.spacing, fallbackSpacing, 0, 16),
         scale = GetValidatedNumber(settings and settings.scale, 1, 0.5, 2),
         alpha = GetValidatedNumber(settings and settings.alpha, 1, 0, 1),
-        growUp = consumeBehavior and settings and settings.growUp == true or false,
-        sortMode = consumeBehavior and (savedSortMode or INITIAL_PROTOTYPE_SORT_MODE) or INITIAL_PROTOTYPE_SORT_MODE,
-        maxBars = consumeBehavior
+        growUp = consumeGrowth and settings and settings.growUp == true or false,
+        sortMode = consumeAuraGroupBehavior
+            and (savedSortMode or INITIAL_PROTOTYPE_SORT_MODE)
+            or INITIAL_PROTOTYPE_SORT_MODE,
+        maxBars = consumeAuraGroupBehavior
             and GetValidatedInteger(settings and settings.maxBars, fallbackMaxBars, 1, 80)
             or fallbackMaxBars,
     }
@@ -352,6 +361,7 @@ local function BuildManagedStartupConfig()
             BUFF_HEADER_STYLE,
             BUFF_BAR_SPACING,
             40,
+            true,
             true
         ),
         DEBUFFS = BuildManagedGroupConfig(
@@ -361,6 +371,7 @@ local function BuildManagedStartupConfig()
             DEBUFF_HEADER_STYLE,
             DEBUFF_BAR_SPACING,
             40,
+            true,
             true
         ),
         -- ENCHANTMENTS keeps the validated prototype's separate TIMELEFT
@@ -373,7 +384,8 @@ local function BuildManagedStartupConfig()
             ENCHANTMENT_HEADER_STYLE,
             ENCHANTMENT_BAR_SPACING,
             ENHANCEMENT_HELPFUL_MAX_AURAS,
-            false
+            false,
+            true
         ),
     }
 end
@@ -417,6 +429,7 @@ local function BuildCurrentGroupGrowUp(startupConfig)
     return {
         BUFFS = startupConfig.BUFFS.growUp,
         DEBUFFS = startupConfig.DEBUFFS.growUp,
+        ENCHANTMENTS = startupConfig.ENCHANTMENTS.growUp,
     }
 end
 
@@ -1536,12 +1549,12 @@ local function SetManagedContainerGrowUp(container, growUp)
 end
 
 local function ApplyManagedGroupGrowUp(prototype, groupKey, growUp)
-    local group = CONFIG_MANAGED_AURA_GROUPS[groupKey]
-    if not group then
+    local containerKey = MANAGED_GROWTH_CONTAINERS[groupKey]
+    if not containerKey then
         return false
     end
 
-    SetManagedContainerGrowUp(prototype[group.containerKey], growUp)
+    SetManagedContainerGrowUp(prototype[containerKey], growUp)
     prototype.currentGroupGrowUp[groupKey] = growUp
     return true
 end
@@ -2229,8 +2242,7 @@ local function CreateManagedEnchantmentPrototype(debuffContainer)
     container:SetEnabled(false)
     container:SetUnit("player")
     container:SetFlowLayoutAxis(AnchorUtil.FlowLayoutAxis.Vertical)
-    container:SetFlowLayoutAnchorPoint("TOPLEFT")
-    container:SetFlowLayoutGrowthDirection(AnchorUtil.FlowDirection.Right, AnchorUtil.FlowDirection.Down)
+    SetManagedContainerGrowUp(container, groupConfig.growUp)
     container:SetItemEnchantmentLayout(BuildManagedItemEnchantmentLayout(
         barStyle.width,
         barStyle.height,

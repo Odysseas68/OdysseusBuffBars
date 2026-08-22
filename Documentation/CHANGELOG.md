@@ -41,6 +41,7 @@ Historical development prior to the creation of this document is intentionally n
 - Adopted the managed ENCHANTMENTS 7+2+1 capacity policy and changed native item-enchantment placement/sorting to AfterAuraGroups with Slot/Normal order; legacy ENCHANTMENTS global sort and `maxBars` remain intentionally ignored.
 - Replaced initial-login-only native enchant recovery with a bounded every-world-transition quiet-turn recovery protected by epochs/generations and able to complete once after combat.
 - Removed temporary transition trace instrumentation after diagnosis; no trace command or routine diagnostic chat output remains.
+- Extended the shared managed growth-state/helper path to ENCHANTMENTS while keeping its global sort and `maxBars` semantics intentionally separate.
 
 ### Compatibility
 
@@ -81,4 +82,5 @@ Historical development prior to the creation of this document is intentionally n
 - Runtime-validated routine diagnostic silence for normal aura/rune gain and removal while preserving semantic routing and explicit manual diagnostic output.
 - Runtime-validated live LEFT/RIGHT icon changes, host alpha/scale, BUFFS/DEBUFFS saved sorting and maximum counts, mixed-scale chaining, and BUFFS growth direction; DEBUFFS growth uses the same supported implementation without an equivalent direct test claim.
 - Runtime-validated MainHand native-row recovery after portal, Home teleport, Hearthstone, dungeon, Delve/no-loading-screen, and legitimate no-enchant transitions, followed by fresh enchant application, without manual refresh, Lua errors, or trace spam.
-- Kept ENCHANTMENTS grow-up, remaining placement/host parity, remaining behavior/filter settings, legacy-only ENCHANTMENTS control cleanup, direct OffHand/both-slot transition coverage, persistence, production cutover, rollback policy, and eventual legacy cleanup pending.
+- Runtime-validated ENCHANTMENTS DOWN/UP switching, reload persistence, mixed-source presentation, geometry/icon changes while UP, loading and no-enchant transitions, unchanged native recovery without growth reset, and combat behavior; the Fishing Lure remained a fixed footer outside FlowLayout.
+- Kept remaining placement/host parity, remaining behavior/filter settings, legacy-only ENCHANTMENTS control cleanup, direct OffHand/both-slot transition coverage, persistence, production cutover, rollback policy, and eventual legacy cleanup pending.

@@ -62,6 +62,7 @@
 - [x] Implement BUFFS/DEBUFFS `growUp` through supported FlowLayout anchor/growth settings while preserving the external top-fixed header and chaining topology.
 - [x] Runtime-validate BUFFS `growUp` out of combat and through combat aura behavior.
 - [ ] Obtain equivalent direct DEBUFFS-specific `growUp` runtime coverage if still useful; current implementation uses the same supported FlowLayout path but is not claimed as directly tested.
+- [x] Live-apply and runtime-validate ENCHANTMENTS saved `growUp` through the shared FlowLayout path without enabling its legacy global sort or `maxBars` settings.
 
 ## Live 12.1 Isolated Managed Player-DEBUFFS Prototype
 
@@ -92,7 +93,7 @@
 - [x] Supersede the earlier Duration/Reverse experiment with the production policy: place native item enchantments `AfterAuraGroups` and sort them Slot/Normal, with MainHand before OffHand.
 - [x] Fix managed ENCHANTMENTS capacity at 7+2+1: seven `HelpfulEnhancements`, two registered native slots, and one ordinary Fishing Lure footer; keep legacy ENCHANTMENTS `maxBars` ignored without changing SavedVariables.
 - [x] Keep item-enchantment lifecycle, equipment/enchant refreshes, frame reuse, stale-value clearing, countdowns, and self-sizing Blizzard-managed without addon polling or `OnUpdate`.
-- [x] Add no native item-enchantment filtering, enchant-name resolver, independent SavedVariables, or persistence; keep semantic HELPFUL routing as a separate managed aura-group source. Current ENCHANTMENTS configuration support covers presentation geometry, colors/font, icon side, and host scale/alpha, but intentionally excludes global sort/max/grow semantics.
+- [x] Add no native item-enchantment filtering, enchant-name resolver, independent SavedVariables, or persistence; keep semantic HELPFUL routing as a separate managed aura-group source. Current ENCHANTMENTS configuration support covers presentation geometry, colors/font, icon side, host scale/alpha, and growth direction, but intentionally excludes global sort/max semantics.
 - [x] Confirm on Live that pre-existing MainHand PaperDoll enchantment data can be available while the initial managed row is absent, and that one manual `UpdateAllAuras()` immediately populates it.
 - [x] Prove through repeated cold-login diagnostics that `PLAYER_ENTERING_WORLD` can precede usable timed enchantment data: the first player `UNIT_INVENTORY_CHANGED` exposed enchantID `8051` with zero remaining time, while a subsequent callback exposed a positive remaining duration.
 - [x] Confirm that refreshing on both startup inventory callbacks made the row appear but allowed callback one's incomplete zero-duration snapshot to produce a row without a timer; a later manual `UpdateAllAuras()` after final readiness restored the correct timer.
@@ -111,6 +112,7 @@
 - [x] Record `OBBEnchantDiag` as completed temporary research tooling with no runtime or repository dependency.
 - [x] Remove temporary transition trace instrumentation after diagnosis and keep normal runtime silent.
 - [x] Runtime-validate MainHand recovery across a Silvermoon portal return, Home teleport in both directions, Stormwind portal, Hearthstone, dungeon entry/exit, Delve/no-loading-screen behavior, legitimate no-enchant transition, and a fresh enchant afterward, with correct duration and no manual refresh.
+- [x] Runtime-validate ENCHANTMENTS DOWN/UP live switching, reload persistence, mixed managed sources, width/height/spacing/icon-side changes while UP, loading and no-enchant transitions, native recovery without growth reset, and combat behavior without reported Lua/taint/tooltip/cancellation regression.
 - [ ] Live-validate broader MainHand apply/refresh/remove behavior, charge clearing/count formatting, equipment swaps, and empty `1 x 1` collapse.
 - [ ] Live-validate OffHand independently and simultaneously with MainHand, including equipment swaps and removing one row without disturbing the other.
 - [ ] Live-validate MainHand-before-OffHand Slot/Normal ordering with both native temporary-enchantment rows active.
@@ -133,8 +135,8 @@
 
 ## Remaining Migration Work
 
-- [ ] Implement ENCHANTMENTS `growUp`; keep Fishing Lure as a fixed footer unless later research deliberately changes that policy.
-- [ ] Add remaining host placement/chaining parity, including SCREEN/BELOW/LEFT/RIGHT synchronization, and research the unsupported ABOVE architecture without taking layout ownership from Blizzard.
+- [x] Implement and runtime-validate ENCHANTMENTS `growUp` while keeping Fishing Lure as a fixed footer outside FlowLayout in both directions.
+- [ ] Add remaining host placement/chaining parity: SCREEN positioning, BELOW beyond the validated default chain, LEFT/RIGHT placement, ABOVE research/design, x/y coordinate translation, and `anchorTo`/offset synchronization without taking layout ownership from Blizzard.
 - [ ] Retain startup/reload-only status for unsupported geometry/layout properties until each live mutation path is explicitly implemented and runtime validated.
 - [ ] Persist managed prototype position.
 - [ ] Complete remaining configuration integration, including timed/timeless parity, remaining behavior/filter settings, and saved override composition beyond current behavior.
