@@ -165,25 +165,41 @@ local MANAGED_GROUPS = {
     { key = "DEBUFFS", id = 2, hostKey = "debuffHost" },
     { key = "ENCHANTMENTS", id = 3, hostKey = "enchantmentHost" },
 }
+local MANAGED_GROUPS_BY_KEY = {
+    BUFFS = MANAGED_GROUPS[1],
+    DEBUFFS = MANAGED_GROUPS[2],
+    ENCHANTMENTS = MANAGED_GROUPS[3],
+}
 
-local MANAGED_DEBUFF_BELOW_PLACEMENT = {
+local MANAGED_DEBUFF_PLACEMENT = {
     key = "DEBUFFS",
     id = 2,
     parentGroupID = 1,
     hostKey = "debuffHost",
     parentContainerKey = "container",
+    screenX = 420,
+    screenY = -430,
 }
-local MANAGED_ENCHANTMENT_BELOW_PLACEMENT = {
+local MANAGED_ENCHANTMENT_PLACEMENT = {
     key = "ENCHANTMENTS",
     id = 3,
     parentGroupID = 2,
     hostKey = "enchantmentHost",
     parentContainerKey = "debuffContainer",
+    screenX = 420,
+    screenY = -680,
 }
-local MANAGED_BELOW_PLACEMENTS = {
-    MANAGED_DEBUFF_BELOW_PLACEMENT,
-    MANAGED_ENCHANTMENT_BELOW_PLACEMENT,
+local MANAGED_CONFIGURABLE_PLACEMENTS = {
+    MANAGED_DEBUFF_PLACEMENT,
+    MANAGED_ENCHANTMENT_PLACEMENT,
 }
+local MANAGED_PLACEMENTS_BY_KEY = {
+    DEBUFFS = MANAGED_DEBUFF_PLACEMENT,
+    ENCHANTMENTS = MANAGED_ENCHANTMENT_PLACEMENT,
+}
+
+local activeManagedDragGroup
+local interruptedManagedDragGroup
 
 local CONFIG_MANAGED_AURA_GROUPS = {
     BUFFS = {
@@ -269,12 +285,18 @@ local function IsManagedBuffsScreenRoot(settings)
         and settings.placement == "SCREEN"
 end
 
-local function GetManagedBuffsScreenPosition(settings, headerStyle)
-    local savedX = settings and settings.x or 420
-    local savedY = settings and settings.y or -180
+local function GetManagedScreenPosition(settings, headerStyle, fallbackX, fallbackY)
+    local savedX = settings and settings.x or fallbackX
+    local savedY = settings and settings.y or fallbackY
     local hostX = savedX - HOST_PADDING
     local hostY = savedY + headerStyle.height + headerStyle.firstRowGap
     return savedX, savedY, hostX, hostY
+end
+
+local function IsSupportedManagedScreenPlacement(settings)
+    return settings
+        and settings.anchorTo == nil
+        and settings.placement == "SCREEN"
 end
 
 local function IsSupportedManagedBelowPlacement(settings, placement)
@@ -283,43 +305,125 @@ local function IsSupportedManagedBelowPlacement(settings, placement)
         and settings.placement == "BELOW"
 end
 
-local function GetSupportedManagedBelowSettings(placement)
+local function BuildManagedPlacementState(settings, placement)
+    if IsSupportedManagedScreenPlacement(settings) then
+        return {
+            mode = "SCREEN",
+            x = settings.x or placement.screenX,
+            y = settings.y or placement.screenY,
+        }
+    end
+
+    if IsSupportedManagedBelowPlacement(settings, placement) then
+        return {
+            mode = "BELOW",
+            parentGroupID = placement.parentGroupID,
+            offsetX = settings.offsetX or 0,
+            offsetY = settings.offsetY or -MANAGED_GROUP_GAP,
+        }
+    end
+
+    return nil
+end
+
+local function GetSupportedManagedPlacementState(placement)
     if not IsManagedBuffsScreenRoot(GetGroupSettings(1)) then
         return nil
     end
 
-    local debuffSettings = GetGroupSettings(MANAGED_DEBUFF_BELOW_PLACEMENT.id)
-    if not IsSupportedManagedBelowPlacement(debuffSettings, MANAGED_DEBUFF_BELOW_PLACEMENT) then
+    local debuffState = BuildManagedPlacementState(
+        GetGroupSettings(MANAGED_DEBUFF_PLACEMENT.id),
+        MANAGED_DEBUFF_PLACEMENT
+    )
+    if not debuffState then
         return nil
     end
-    if placement == MANAGED_DEBUFF_BELOW_PLACEMENT then
-        return debuffSettings
+    if placement == MANAGED_DEBUFF_PLACEMENT then
+        return debuffState
     end
 
-    local enchantmentSettings = GetGroupSettings(MANAGED_ENCHANTMENT_BELOW_PLACEMENT.id)
-    if IsSupportedManagedBelowPlacement(enchantmentSettings, MANAGED_ENCHANTMENT_BELOW_PLACEMENT) then
-        return enchantmentSettings
-    end
-    return nil
+    return BuildManagedPlacementState(
+        GetGroupSettings(MANAGED_ENCHANTMENT_PLACEMENT.id),
+        MANAGED_ENCHANTMENT_PLACEMENT
+    )
 end
 
-local function GetManagedBelowPosition(settings)
-    local offsetX = settings and settings.offsetX or 0
-    local offsetY = settings and settings.offsetY or -MANAGED_GROUP_GAP
-    return offsetX, offsetY, offsetX - HOST_PADDING, offsetY
-end
-
-local function SetManagedBelowHostPoint(host, parentContainer, hostOffsetX, hostOffsetY)
-    host:SetPoint("TOPLEFT", parentContainer, "BOTTOMLEFT", hostOffsetX, hostOffsetY)
-end
-
-local function RecordManagedBelowPlacement(prototype, placement, offsetX, offsetY)
-    prototype.appliedManagedBelowPlacements[placement.key] = {
+local function BuildDefaultManagedPlacementState(placement)
+    return {
+        mode = "BELOW",
         parentGroupID = placement.parentGroupID,
-        placement = "BELOW",
-        offsetX = offsetX,
-        offsetY = offsetY,
+        offsetX = 0,
+        offsetY = -MANAGED_GROUP_GAP,
     }
+end
+
+local function AreManagedPlacementStatesEqual(left, right)
+    if not left or not right or left.mode ~= right.mode then
+        return false
+    end
+
+    if left.mode == "SCREEN" then
+        return left.x == right.x and left.y == right.y
+    end
+
+    return left.parentGroupID == right.parentGroupID
+        and left.offsetX == right.offsetX
+        and left.offsetY == right.offsetY
+end
+
+local function SetManagedScreenHostPoint(prototype, group, state, clearExistingPoints)
+    local host = prototype[group.hostKey]
+    if clearExistingPoints then
+        host:ClearAllPoints()
+    end
+
+    local headerStyle = prototype.startupConfig[group.key].headerStyle
+    host:SetPoint(
+        "TOPLEFT",
+        _G.UIParent,
+        "TOPLEFT",
+        state.x - HOST_PADDING,
+        state.y + headerStyle.height + headerStyle.firstRowGap
+    )
+end
+
+local function SetManagedHostPoint(prototype, placement, state, clearExistingPoints)
+    if state.mode == "SCREEN" then
+        SetManagedScreenHostPoint(prototype, placement, state, clearExistingPoints)
+        return
+    end
+
+    local host = prototype[placement.hostKey]
+    if clearExistingPoints then
+        host:ClearAllPoints()
+    end
+
+    host:SetPoint(
+        "TOPLEFT",
+        prototype[placement.parentContainerKey],
+        "BOTTOMLEFT",
+        state.offsetX - HOST_PADDING,
+        state.offsetY
+    )
+end
+
+local function RecordManagedPlacement(prototype, placement, state)
+    local appliedState
+    if state.mode == "SCREEN" then
+        appliedState = {
+            mode = "SCREEN",
+            x = state.x,
+            y = state.y,
+        }
+    else
+        appliedState = {
+            mode = "BELOW",
+            parentGroupID = state.parentGroupID,
+            offsetX = state.offsetX,
+            offsetY = state.offsetY,
+        }
+    end
+    prototype.appliedManagedPlacements[placement.key] = appliedState
 end
 
 local function BuildManagedBarStyle(settings, fallback)
@@ -1643,9 +1747,11 @@ local function ApplyManagedBuffsScreenPosition(prototype)
         return false
     end
 
-    local savedX, savedY, hostX, hostY = GetManagedBuffsScreenPosition(
+    local savedX, savedY, hostX, hostY = GetManagedScreenPosition(
         settings,
-        prototype.startupConfig.BUFFS.headerStyle
+        prototype.startupConfig.BUFFS.headerStyle,
+        420,
+        -180
     )
     local appliedState = prototype.appliedBuffsScreenPosition
     if appliedState
@@ -1666,28 +1772,19 @@ local function ApplyManagedBuffsScreenPosition(prototype)
     return true
 end
 
-local function ApplyManagedBelowPlacement(prototype, placement)
-    local settings = GetSupportedManagedBelowSettings(placement)
-    if not settings then
+local function ApplyManagedPlacement(prototype, placement)
+    local desiredState = GetSupportedManagedPlacementState(placement)
+    if not desiredState then
         return false
     end
 
-    local offsetX, offsetY, hostOffsetX, hostOffsetY = GetManagedBelowPosition(settings)
-    local appliedState = prototype.appliedManagedBelowPlacements[placement.key]
-    if appliedState
-        and appliedState.parentGroupID == placement.parentGroupID
-        and appliedState.placement == "BELOW"
-        and appliedState.offsetX == offsetX
-        and appliedState.offsetY == offsetY
-    then
+    local appliedState = prototype.appliedManagedPlacements[placement.key]
+    if AreManagedPlacementStatesEqual(appliedState, desiredState) then
         return false
     end
 
-    local host = prototype[placement.hostKey]
-    local parentContainer = prototype[placement.parentContainerKey]
-    host:ClearAllPoints()
-    SetManagedBelowHostPoint(host, parentContainer, hostOffsetX, hostOffsetY)
-    RecordManagedBelowPlacement(prototype, placement, offsetX, offsetY)
+    SetManagedHostPoint(prototype, placement, desiredState, true)
+    RecordManagedPlacement(prototype, placement, desiredState)
     return true
 end
 
@@ -1798,8 +1895,8 @@ function ManagedPrototype:ApplyConfiguration(_reason)
     end
 
     ApplyManagedBuffsScreenPosition(self)
-    for _, placement in ipairs(MANAGED_BELOW_PLACEMENTS) do
-        ApplyManagedBelowPlacement(self, placement)
+    for _, placement in ipairs(MANAGED_CONFIGURABLE_PLACEMENTS) do
+        ApplyManagedPlacement(self, placement)
     end
 
     return true
@@ -2039,6 +2136,161 @@ local function CreateFishingLureEventFrame()
     end)
 end
 
+local function IsManagedDragCombatLocked()
+    return _G.InCombatLockdown and _G.InCombatLockdown()
+end
+
+local function GetAppliedManagedScreenState(prototype, group)
+    if group.key == "BUFFS" then
+        local state = prototype.appliedBuffsScreenPosition
+        if state and state.isScreenRoot then
+            return state
+        end
+        return nil
+    end
+
+    local state = prototype.appliedManagedPlacements[group.key]
+    if state and state.mode == "SCREEN" then
+        return state
+    end
+    return nil
+end
+
+local function RestoreAppliedManagedScreenPosition(prototype, group)
+    local state = GetAppliedManagedScreenState(prototype, group)
+    if not state then
+        return false
+    end
+
+    SetManagedScreenHostPoint(prototype, group, state, true)
+    return true
+end
+
+local function RecordManagedScreenPosition(prototype, group, x, y)
+    if group.key == "BUFFS" then
+        prototype.appliedBuffsScreenPosition = {
+            x = x,
+            y = y,
+            isScreenRoot = true,
+        }
+        return
+    end
+
+    RecordManagedPlacement(prototype, MANAGED_PLACEMENTS_BY_KEY[group.key], {
+        mode = "SCREEN",
+        x = x,
+        y = y,
+    })
+end
+
+local function CanBeginManagedScreenDrag(prototype, group)
+    if IsManagedDragCombatLocked() then
+        if OBB.Config then
+            OBB.Config:WarnCombat()
+        end
+        return false
+    end
+    if not OBB.db or OBB.db.locked or activeManagedDragGroup or interruptedManagedDragGroup then
+        return false
+    end
+
+    local settings = GetGroupSettings(group.id)
+    if not IsSupportedManagedScreenPlacement(settings) then
+        if settings and settings.anchorTo and OBB.Config then
+            OBB.Config:WarnAnchoredDrag()
+        end
+        return false
+    end
+
+    return GetAppliedManagedScreenState(prototype, group) ~= nil
+end
+
+local function BeginManagedScreenDrag(prototype, group)
+    if not CanBeginManagedScreenDrag(prototype, group) then
+        return
+    end
+
+    activeManagedDragGroup = group
+    prototype[group.hostKey]:StartMoving()
+end
+
+local function FinishManagedScreenDrag(prototype, group)
+    if activeManagedDragGroup ~= group then
+        return
+    end
+
+    activeManagedDragGroup = nil
+    local host = prototype[group.hostKey]
+    host:StopMovingOrSizing()
+    if IsManagedDragCombatLocked() then
+        interruptedManagedDragGroup = group
+        return
+    end
+
+    local settings = GetGroupSettings(group.id)
+    if not IsSupportedManagedScreenPlacement(settings)
+        or not GetAppliedManagedScreenState(prototype, group)
+    then
+        RestoreAppliedManagedScreenPosition(prototype, group)
+        return
+    end
+
+    local left = host:GetLeft()
+    local top = host:GetTop()
+    local parentTop = _G.UIParent:GetTop()
+    if type(left) ~= "number" or type(top) ~= "number" or type(parentTop) ~= "number" then
+        RestoreAppliedManagedScreenPosition(prototype, group)
+        return
+    end
+
+    local headerStyle = prototype.startupConfig[group.key].headerStyle
+    local savedX = left + HOST_PADDING
+    local savedY = (top - parentTop) - headerStyle.height - headerStyle.firstRowGap
+    settings.x = savedX
+    settings.y = savedY
+    RecordManagedScreenPosition(prototype, group, savedX, savedY)
+
+    if OBB.Bars and OBB.Bars.UpdateAllGroupPositions then
+        OBB.Bars:UpdateAllGroupPositions()
+    end
+end
+
+local function ConfigureManagedHeaderDrag(header, group)
+    header:RegisterForDrag("LeftButton")
+    header:SetScript("OnDragStart", function()
+        BeginManagedScreenDrag(ManagedPrototype, group)
+    end)
+    header:SetScript("OnDragStop", function()
+        FinishManagedScreenDrag(ManagedPrototype, group)
+    end)
+end
+
+local function CreateManagedDragEventFrame()
+    local eventFrame = _G.CreateFrame("Frame")
+    ManagedPrototype.dragEventFrame = eventFrame
+    eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
+    eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+    eventFrame:SetScript("OnEvent", function(_, event)
+        if event == "PLAYER_REGEN_DISABLED" then
+            local group = activeManagedDragGroup
+            if not group then
+                return
+            end
+
+            activeManagedDragGroup = nil
+            ManagedPrototype[group.hostKey]:StopMovingOrSizing()
+            interruptedManagedDragGroup = group
+            return
+        end
+
+        local group = interruptedManagedDragGroup
+        interruptedManagedDragGroup = nil
+        if group then
+            RestoreAppliedManagedScreenPosition(ManagedPrototype, group)
+        end
+    end)
+end
+
 local function StyleManagedGroupHeader(header, style)
     header:SetSize(style.width, style.height)
     header:SetBackdrop(style.backdrop)
@@ -2062,7 +2314,7 @@ local function CreateManagedAuraPrototype()
     local settings = GetGroupSettings(1)
     local barStyle = groupConfig.barStyle
     local headerStyle = groupConfig.headerStyle
-    local savedX, savedY, hostX, hostY = GetManagedBuffsScreenPosition(settings, headerStyle)
+    local savedX, savedY, hostX, hostY = GetManagedScreenPosition(settings, headerStyle, 420, -180)
     local host = CreateFrame("Frame", "OdysseusBuffBarsManagedPrototypeHost", UIParent)
     host:SetSize(
         headerStyle.width + (HOST_PADDING * 2),
@@ -2095,16 +2347,7 @@ local function CreateManagedAuraPrototype()
     )
     dragHandle:SetPoint("TOPLEFT", host, "TOPLEFT", HOST_PADDING, 0)
     StyleManagedGroupHeader(dragHandle, headerStyle)
-    dragHandle:RegisterForDrag("LeftButton")
-    dragHandle:SetScript("OnDragStart", function()
-        if InCombatLockdown and InCombatLockdown() then
-            return
-        end
-        host:StartMoving()
-    end)
-    dragHandle:SetScript("OnDragStop", function()
-        host:StopMovingOrSizing()
-    end)
+    ConfigureManagedHeaderDrag(dragHandle, MANAGED_GROUPS_BY_KEY.BUFFS)
 
     local container = CreateFrame(
         "AuraContainer",
@@ -2250,10 +2493,10 @@ local function InitializeDebuffAuraButton(auraButton)
     InitializeManagedBarPresentation(auraButton, ManagedPrototype.currentBarStyles.DEBUFFS, "DEBUFFS")
 end
 
-local function CreateManagedDebuffPrototype(buffContainer)
-    local placement = MANAGED_DEBUFF_BELOW_PLACEMENT
-    local appliedSettings = GetSupportedManagedBelowSettings(placement)
-    local offsetX, offsetY, hostOffsetX, hostOffsetY = GetManagedBelowPosition(appliedSettings)
+local function CreateManagedDebuffPrototype()
+    local placement = MANAGED_DEBUFF_PLACEMENT
+    local appliedState = GetSupportedManagedPlacementState(placement)
+        or BuildDefaultManagedPlacementState(placement)
     local groupConfig = ManagedPrototype.startupConfig.DEBUFFS
     local barStyle = groupConfig.barStyle
     local headerStyle = groupConfig.headerStyle
@@ -2267,21 +2510,24 @@ local function CreateManagedDebuffPrototype(buffContainer)
         headerStyle.width + (HOST_PADDING * 2),
         headerStyle.height + headerStyle.firstRowGap
     )
-    SetManagedBelowHostPoint(host, buffContainer, hostOffsetX, hostOffsetY)
-    RecordManagedBelowPlacement(ManagedPrototype, placement, offsetX, offsetY)
+    ManagedPrototype.debuffHost = host
+    SetManagedHostPoint(ManagedPrototype, placement, appliedState, false)
+    RecordManagedPlacement(ManagedPrototype, placement, appliedState)
     host:SetFrameStrata("MEDIUM")
     host:SetScale(groupConfig.scale)
     host:SetAlpha(groupConfig.alpha)
+    host:SetMovable(true)
     host:Hide()
 
     local header = CreateFrame(
-        "Frame",
+        "Button",
         nil,
         host,
         _G.BackdropTemplateMixin and "BackdropTemplate"
     )
     header:SetPoint("TOPLEFT", host, "TOPLEFT", HOST_PADDING, 0)
     StyleManagedGroupHeader(header, headerStyle)
+    ConfigureManagedHeaderDrag(header, MANAGED_GROUPS_BY_KEY.DEBUFFS)
 
     local container = CreateFrame(
         "AuraContainer",
@@ -2330,7 +2576,6 @@ local function CreateManagedDebuffPrototype(buffContainer)
         ApplyManagedGroupSort(ManagedPrototype, "DEBUFFS", NEXT_SORT_MODE[currentSortMode])
     end)
 
-    ManagedPrototype.debuffHost = host
     ManagedPrototype.debuffContainer = container
     ManagedPrototype.debuffSortButton = sortButton
     ManagedPrototype.groupHeaders.DEBUFFS = header
@@ -2349,10 +2594,10 @@ local function InitializeEnchantmentAuraButton(auraButton)
     auraButton:SetCancelAuraButtons("RightButtonDown")
 end
 
-local function CreateManagedEnchantmentPrototype(debuffContainer)
-    local placement = MANAGED_ENCHANTMENT_BELOW_PLACEMENT
-    local appliedSettings = GetSupportedManagedBelowSettings(placement)
-    local offsetX, offsetY, hostOffsetX, hostOffsetY = GetManagedBelowPosition(appliedSettings)
+local function CreateManagedEnchantmentPrototype()
+    local placement = MANAGED_ENCHANTMENT_PLACEMENT
+    local appliedState = GetSupportedManagedPlacementState(placement)
+        or BuildDefaultManagedPlacementState(placement)
     local groupConfig = ManagedPrototype.startupConfig.ENCHANTMENTS
     local barStyle = groupConfig.barStyle
     local headerStyle = groupConfig.headerStyle
@@ -2366,21 +2611,24 @@ local function CreateManagedEnchantmentPrototype(debuffContainer)
         headerStyle.width + (HOST_PADDING * 2),
         headerStyle.height + headerStyle.firstRowGap
     )
-    SetManagedBelowHostPoint(host, debuffContainer, hostOffsetX, hostOffsetY)
-    RecordManagedBelowPlacement(ManagedPrototype, placement, offsetX, offsetY)
+    ManagedPrototype.enchantmentHost = host
+    SetManagedHostPoint(ManagedPrototype, placement, appliedState, false)
+    RecordManagedPlacement(ManagedPrototype, placement, appliedState)
     host:SetFrameStrata("MEDIUM")
     host:SetScale(groupConfig.scale)
     host:SetAlpha(groupConfig.alpha)
+    host:SetMovable(true)
     host:Hide()
 
     local header = CreateFrame(
-        "Frame",
+        "Button",
         nil,
         host,
         _G.BackdropTemplateMixin and "BackdropTemplate"
     )
     header:SetPoint("TOPLEFT", host, "TOPLEFT", HOST_PADDING, 0)
     StyleManagedGroupHeader(header, headerStyle)
+    ConfigureManagedHeaderDrag(header, MANAGED_GROUPS_BY_KEY.ENCHANTMENTS)
 
     local container = CreateFrame(
         "AuraContainer",
@@ -2432,7 +2680,6 @@ local function CreateManagedEnchantmentPrototype(debuffContainer)
         },
     })
 
-    ManagedPrototype.enchantmentHost = host
     ManagedPrototype.enchantmentContainer = container
     ManagedPrototype.fishingLureRow = CreateFishingLureRow(host, container)
     ManagedPrototype.groupHeaders.ENCHANTMENTS = header
@@ -2462,7 +2709,7 @@ function ManagedPrototype:Initialize()
     self.currentGroupGrowUp = BuildCurrentGroupGrowUp(startupConfig)
     self.currentGroupSortModes = BuildCurrentGroupSortModes(startupConfig)
     self.currentGroupMaxFrameCounts = BuildCurrentGroupMaxFrameCounts(startupConfig)
-    self.appliedManagedBelowPlacements = {}
+    self.appliedManagedPlacements = {}
     self.groupHeaders = {}
     self.presentationOwners = {
         BUFFS = setmetatable({}, { __mode = "k" }),
@@ -2470,8 +2717,9 @@ function ManagedPrototype:Initialize()
         ENCHANTMENTS = setmetatable({}, { __mode = "k" }),
     }
     CreateManagedAuraPrototype()
-    CreateManagedDebuffPrototype(self.container)
-    CreateManagedEnchantmentPrototype(self.debuffContainer)
+    CreateManagedDebuffPrototype()
+    CreateManagedEnchantmentPrototype()
+    CreateManagedDragEventFrame()
     self:RefreshCandidateFilters()
     self.initializing = nil
     self.initialized = true

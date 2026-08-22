@@ -13,6 +13,8 @@ local defaults = {
     anchorsShown = true,
     syncGroupBars = false,
     hideBlizzardFrames = false,
+    showLegacyBars = true,
+    legacyComparisonMode = false,
     overrides = {},
     groups = {
         {
@@ -277,10 +279,8 @@ function OBB:ToggleAnchors()
         return
     end
     self.db.anchorsShown = not self.db.anchorsShown
-    for _, group in pairs(self.groups) do
-        if group.anchor then
-            group.anchor:SetShown(self.db.anchorsShown)
-        end
+    if self.Bars then
+        self.Bars:ApplyLegacyBarsVisibility()
     end
 end
 

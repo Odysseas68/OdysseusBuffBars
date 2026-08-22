@@ -6,6 +6,7 @@ OBB.Bars = Bars
 local LSM = LibStub and LibStub("LibSharedMedia-3.0", true)
 local ANCHOR_HEIGHT = 18
 local ANCHOR_GAP = 4
+local LEGACY_COMPARISON_GAP = 24
 local RETAIL_12_1_INTERFACE_VERSION = 120100
 local _, _, _, interfaceVersion = GetBuildInfo()
 local IS_RETAIL_12_1_OR_NEWER = interfaceVersion >= RETAIL_12_1_INTERFACE_VERSION
@@ -47,6 +48,17 @@ local function GetPlacementPoints(placement)
     return "TOPLEFT", "BOTTOMLEFT", 0, -8
 end
 
+local function GetLegacyComparisonShiftX(settings)
+    if OBB.db and OBB.db.legacyComparisonMode then
+        return (settings.width or 260) + LEGACY_COMPARISON_GAP
+    end
+    return 0
+end
+
+local function GetLegacyScreenPosition(settings)
+    return (settings.x or 420) + GetLegacyComparisonShiftX(settings), settings.y or -180
+end
+
 local function SaveScreenPosition(group, settings)
     local left = group:GetLeft()
     local top = group:GetTop()
@@ -54,7 +66,7 @@ local function SaveScreenPosition(group, settings)
     if not left or not top or not parentTop then
         return false
     end
-    settings.x = left
+    settings.x = left - GetLegacyComparisonShiftX(settings)
     settings.y = top - parentTop
     return true
 end
@@ -66,7 +78,8 @@ local function DetachGroupToScreen(group, settings)
     settings.anchorTo = nil
     settings.placement = "SCREEN"
     group:ClearAllPoints()
-    group:SetPoint("TOPLEFT", UIParent, "TOPLEFT", settings.x, settings.y)
+    local screenX, screenY = GetLegacyScreenPosition(settings)
+    group:SetPoint("TOPLEFT", UIParent, "TOPLEFT", screenX, screenY)
     return true
 end
 
@@ -282,6 +295,24 @@ function Bars:Initialize()
     end
 end
 
+function Bars:ApplyLegacyBarsVisibility()
+    local shown = OBB.db and (OBB.db.legacyComparisonMode or OBB.db.showLegacyBars ~= false)
+    for _, group in pairs(OBB.groups) do
+        group:SetShown(shown)
+        if group.anchor then
+            group.anchor:SetShown(shown and OBB.db.anchorsShown)
+        end
+        for _, bar in ipairs(group.bars or {}) do
+            if shown and bar:IsShown() then
+                self:UpdateCancelButton(bar, bar.data)
+            else
+                self:HideTooltip(bar, bar)
+                self:ClearCancelButton(bar)
+            end
+        end
+    end
+end
+
 function Bars:CreateGroup(settings)
     if OBB.groups[settings.id] then
         return OBB.groups[settings.id]
@@ -309,7 +340,7 @@ function Bars:CreateGroup(settings)
     anchor.text = EnsureFontString(anchor, "OVERLAY", "CENTER")
     anchor.text:SetAllPoints(anchor)
     anchor.text:SetText(settings.name)
-    anchor:SetShown(OBB.db.anchorsShown)
+    anchor:Hide()
     anchor:SetScript("OnDragStart", function()
         if OBB.Config and OBB.Config:IsCombatLocked() then
             OBB.Config:WarnCombat()
@@ -351,6 +382,7 @@ function Bars:CreateGroup(settings)
     group:SetMovable(true)
     group.anchor = anchor
     OBB.groups[settings.id] = group
+    self:ApplyLegacyBarsVisibility()
     return group
 end
 
@@ -386,7 +418,8 @@ function Bars:SetGroupPosition(group, settings)
             return
         end
     end
-    group:SetPoint("TOPLEFT", UIParent, "TOPLEFT", settings.x or 420, settings.y or -180)
+    local screenX, screenY = GetLegacyScreenPosition(settings)
+    group:SetPoint("TOPLEFT", UIParent, "TOPLEFT", screenX, screenY)
 end
 
 function Bars:UpdateAllGroupPositions()
@@ -553,5 +586,5 @@ function Bars:UpdateGroup(settings, auraData)
     if not group.isDraggingAnchor then
         self:SetGroupPosition(group, settings)
     end
-    group:Show()
+    self:ApplyLegacyBarsVisibility()
 end

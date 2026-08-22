@@ -67,6 +67,11 @@
 - [x] Consume saved DEBUFFS/ENCHANTMENTS BELOW offsets for the exact default `BUFFS SCREEN -> DEBUFFS BELOW BUFFS -> ENCHANTMENTS BELOW DEBUFFS` graph, anchoring child hosts to parent managed-container bounds with `offsetX - 4`, unchanged `offsetY`, and no header-height subtraction.
 - [x] Route `Reset Positions` through one `Config:Apply()` call while retaining its existing SavedVariables mutations and legacy refresh behavior.
 - [x] Runtime-validate startup/live/repeated placement apply, reset, nondefault offsets, mixed growth and scale, empty managed bounds, combat sizing/chaining, and native weapon-transition recovery without AuraButton enumeration, manual container sizing, placement retry, or container reanchoring.
+- [x] Add and runtime-validate DEBUFFS and ENCHANTMENTS SCREEN-root startup/live placement while preserving their supported BELOW dependencies and the exact SCREEN (`x - 4`, `y + 22`) and BELOW (`offsetX - 4`, unchanged `offsetY`) translations.
+- [x] Add and runtime-validate independent managed dragging for every effective unlocked SCREEN root, shared-coordinate persistence, legacy position synchronization, anchored-child following/refusal, reload, Reset Positions, mixed supported topologies, and lock behavior.
+- [x] Reject drag start in combat; if combat interrupts an active managed drag, stop without persisting the interrupted location and restore the prior applied SCREEN point after combat without adding a general placement retry queue.
+- [x] Add and runtime-validate the development-only `showLegacyBars` presentation gate while keeping the legacy backend, scanning/events/caches/configuration/SavedVariables, managed prototype, `anchorsShown`, and Blizzard-frame visibility independent.
+- [x] Add and runtime-validate `legacyComparisonMode` precedence and side-by-side presentation: shift each effective legacy SCREEN root by its width plus 24 UI units without mutating real placement, double-shifting children, or introducing drag drift.
 
 ## Live 12.1 Isolated Managed Player-DEBUFFS Prototype
 
@@ -76,7 +81,7 @@
 - [x] Keep sorting and dynamic self-sizing Blizzard-managed, with prototype-local Default, Name, and Time Left selection.
 - [x] Intentionally omit DEBUFFS candidate spell-ID filters because general player-HARMFUL whitelist/blacklist parity is unavailable for non-`NeverSecret` auras.
 - [x] Intentionally omit right-click cancellation and secure cancellation overlays for player HARMFUL auras.
-- [x] Anchor the DEBUFFS prototype below the dynamically self-sizing BUFFS container through an ordinary `DisableUntrustedLayoutScriptsTemplate` host with an eight-pixel gap and remove independent DEBUFFS dragging.
+- [x] Anchor the DEBUFFS prototype below the dynamically self-sizing BUFFS container through an ordinary `DisableUntrustedLayoutScriptsTemplate` host with an eight-pixel default gap; later extend the same host to validated SCREEN placement and independent SCREEN-root dragging.
 - [x] Validate core managed player-DEBUFFS runtime behavior on Retail Live `12.1.0.69273`, interface `120100`.
 - [x] Validate broad player `HARMFUL` display, simultaneous debuffs, combat additions/refreshes/removals, icons, names, application counts, duration text/bars, dynamic grow/shrink, and simultaneous managed BUFFS/DEBUFFS operation.
 - [x] Validate Default sorting through `AuraContainerSortMethod.Default` with `AuraContainerSortDirection.Normal` without reinterpreting Blizzard's default ordering.
@@ -140,9 +145,9 @@
 ## Remaining Migration Work
 
 - [x] Implement and runtime-validate ENCHANTMENTS `growUp` while keeping Fishing Lure as a fixed footer outside FlowLayout in both directions.
-- [ ] Add remaining host placement/chaining parity only after research and runtime validation: DEBUFFS/ENCHANTMENTS SCREEN roots, arbitrary `anchorTo` graphs, BUFFS as a child, BELOW beyond the exact default chain, LEFT/RIGHT, ABOVE, and cycle policy.
+- [ ] Add remaining host placement/chaining parity only after research and runtime validation: arbitrary `anchorTo` graphs, BUFFS as a child, BELOW beyond the supported parent relationships, LEFT/RIGHT, ABOVE, and broader cycle policy.
 - [ ] Retain startup/reload-only status for unsupported geometry/layout properties until each live mutation path is explicitly implemented and runtime validated.
-- [ ] Add managed drag persistence plus `lock` and `anchorsShown` parity; the current checkpoint consumes existing saved placement but does not add managed dragging or visibility controls.
+- [ ] Add managed `anchorsShown`/header-visibility synchronization; managed SCREEN-root drag persistence and lock behavior are complete for the supported topology.
 - [ ] Research a future full-bounds ENCHANTMENTS parent if downstream chaining is required; the ordinary Fishing Lure footer remains outside the terminal ENCHANTMENTS container and is not included in its managed bounds.
 - [ ] Decide whether the managed empty-container `1 x 1` bound should remain an accepted parity difference from the legacy one-row minimum; do not fake a minimum or manually size the container without new research and validation.
 - [ ] Complete remaining configuration integration, including timed/timeless parity, remaining behavior/filter settings, and saved override composition beyond current behavior.
@@ -160,5 +165,6 @@
 - [ ] Validate final production configuration, combat behavior, rollback, and SavedVariables compatibility.
 - [ ] Remove temporary scanner and tooltip containment only after all required groups complete production migration.
 - [ ] Remove obsolete legacy scanner caches, events, ordinary bars, and cancellation overlays only after complete cutover.
+- [ ] Remove the temporary legacy visibility/comparison controls and presentation-offset path when the legacy renderer is retired.
 
 The overall Retail 12.1 migration remains incomplete.
