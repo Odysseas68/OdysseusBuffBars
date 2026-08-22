@@ -63,6 +63,10 @@
 - [x] Runtime-validate BUFFS `growUp` out of combat and through combat aura behavior.
 - [ ] Obtain equivalent direct DEBUFFS-specific `growUp` runtime coverage if still useful; current implementation uses the same supported FlowLayout path but is not claimed as directly tested.
 - [x] Live-apply and runtime-validate ENCHANTMENTS saved `growUp` through the shared FlowLayout path without enabling its legacy global sort or `maxBars` settings.
+- [x] Consume saved BUFFS `SCREEN` coordinates at startup and live out of combat by translating the logical stack top-left to the ordinary host (`x - 4`, `y + 22`) without reanchoring the managed container or applying scale compensation.
+- [x] Consume saved DEBUFFS/ENCHANTMENTS BELOW offsets for the exact default `BUFFS SCREEN -> DEBUFFS BELOW BUFFS -> ENCHANTMENTS BELOW DEBUFFS` graph, anchoring child hosts to parent managed-container bounds with `offsetX - 4`, unchanged `offsetY`, and no header-height subtraction.
+- [x] Route `Reset Positions` through one `Config:Apply()` call while retaining its existing SavedVariables mutations and legacy refresh behavior.
+- [x] Runtime-validate startup/live/repeated placement apply, reset, nondefault offsets, mixed growth and scale, empty managed bounds, combat sizing/chaining, and native weapon-transition recovery without AuraButton enumeration, manual container sizing, placement retry, or container reanchoring.
 
 ## Live 12.1 Isolated Managed Player-DEBUFFS Prototype
 
@@ -136,9 +140,11 @@
 ## Remaining Migration Work
 
 - [x] Implement and runtime-validate ENCHANTMENTS `growUp` while keeping Fishing Lure as a fixed footer outside FlowLayout in both directions.
-- [ ] Add remaining host placement/chaining parity: SCREEN positioning, BELOW beyond the validated default chain, LEFT/RIGHT placement, ABOVE research/design, x/y coordinate translation, and `anchorTo`/offset synchronization without taking layout ownership from Blizzard.
+- [ ] Add remaining host placement/chaining parity only after research and runtime validation: DEBUFFS/ENCHANTMENTS SCREEN roots, arbitrary `anchorTo` graphs, BUFFS as a child, BELOW beyond the exact default chain, LEFT/RIGHT, ABOVE, and cycle policy.
 - [ ] Retain startup/reload-only status for unsupported geometry/layout properties until each live mutation path is explicitly implemented and runtime validated.
-- [ ] Persist managed prototype position.
+- [ ] Add managed drag persistence plus `lock` and `anchorsShown` parity; the current checkpoint consumes existing saved placement but does not add managed dragging or visibility controls.
+- [ ] Research a future full-bounds ENCHANTMENTS parent if downstream chaining is required; the ordinary Fishing Lure footer remains outside the terminal ENCHANTMENTS container and is not included in its managed bounds.
+- [ ] Decide whether the managed empty-container `1 x 1` bound should remain an accepted parity difference from the legacy one-row minimum; do not fake a minimum or manually size the container without new research and validation.
 - [ ] Complete remaining configuration integration, including timed/timeless parity, remaining behavior/filter settings, and saved override composition beyond current behavior.
 - [ ] Clean up or relabel legacy-only ENCHANTMENTS sort/maximum controls so the UI reflects the intentional managed 7+2+1 and Slot/Normal policy.
 - [ ] Resolve native item-enchantment filtering/hiding parity before claiming full ENCHANTMENTS configuration equivalence.

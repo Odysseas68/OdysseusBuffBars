@@ -160,10 +160,13 @@ The TOC must load only this addon's active files and bundled libraries. The old 
   - Do not invent or recommend an addon API for changing another Edit Mode system's visibility.
 - Phase B.2 architectural direction, not completed behavior:
   - Retain an independent position/root frame and anchor the self-sizing managed container below or within it without circular size dependencies. Let the managed container own its calculated size.
+  - Apply managed placement only by reanchoring ordinary addon-owned hosts; never externally reanchor or reparent the self-sizing `AuraContainer`.
+  - For the runtime-validated `BUFFS SCREEN -> DEBUFFS BELOW BUFFS -> ENCHANTMENTS BELOW DEBUFFS` graph, anchor each child host to the preceding managed container's actual bounds. Do not count managed frames, synthesize a minimum stack height, or manually size a managed container.
+  - Consume only explicitly supported saved placement graphs. Leave unsupported roots, directions, and dependency shapes unchanged rather than approximating them or mutating SavedVariables. Placement mutation is out-of-combat only and has no retry queue.
   - If background or chrome must follow the managed bounds, use a separate ordinary chrome frame and apply `DisableUntrustedLayoutScriptsTemplate` where required by the verified secure-layout design.
   - Do not resize the managed container from a custom `OnSizeChanged`, reparent managed AuraButtons, or mirror managed auras into ordinary bars.
   - Blizzard's secure managed pipeline performs layout during combat, but source inspection did not prove arbitrary addon `SetHeight` calls from a callback combat-safe. Combat-time anchoring, protection state, and chrome propagation require PTR validation; call behavior combat-safe only when supported by verified Blizzard source or completed PTR testing.
-- Phase B.2 runtime validation remains required for non-circular root/container/chrome anchors, combat-time anchor propagation, frame protection state, empty-container one-pixel bounds, and same-frame chrome resizing during managed aura reuse. Do not mark these checks complete without current Retail Live evidence or clearly scoped future PTR evidence when testing unreleased changes.
+- The exact supported host-placement graph has Retail Live validation for startup/live apply, saved offsets, reset, mixed growth/scale, combat sizing/chaining, empty managed bounds, and weapon-transition recovery. Broader root/direction graphs, drag persistence, lock/visibility parity, and future full-bounds chrome remain unvalidated. Do not generalize the narrow result without current Retail Live evidence or clearly scoped future PTR evidence when testing unreleased changes.
 
 ## Historical Reference Notes
 - The old local `Reference\ElkBuffBars\` tree is no longer present in this repository and must not be assumed available for future work.

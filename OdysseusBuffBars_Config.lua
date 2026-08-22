@@ -551,8 +551,7 @@ function Config:ResetGroupPositions()
         end
     end
 
-    OBB:RefreshAll()
-    self:RefreshActivePage()
+    self:Apply()
 end
 
 function Config:RefreshActivePage()

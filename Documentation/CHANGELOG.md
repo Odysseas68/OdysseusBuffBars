@@ -42,6 +42,8 @@ Historical development prior to the creation of this document is intentionally n
 - Replaced initial-login-only native enchant recovery with a bounded every-world-transition quiet-turn recovery protected by epochs/generations and able to complete once after combat.
 - Removed temporary transition trace instrumentation after diagnosis; no trace command or routine diagnostic chat output remains.
 - Extended the shared managed growth-state/helper path to ENCHANTMENTS while keeping its global sort and `maxBars` semantics intentionally separate.
+- Added startup and live out-of-combat managed placement synchronization for saved BUFFS `SCREEN` coordinates and the exact default `BUFFS SCREEN -> DEBUFFS BELOW BUFFS -> ENCHANTMENTS BELOW DEBUFFS` graph. Only ordinary hosts move; managed containers retain Blizzard-owned sizing and anchors.
+- Changed `Reset Positions` to finish through the existing single `Config:Apply()` bridge after preserving the same SavedVariables reset values.
 
 ### Compatibility
 
@@ -83,4 +85,5 @@ Historical development prior to the creation of this document is intentionally n
 - Runtime-validated live LEFT/RIGHT icon changes, host alpha/scale, BUFFS/DEBUFFS saved sorting and maximum counts, mixed-scale chaining, and BUFFS growth direction; DEBUFFS growth uses the same supported implementation without an equivalent direct test claim.
 - Runtime-validated MainHand native-row recovery after portal, Home teleport, Hearthstone, dungeon, Delve/no-loading-screen, and legitimate no-enchant transitions, followed by fresh enchant application, without manual refresh, Lua errors, or trace spam.
 - Runtime-validated ENCHANTMENTS DOWN/UP switching, reload persistence, mixed-source presentation, geometry/icon changes while UP, loading and no-enchant transitions, unchanged native recovery without growth reset, and combat behavior; the Fishing Lure remained a fixed footer outside FlowLayout.
-- Kept remaining placement/host parity, remaining behavior/filter settings, legacy-only ENCHANTMENTS control cleanup, direct OffHand/both-slot transition coverage, persistence, production cutover, rollback policy, and eventual legacy cleanup pending.
+- Runtime-validated saved BUFFS screen placement, DEBUFFS/ENCHANTMENTS BELOW offsets, reset, repeated apply, mixed growth/scale, empty managed bounds, combat sizing/chaining, and native weapon-transition recovery without container reanchoring, manual sizing, or placement retry.
+- Kept unsupported roots/anchors/directions, managed drag/lock/anchor-visibility parity, future full ENCHANTMENTS bounds, remaining behavior/filter settings, legacy-only ENCHANTMENTS control cleanup, direct OffHand/both-slot transition coverage, production cutover, rollback policy, and eventual legacy cleanup pending.
