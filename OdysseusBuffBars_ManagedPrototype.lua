@@ -120,7 +120,7 @@ local ENCHANTMENT_HEADER_STYLE = {
     fontObject = "GameFontHighlightSmall",
     text = "ENCHANTMENTS",
 }
-local MAX_AURAS = 30
+local ENHANCEMENT_HELPFUL_MAX_AURAS = 7
 local HOST_PADDING = 4
 local MANAGED_GROUP_GAP = 8
 local AURA_GROUP_KEY = "Helpful"
@@ -161,9 +161,22 @@ local SAVED_SORT_MODES = {
 }
 
 local MANAGED_GROUPS = {
-    { key = "BUFFS", id = 1 },
-    { key = "DEBUFFS", id = 2 },
-    { key = "ENCHANTMENTS", id = 3 },
+    { key = "BUFFS", id = 1, hostKey = "host" },
+    { key = "DEBUFFS", id = 2, hostKey = "debuffHost" },
+    { key = "ENCHANTMENTS", id = 3, hostKey = "enchantmentHost" },
+}
+
+local CONFIG_MANAGED_AURA_GROUPS = {
+    BUFFS = {
+        containerKey = "container",
+        auraGroupKey = AURA_GROUP_KEY,
+        buttonKey = "sortButton",
+    },
+    DEBUFFS = {
+        containerKey = "debuffContainer",
+        auraGroupKey = DEBUFF_AURA_GROUP_KEY,
+        buttonKey = "debuffSortButton",
+    },
 }
 
 local function GetValidatedNumber(value, fallback, minimum, maximum)
@@ -318,10 +331,11 @@ local function BuildManagedGroupConfig(
         spacing = GetValidatedNumber(settings and settings.spacing, fallbackSpacing, 0, 16),
         scale = GetValidatedNumber(settings and settings.scale, 1, 0.5, 2),
         alpha = GetValidatedNumber(settings and settings.alpha, 1, 0, 1),
+        growUp = consumeBehavior and settings and settings.growUp == true or false,
         sortMode = consumeBehavior and (savedSortMode or INITIAL_PROTOTYPE_SORT_MODE) or INITIAL_PROTOTYPE_SORT_MODE,
         maxBars = consumeBehavior
             and GetValidatedInteger(settings and settings.maxBars, fallbackMaxBars, 1, 80)
-            or MAX_AURAS,
+            or fallbackMaxBars,
     }
 end
 
@@ -349,15 +363,16 @@ local function BuildManagedStartupConfig()
             40,
             true
         ),
-        -- ENCHANTMENTS keeps the validated prototype's separate TIMELEFT/30
-        -- HelpfulEnhancements behavior; its saved sort/maxBars remain deferred.
+        -- ENCHANTMENTS keeps the validated prototype's separate TIMELEFT
+        -- HelpfulEnhancements behavior and fixed internal capacity; its saved
+        -- sort/maxBars remain deferred.
         ENCHANTMENTS = BuildManagedGroupConfig(
             3,
             "ENCHANTMENTS",
             ENCHANTMENT_BAR_STYLE,
             ENCHANTMENT_HEADER_STYLE,
             ENCHANTMENT_BAR_SPACING,
-            MAX_AURAS,
+            ENHANCEMENT_HELPFUL_MAX_AURAS,
             false
         ),
     }
@@ -378,12 +393,59 @@ local function BuildCurrentBarStyles(startupConfig)
     return currentStyles
 end
 
-local function BuildLivePresentationStyle(settings, fallback, fallbackSpacing)
+local function BuildCurrentGroupAlphas(startupConfig)
+    local currentAlphas = {}
+
+    for _, group in ipairs(MANAGED_GROUPS) do
+        currentAlphas[group.key] = startupConfig[group.key].alpha
+    end
+
+    return currentAlphas
+end
+
+local function BuildCurrentGroupScales(startupConfig)
+    local currentScales = {}
+
+    for _, group in ipairs(MANAGED_GROUPS) do
+        currentScales[group.key] = startupConfig[group.key].scale
+    end
+
+    return currentScales
+end
+
+local function BuildCurrentGroupGrowUp(startupConfig)
+    return {
+        BUFFS = startupConfig.BUFFS.growUp,
+        DEBUFFS = startupConfig.DEBUFFS.growUp,
+    }
+end
+
+local function BuildCurrentGroupSortModes(startupConfig)
+    return {
+        BUFFS = startupConfig.BUFFS.sortMode,
+        DEBUFFS = startupConfig.DEBUFFS.sortMode,
+    }
+end
+
+local function BuildCurrentGroupMaxFrameCounts(startupConfig)
+    return {
+        BUFFS = startupConfig.BUFFS.maxBars,
+        DEBUFFS = startupConfig.DEBUFFS.maxBars,
+    }
+end
+
+local function BuildLivePresentationStyle(settings, fallback, fallbackSpacing, fallbackIconSide)
     local fontSize = GetValidatedNumber(settings and settings.fontSize, fallback.fontSize, 8, 24)
+    local iconSide = fallbackIconSide
+    if settings and (settings.iconSide == "LEFT" or settings.iconSide == "RIGHT") then
+        iconSide = settings.iconSide
+    end
+
     return {
         width = GetValidatedNumber(settings and settings.width, fallback.width, 120, 500),
         height = GetValidatedNumber(settings and settings.height, fallback.height, 12, 36),
         spacing = GetValidatedNumber(settings and settings.spacing, fallbackSpacing, 0, 16),
+        iconSide = iconSide,
         fontSize = fontSize,
         countFontSize = math.max(10, fontSize - 1),
         fillColor = CopyColor(settings and settings.barColor, fallback.fillColor),
@@ -690,7 +752,20 @@ end
 
 local automaticDiscoveryFrame
 local automaticDiscoveryPending
+local nativeEnchantmentRecoveryDeferredForCombat
 local lastAppliedHelpfulEnhancementSpellIDs
+
+local function UpdateAutomaticDiscoveryFrameRegenRegistration()
+    if not automaticDiscoveryFrame then
+        return
+    end
+
+    if automaticDiscoveryPending or nativeEnchantmentRecoveryDeferredForCombat then
+        automaticDiscoveryFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+    else
+        automaticDiscoveryFrame:UnregisterEvent("PLAYER_REGEN_ENABLED")
+    end
+end
 
 local function AreSpellIDSetsEqual(leftSpellIDs, rightSpellIDs)
     if leftSpellIDs == nil or rightSpellIDs == nil then
@@ -714,15 +789,7 @@ end
 
 local function SetAutomaticHelpfulEnhancementDiscoveryPending(pending)
     automaticDiscoveryPending = pending or nil
-    if not automaticDiscoveryFrame then
-        return
-    end
-
-    if automaticDiscoveryPending then
-        automaticDiscoveryFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
-    else
-        automaticDiscoveryFrame:UnregisterEvent("PLAYER_REGEN_ENABLED")
-    end
+    UpdateAutomaticDiscoveryFrameRegenRegistration()
 end
 
 local function RunHelpfulEnhancementDiscovery(printDetails)
@@ -1383,6 +1450,30 @@ local function ApplyManagedRowHeight(owner, presentation, style)
     end
 end
 
+local function ApplyManagedRowIconSide(owner, presentation, style, previousIconSide)
+    local iconOffset = style.height + style.iconGap
+
+    presentation.icon:ClearPoint(previousIconSide)
+    if style.iconSide == "RIGHT" then
+        presentation.icon:SetPoint("RIGHT", owner, "RIGHT")
+        presentation.background:SetPoint("TOPLEFT", owner, "TOPLEFT")
+        presentation.background:SetPoint("BOTTOMRIGHT", owner, "BOTTOMRIGHT", -iconOffset, 0)
+    else
+        presentation.icon:SetPoint("LEFT", owner, "LEFT")
+        presentation.background:SetPoint("TOPLEFT", owner, "TOPLEFT", iconOffset, 0)
+        presentation.background:SetPoint("BOTTOMRIGHT", owner, "BOTTOMRIGHT")
+    end
+end
+
+local function BuildManagedItemEnchantmentLayout(elementWidth, elementHeight, elementSpacing)
+    return {
+        elementWidth = elementWidth,
+        elementHeight = elementHeight,
+        elementSpacing = elementSpacing,
+        placement = CustomAuraContainerItemEnchantmentPlacement.AfterAuraGroups,
+    }
+end
+
 local function ApplyManagedLayoutState(prototype, groupKey, style, widthChanged)
     local layout = {
         elementWidth = style.width,
@@ -1396,7 +1487,11 @@ local function ApplyManagedLayoutState(prototype, groupKey, style, widthChanged)
         prototype.debuffContainer:SetAuraGroupLayout(DEBUFF_AURA_GROUP_KEY, layout)
     else
         prototype.enchantmentContainer:SetAuraGroupLayout(ENHANCEMENT_AURA_GROUP_KEY, layout)
-        prototype.enchantmentContainer:SetItemEnchantmentLayout(layout)
+        prototype.enchantmentContainer:SetItemEnchantmentLayout(BuildManagedItemEnchantmentLayout(
+            style.width,
+            style.height,
+            style.spacing
+        ))
     end
 
     if widthChanged then
@@ -1404,10 +1499,62 @@ local function ApplyManagedLayoutState(prototype, groupKey, style, widthChanged)
     end
 end
 
+local function ApplyManagedGroupSort(prototype, groupKey, sortMode)
+    local group = CONFIG_MANAGED_AURA_GROUPS[groupKey]
+    local sort = SORT_MODES[sortMode]
+    if not group or not sort then
+        return false
+    end
+
+    prototype[group.containerKey]:SetAuraGroupSortMethod(
+        group.auraGroupKey,
+        sort.method,
+        sort.direction
+    )
+    prototype[group.buttonKey]:SetText("Sort: " .. sort.label)
+    prototype.currentGroupSortModes[groupKey] = sortMode
+    return true
+end
+
+local function ApplyManagedGroupMaxFrameCount(prototype, groupKey, maxFrameCount)
+    local group = CONFIG_MANAGED_AURA_GROUPS[groupKey]
+    if not group then
+        return false
+    end
+
+    prototype[group.containerKey]:SetAuraGroupMaxFrameCount(group.auraGroupKey, maxFrameCount)
+    prototype.currentGroupMaxFrameCounts[groupKey] = maxFrameCount
+    return true
+end
+
+local function SetManagedContainerGrowUp(container, growUp)
+    container:SetFlowLayoutAnchorPoint(growUp and "BOTTOMLEFT" or "TOPLEFT")
+    container:SetFlowLayoutGrowthDirection(
+        AnchorUtil.FlowDirection.Right,
+        growUp and AnchorUtil.FlowDirection.Up or AnchorUtil.FlowDirection.Down
+    )
+end
+
+local function ApplyManagedGroupGrowUp(prototype, groupKey, growUp)
+    local group = CONFIG_MANAGED_AURA_GROUPS[groupKey]
+    if not group then
+        return false
+    end
+
+    SetManagedContainerGrowUp(prototype[group.containerKey], growUp)
+    prototype.currentGroupGrowUp[groupKey] = growUp
+    return true
+end
+
 function ManagedPrototype:ApplyConfiguration(_reason)
     if not self.initialized
         or not self.startupConfig
         or not self.currentBarStyles
+        or not self.currentGroupAlphas
+        or not self.currentGroupScales
+        or not self.currentGroupGrowUp
+        or not self.currentGroupSortModes
+        or not self.currentGroupMaxFrameCounts
         or not self.presentationOwners
     then
         return false, "not initialized"
@@ -1421,23 +1568,63 @@ function ManagedPrototype:ApplyConfiguration(_reason)
 
     for _, group in ipairs(MANAGED_GROUPS) do
         local currentStyle = self.currentBarStyles[group.key]
+        local currentAlpha = self.currentGroupAlphas[group.key]
+        local currentScale = self.currentGroupScales[group.key]
+        local currentGrowUp = self.currentGroupGrowUp[group.key]
         local startupGroup = self.startupConfig[group.key]
+        local settings = GetGroupSettings(group.id)
         local liveStyle = BuildLivePresentationStyle(
-            GetGroupSettings(group.id),
+            settings,
             startupGroup.barStyle,
-            startupGroup.spacing
+            startupGroup.spacing,
+            currentStyle.iconSide
         )
+        local liveAlpha = GetValidatedNumber(settings and settings.alpha, currentAlpha, 0, 1)
+        local liveScale = GetValidatedNumber(settings and settings.scale, currentScale, 0.5, 2)
+        local liveGrowUp = currentGrowUp
+        if currentGrowUp ~= nil and settings and type(settings.growUp) == "boolean" then
+            liveGrowUp = settings.growUp
+        end
         local widthChanged = currentStyle.width ~= liveStyle.width
         local heightChanged = currentStyle.height ~= liveStyle.height
         local spacingChanged = currentStyle.spacing ~= liveStyle.spacing
+        local previousIconSide = currentStyle.iconSide
+        local iconSideChanged = previousIconSide ~= liveStyle.iconSide
+        local alphaChanged = currentAlpha ~= liveAlpha
+        local scaleChanged = currentScale ~= liveScale
+        local currentSortMode = self.currentGroupSortModes[group.key]
+        local liveSortMode = currentSortMode and SAVED_SORT_MODES[settings and settings.sort] or nil
+        local currentMaxFrameCount = self.currentGroupMaxFrameCounts[group.key]
+        local liveMaxFrameCount = currentMaxFrameCount
+            and GetValidatedInteger(settings and settings.maxBars, currentMaxFrameCount, 1, 80)
+            or nil
 
         currentStyle.width = liveStyle.width
         currentStyle.height = liveStyle.height
         currentStyle.spacing = liveStyle.spacing
+        currentStyle.iconSide = liveStyle.iconSide
         currentStyle.fontSize = liveStyle.fontSize
         currentStyle.countFontSize = liveStyle.countFontSize
         currentStyle.fillColor = liveStyle.fillColor
         currentStyle.backgroundColor = liveStyle.backgroundColor
+
+        if alphaChanged then
+            self[group.hostKey]:SetAlpha(liveAlpha)
+            self.currentGroupAlphas[group.key] = liveAlpha
+        end
+        if scaleChanged then
+            self[group.hostKey]:SetScale(liveScale)
+            self.currentGroupScales[group.key] = liveScale
+        end
+        if currentGrowUp ~= nil and currentGrowUp ~= liveGrowUp then
+            ApplyManagedGroupGrowUp(self, group.key, liveGrowUp)
+        end
+        if liveSortMode and currentSortMode ~= liveSortMode then
+            ApplyManagedGroupSort(self, group.key, liveSortMode)
+        end
+        if liveMaxFrameCount and currentMaxFrameCount ~= liveMaxFrameCount then
+            ApplyManagedGroupMaxFrameCount(self, group.key, liveMaxFrameCount)
+        end
 
         for owner, presentation in pairs(self.presentationOwners[group.key]) do
             if widthChanged then
@@ -1445,6 +1632,9 @@ function ManagedPrototype:ApplyConfiguration(_reason)
             end
             if heightChanged then
                 ApplyManagedRowHeight(owner, presentation, currentStyle)
+            end
+            if iconSideChanged then
+                ApplyManagedRowIconSide(owner, presentation, currentStyle, previousIconSide)
             end
             ApplyManagedPresentationStyle(presentation, currentStyle)
         end
@@ -1771,8 +1961,7 @@ local function CreateManagedAuraPrototype()
     container:SetEnabled(false)
     container:SetUnit("player")
     container:SetFlowLayoutAxis(AnchorUtil.FlowLayoutAxis.Vertical)
-    container:SetFlowLayoutAnchorPoint("TOPLEFT")
-    container:SetFlowLayoutGrowthDirection(AnchorUtil.FlowDirection.Right, AnchorUtil.FlowDirection.Down)
+    SetManagedContainerGrowUp(container, groupConfig.growUp)
     local activeSortMode = groupConfig.sortMode
     local activeSort = SORT_MODES[activeSortMode]
     container:AddAuraGroup(AURA_GROUP_KEY, "HELPFUL", {
@@ -1798,10 +1987,8 @@ local function CreateManagedAuraPrototype()
             return
         end
 
-        activeSortMode = NEXT_SORT_MODE[activeSortMode]
-        activeSort = SORT_MODES[activeSortMode]
-        container:SetAuraGroupSortMethod(AURA_GROUP_KEY, activeSort.method, activeSort.direction)
-        sortButton:SetText("Sort: " .. activeSort.label)
+        local currentSortMode = ManagedPrototype.currentGroupSortModes.BUFFS
+        ApplyManagedGroupSort(ManagedPrototype, "BUFFS", NEXT_SORT_MODE[currentSortMode])
     end)
 
     ManagedPrototype.host = host
@@ -1814,56 +2001,83 @@ local function CreateManagedAuraPrototype()
     container:SetEnabled(true)
 
     local filterInitFrame = CreateFrame("Frame")
-    local startupInventoryGeneration
-    local startupInventoryCheckPending
+    local transitionRecoveryPending
+    local transitionInventoryGeneration
+    local transitionInventoryCheckEpoch
+    local transitionRecoveryEpoch = 0
 
-    local function ScheduleStartupInventoryQuietTurn()
-        if startupInventoryGeneration == nil or startupInventoryCheckPending then
+    local function CompleteNativeEnchantmentTransitionRecovery()
+        if not transitionRecoveryPending then
             return
         end
 
-        startupInventoryCheckPending = true
-        local scheduledGeneration = startupInventoryGeneration
+        if _G.InCombatLockdown and _G.InCombatLockdown() then
+            nativeEnchantmentRecoveryDeferredForCombat = true
+            UpdateAutomaticDiscoveryFrameRegenRegistration()
+            return
+        end
+
+        ManagedPrototype.enchantmentContainer:UpdateAllAuras()
+        transitionRecoveryPending = nil
+        nativeEnchantmentRecoveryDeferredForCombat = nil
+        UpdateAutomaticDiscoveryFrameRegenRegistration()
+    end
+
+    local function ScheduleTransitionInventoryQuietTurn()
+        if transitionInventoryGeneration == nil
+            or transitionInventoryCheckEpoch == transitionRecoveryEpoch
+        then
+            return
+        end
+
+        local scheduledEpoch = transitionRecoveryEpoch
+        local scheduledGeneration = transitionInventoryGeneration
+        transitionInventoryCheckEpoch = scheduledEpoch
         C_Timer.After(0, function()
-            startupInventoryCheckPending = nil
-            if startupInventoryGeneration == nil then
+            if transitionInventoryCheckEpoch == scheduledEpoch then
+                transitionInventoryCheckEpoch = nil
+            end
+            if transitionRecoveryEpoch ~= scheduledEpoch or transitionInventoryGeneration == nil then
                 return
             end
 
-            if startupInventoryGeneration ~= scheduledGeneration then
-                ScheduleStartupInventoryQuietTurn()
+            if transitionInventoryGeneration ~= scheduledGeneration then
+                ScheduleTransitionInventoryQuietTurn()
                 return
             end
 
             filterInitFrame:UnregisterEvent("UNIT_INVENTORY_CHANGED")
-            startupInventoryGeneration = nil
-            ManagedPrototype.enchantmentContainer:UpdateAllAuras()
+            transitionInventoryGeneration = nil
+            CompleteNativeEnchantmentTransitionRecovery()
         end)
     end
 
     automaticDiscoveryFrame = filterInitFrame
     filterInitFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     filterInitFrame:RegisterUnitEvent("UNIT_AURA", "player")
-    filterInitFrame:SetScript("OnEvent", function(_, event, eventArg1)
+    filterInitFrame:SetScript("OnEvent", function(_, event)
         if event == "PLAYER_ENTERING_WORLD" then
-            local initialLogin = eventArg1
             ManagedPrototype.enchantmentContainer:UpdateAllAuras()
             AttemptAutomaticHelpfulEnhancementDiscovery("PLAYER_ENTERING_WORLD")
-            if initialLogin then
-                startupInventoryGeneration = 0
-                startupInventoryCheckPending = nil
-                filterInitFrame:RegisterUnitEvent("UNIT_INVENTORY_CHANGED", "player")
-            end
+            transitionRecoveryEpoch = transitionRecoveryEpoch + 1
+            transitionRecoveryPending = true
+            transitionInventoryGeneration = 0
+            nativeEnchantmentRecoveryDeferredForCombat = nil
+            UpdateAutomaticDiscoveryFrameRegenRegistration()
+            filterInitFrame:RegisterUnitEvent("UNIT_INVENTORY_CHANGED", "player")
         elseif event == "UNIT_AURA" then
             AttemptAutomaticHelpfulEnhancementDiscovery("UNIT_AURA player")
         elseif event == "PLAYER_REGEN_ENABLED" then
             if automaticDiscoveryPending then
                 AttemptAutomaticHelpfulEnhancementDiscovery("PLAYER_REGEN_ENABLED", true)
             end
+            if nativeEnchantmentRecoveryDeferredForCombat then
+                CompleteNativeEnchantmentTransitionRecovery()
+            end
         elseif event == "UNIT_INVENTORY_CHANGED" then
-            if startupInventoryGeneration ~= nil then
-                startupInventoryGeneration = startupInventoryGeneration + 1
-                ScheduleStartupInventoryQuietTurn()
+            if transitionInventoryGeneration ~= nil then
+                transitionInventoryGeneration = transitionInventoryGeneration + 1
+                ScheduleTransitionInventoryQuietTurn()
             end
         end
     end)
@@ -1920,8 +2134,7 @@ local function CreateManagedDebuffPrototype(buffContainer)
     container:SetEnabled(false)
     container:SetUnit("player")
     container:SetFlowLayoutAxis(AnchorUtil.FlowLayoutAxis.Vertical)
-    container:SetFlowLayoutAnchorPoint("TOPLEFT")
-    container:SetFlowLayoutGrowthDirection(AnchorUtil.FlowDirection.Right, AnchorUtil.FlowDirection.Down)
+    SetManagedContainerGrowUp(container, groupConfig.growUp)
     local activeSortMode = groupConfig.sortMode
     local activeSort = SORT_MODES[activeSortMode]
     container:AddAuraGroup(DEBUFF_AURA_GROUP_KEY, "HARMFUL", {
@@ -1946,10 +2159,8 @@ local function CreateManagedDebuffPrototype(buffContainer)
             return
         end
 
-        activeSortMode = NEXT_SORT_MODE[activeSortMode]
-        activeSort = SORT_MODES[activeSortMode]
-        container:SetAuraGroupSortMethod(DEBUFF_AURA_GROUP_KEY, activeSort.method, activeSort.direction)
-        sortButton:SetText("Sort: " .. activeSort.label)
+        local currentSortMode = ManagedPrototype.currentGroupSortModes.DEBUFFS
+        ApplyManagedGroupSort(ManagedPrototype, "DEBUFFS", NEXT_SORT_MODE[currentSortMode])
     end)
 
     ManagedPrototype.debuffHost = host
@@ -2020,14 +2231,14 @@ local function CreateManagedEnchantmentPrototype(debuffContainer)
     container:SetFlowLayoutAxis(AnchorUtil.FlowLayoutAxis.Vertical)
     container:SetFlowLayoutAnchorPoint("TOPLEFT")
     container:SetFlowLayoutGrowthDirection(AnchorUtil.FlowDirection.Right, AnchorUtil.FlowDirection.Down)
-    container:SetItemEnchantmentLayout({
-        elementWidth = barStyle.width,
-        elementHeight = barStyle.height,
-        elementSpacing = groupConfig.spacing,
-    })
+    container:SetItemEnchantmentLayout(BuildManagedItemEnchantmentLayout(
+        barStyle.width,
+        barStyle.height,
+        groupConfig.spacing
+    ))
     container:SetItemEnchantmentSortMethod(
-        AuraContainerItemEnchantmentSortMethod.Duration,
-        AuraContainerSortDirection.Reverse
+        AuraContainerItemEnchantmentSortMethod.Slot,
+        AuraContainerSortDirection.Normal
     )
     container:AddItemEnchantment(AuraContainerItemEnchantmentSlot.MainHand, {
         initializeFrame = InitializeEnchantmentAuraButton,
@@ -2076,6 +2287,11 @@ function ManagedPrototype:Initialize()
     self.initializing = true
     self.startupConfig = startupConfig
     self.currentBarStyles = BuildCurrentBarStyles(startupConfig)
+    self.currentGroupAlphas = BuildCurrentGroupAlphas(startupConfig)
+    self.currentGroupScales = BuildCurrentGroupScales(startupConfig)
+    self.currentGroupGrowUp = BuildCurrentGroupGrowUp(startupConfig)
+    self.currentGroupSortModes = BuildCurrentGroupSortModes(startupConfig)
+    self.currentGroupMaxFrameCounts = BuildCurrentGroupMaxFrameCounts(startupConfig)
     self.groupHeaders = {}
     self.presentationOwners = {
         BUFFS = setmetatable({}, { __mode = "k" }),

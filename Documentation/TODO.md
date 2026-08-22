@@ -55,8 +55,13 @@
 - [x] Apply the current presentation state to existing and future/created/reused rows through initializer-owned weak-key presentation tracking without enumerating active managed children or aura identity.
 - [x] Preserve the combat guard: managed live apply returns `false, "combat lockdown"` and does not defer configuration presentation changes.
 - [x] Silence routine automatic managed-routing diagnostics by default while preserving explicit manual diagnostics and unexpected discovery/filter failure output without adding SavedVariables.
-- [ ] Implement and runtime-validate live managed `iconSide` reanchoring; until then, managed icon-side changes require `/reload` even though legacy bars update live.
-- [ ] Runtime-validate live scale and alpha synchronization without broadening managed layout ownership.
+- [x] Runtime-validate live managed LEFT/RIGHT `iconSide` reanchoring for retained and future/reused rows without enumerating active AuraButtons.
+- [x] Runtime-validate live scale and alpha synchronization by applying them to ordinary group hosts, including mixed-scale chaining and inherited ENCHANTMENTS lure presentation.
+- [x] Live-apply BUFFS/DEBUFFS saved sort using Default/Normal, NameOnly/Normal, and ExpirationOnly/Reverse; retain prototype sort buttons as temporary non-persistent overrides that a later config apply can replace.
+- [x] Live-apply BUFFS/DEBUFFS saved `maxBars` through `SetAuraGroupMaxFrameCount` within the existing 1-80 configuration range.
+- [x] Implement BUFFS/DEBUFFS `growUp` through supported FlowLayout anchor/growth settings while preserving the external top-fixed header and chaining topology.
+- [x] Runtime-validate BUFFS `growUp` out of combat and through combat aura behavior.
+- [ ] Obtain equivalent direct DEBUFFS-specific `growUp` runtime coverage if still useful; current implementation uses the same supported FlowLayout path but is not claimed as directly tested.
 
 ## Live 12.1 Isolated Managed Player-DEBUFFS Prototype
 
@@ -84,25 +89,31 @@
 - [x] Implement a third ordinary `DisableUntrustedLayoutScriptsTemplate` host and independent `CustomAuraContainerTemplate` below the self-sizing DEBUFFS container.
 - [x] Register only `AuraContainerItemEnchantmentSlot.MainHand` and `AuraContainerItemEnchantmentSlot.OffHand` through `AddItemEnchantment`, each with `hidePermanent = false`.
 - [x] Use the native equipped-item icon/name, application count, duration text, duration StatusBar, inventory-item tooltip, and `RightButtonDown` cancellation paths.
-- [x] Use ENCHANTMENTS-specific `AuraContainerItemEnchantmentSortMethod.Duration` with `AuraContainerSortDirection.Reverse` for native non-expiring-first, then longest-to-shortest timed ordering; add no selector or other sort mode.
+- [x] Supersede the earlier Duration/Reverse experiment with the production policy: place native item enchantments `AfterAuraGroups` and sort them Slot/Normal, with MainHand before OffHand.
+- [x] Fix managed ENCHANTMENTS capacity at 7+2+1: seven `HelpfulEnhancements`, two registered native slots, and one ordinary Fishing Lure footer; keep legacy ENCHANTMENTS `maxBars` ignored without changing SavedVariables.
 - [x] Keep item-enchantment lifecycle, equipment/enchant refreshes, frame reuse, stale-value clearing, countdowns, and self-sizing Blizzard-managed without addon polling or `OnUpdate`.
-- [x] Add no native item-enchantment filtering, enchant-name resolver, independent SavedVariables, or persistence; keep semantic HELPFUL routing as a separate managed aura-group source. Current live presentation/layout support is limited to font, bar/background colors, width, height, and spacing.
+- [x] Add no native item-enchantment filtering, enchant-name resolver, independent SavedVariables, or persistence; keep semantic HELPFUL routing as a separate managed aura-group source. Current ENCHANTMENTS configuration support covers presentation geometry, colors/font, icon side, and host scale/alpha, but intentionally excludes global sort/max/grow semantics.
 - [x] Confirm on Live that pre-existing MainHand PaperDoll enchantment data can be available while the initial managed row is absent, and that one manual `UpdateAllAuras()` immediately populates it.
 - [x] Prove through repeated cold-login diagnostics that `PLAYER_ENTERING_WORLD` can precede usable timed enchantment data: the first player `UNIT_INVENTORY_CHANGED` exposed enchantID `8051` with zero remaining time, while a subsequent callback exposed a positive remaining duration.
 - [x] Confirm that refreshing on both startup inventory callbacks made the row appear but allowed callback one's incomplete zero-duration snapshot to produce a row without a timer; a later manual `UpdateAllAuras()` after final readiness restored the correct timer.
 - [x] Disprove fixed callback-count recovery through Live diagnostics: timed-ready publication occurred on callbacks 69, 105, and 430 across cold logins, so callback ordinal is not stable.
 - [x] Confirm that isolating the legacy synthetic weapon-enchantment append path did not change the managed cold-login failure.
-- [x] Keep the `PLAYER_ENTERING_WORLD` managed refresh, and on fresh `initialLogin` only register player-filtered `UNIT_INVENTORY_CHANGED`; coalesce the inventory burst through generation checks scheduled with `C_Timer.After(0)` and perform one final managed refresh after a quiet turn.
-- [x] Unregister the startup inventory listener and clear its generation/pending state before the final refresh.
-- [x] Add no fixed delay, callback-count threshold, polling, PaperDoll inspection, synthetic fallback, or permanent inventory-event listener to the native item-enchantment cold-login recovery; HELPFUL routing uses a separate player-filtered `UNIT_AURA` path.
+- [x] Preserve the earlier initial-login quiet-turn recovery as historical validation, then extend its bounded generation/zero-delay pattern to every `PLAYER_ENTERING_WORLD` transition.
+- [x] Reproduce native MainHand row disappearance after loading/world transitions even after PaperDoll state becomes valid; confirm one manual container refresh restores the correct row and duration during diagnosis.
+- [x] Arm one transition epoch on every world entry, coalesce player inventory activity to a quiet turn, reject stale callbacks, unregister the temporary listener, and perform exactly one container-wide native refresh.
+- [x] Retain one pending transition recovery through combat and complete it after `PLAYER_REGEN_ENABLED` without creating a general deferred configuration queue.
+- [x] Keep legitimate no-enchant transitions bounded and terminal; add no polling, repeating timer, native-state reconstruction, or permanent inventory listener.
+- [x] Add no fixed delay, callback-count threshold, polling, PaperDoll inspection, synthetic fallback, or permanent inventory-event listener to native item-enchantment recovery; HELPFUL routing uses a separate player-filtered `UNIT_AURA` path.
 - [x] Live-validate twice that a MainHand enchant active before cold login appears automatically with its timer through the quiet-turn managed refresh, with no manual refresh, duplicate row, or stale zero-duration state.
 - [x] Live-validate MainHand fresh reapplication after login, native equipped-weapon name, native inventory tooltip, and right-click cancellation in the tested non-combat context.
-- [x] Live-validate `/reload` with the MainHand enchant active without enabling the initial-login inventory listener.
+- [x] Preserve the earlier `/reload` MainHand validation as historical evidence; the current recovery subsequently supersedes the initial-login-only listener by arming on every world entry.
 - [x] Confirm no OBB-attributable Lua error, taint, or blocked action was observed during the validated MainHand lifecycle tests.
 - [x] Record `OBBEnchantDiag` as completed temporary research tooling with no runtime or repository dependency.
+- [x] Remove temporary transition trace instrumentation after diagnosis and keep normal runtime silent.
+- [x] Runtime-validate MainHand recovery across a Silvermoon portal return, Home teleport in both directions, Stormwind portal, Hearthstone, dungeon entry/exit, Delve/no-loading-screen behavior, legitimate no-enchant transition, and a fresh enchant afterward, with correct duration and no manual refresh.
 - [ ] Live-validate broader MainHand apply/refresh/remove behavior, charge clearing/count formatting, equipment swaps, and empty `1 x 1` collapse.
 - [ ] Live-validate OffHand independently and simultaneously with MainHand, including equipment swaps and removing one row without disturbing the other.
-- [ ] Live-validate longest-to-shortest duration sorting and managed reordering with two active temporary enchantments.
+- [ ] Live-validate MainHand-before-OffHand Slot/Normal ordering with both native temporary-enchantment rows active.
 - [ ] Live-validate combat cancellation and OffHand cancellation; record any restriction, taint, or blocked action without adding a workaround.
 - [ ] Live-validate BUFFS -> DEBUFFS -> ENCHANTMENTS anchor propagation, managed grow/shrink, rapid enchant churn, and Blizzard-owned post-login apply/remove updates.
 - [ ] Exercise and record permanent/zero-duration behavior with `hidePermanent = false` if a suitable case is available.
@@ -122,16 +133,18 @@
 
 ## Remaining Migration Work
 
-- [ ] Implement the next configuration slices: live icon-side reanchoring, scale/alpha, growth direction, host placement/position synchronization, and remaining behavior/filter settings.
-- [ ] Add live `growUp`, arbitrary placement/chaining, SCREEN/BELOW/LEFT/RIGHT synchronization, and research the unsupported ABOVE architecture without taking layout ownership from Blizzard.
+- [ ] Implement ENCHANTMENTS `growUp`; keep Fishing Lure as a fixed footer unless later research deliberately changes that policy.
+- [ ] Add remaining host placement/chaining parity, including SCREEN/BELOW/LEFT/RIGHT synchronization, and research the unsupported ABOVE architecture without taking layout ownership from Blizzard.
 - [ ] Retain startup/reload-only status for unsupported geometry/layout properties until each live mutation path is explicitly implemented and runtime validated.
 - [ ] Persist managed prototype position.
-- [ ] Persist sort selection and complete final configuration integration, including timed/timeless parity and saved override composition beyond current behavior.
-- [ ] Resolve exact ENCHANTMENTS combined sort/maximum-bar semantics and native item-enchantment filtering/hiding parity before claiming configuration equivalence.
+- [ ] Complete remaining configuration integration, including timed/timeless parity, remaining behavior/filter settings, and saved override composition beyond current behavior.
+- [ ] Clean up or relabel legacy-only ENCHANTMENTS sort/maximum controls so the UI reflects the intentional managed 7+2+1 and Slot/Normal policy.
+- [ ] Resolve native item-enchantment filtering/hiding parity before claiming full ENCHANTMENTS configuration equivalence.
 - [ ] Redesign filter-row discovery for a fully managed backend if supported discovery is still required; do not depend on direct aura identity scanning.
 - [ ] Decide the DEBUFFS filtering product policy after targeted validation, then integrate and cut over DEBUFFS separately.
 - [ ] Complete broader Live validation of native MainHand/OffHand item-enchantment lifecycle and interaction, then integrate the validated native and semantic HELPFUL sources into production ENCHANTMENTS.
 - [ ] Broaden runtime testing across classes, effects, bobbers, profession tools, and lure variants without converting observed IDs into compatibility tables.
+- [ ] Investigate the transient observation where ordinary HELPFUL auras with `classification=nil` briefly appeared in ENCHANTMENTS before refresh; observed spell IDs were `1287425`, `1281559`, and `296553`, with no established cause or fix.
 - [ ] Optionally research a supported localized temporary-enchant effect name beyond equipped-item/slot presentation.
 - [ ] Optionally research safe profession-tool lure cancellation; do not claim slot-28 cancellation until runtime validated.
 - [ ] Research supported/Edit Mode handling for Blizzard BuffFrame visibility; do not claim the combat reappearance issue is fixed.

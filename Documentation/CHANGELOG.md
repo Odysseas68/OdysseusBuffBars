@@ -21,7 +21,7 @@ Historical development prior to the creation of this document is intentionally n
 
 - Renamed the addon, manifest, and canonical Lua files from `OdysseusBuffBarsTest` to `OdysseusBuffBars`.
 - Adopted `OdysseusBuffBarsDB` as the canonical SavedVariables table.
-- Changed the managed layout to let `CustomAuraContainer` self-size from displayed AuraButtons; the configured maximum of thirty remains capacity only.
+- At the Phase B.2 checkpoint, changed the managed layout to let `CustomAuraContainer` self-size from displayed AuraButtons; the configured maximum of thirty remained capacity only.
 - Synchronized allowed out-of-combat mutations from the existing BUFFS filter editor to the long-lived managed group without polling, a duplicate editor, or an `Apply Filters` button.
 - Added temporary Retail 12.1 containment for legacy direct-scanner failures and suppressed the incompatible legacy indexed-aura tooltip path on Retail 12.1+.
 - Anchored the managed DEBUFFS host below the dynamically self-sizing BUFFS container with a one-directional eight-pixel gap and removed independent DEBUFFS dragging.
@@ -34,6 +34,13 @@ Historical development prior to the creation of this document is intentionally n
 - Added copied startup consumption of existing group name, geometry, spacing, font, complete bar/background colors, icon side, scale, and alpha, plus compatible BUFFS/DEBUFFS sort and maximum-bar settings.
 - Bridged the existing out-of-combat `Config:Apply()` path to centralized managed presentation/layout synchronization for font size, complete bar/background colors, width, height, and row spacing without duplicating `syncGroupBars` behavior.
 - Silenced routine automatic managed-routing diagnostics by default behind a local debug gate while retaining explicit manual diagnostics and unexpected discovery/filter failure output.
+- Added live out-of-combat managed `iconSide` reanchoring for retained and future/reused rows while preserving current height-derived icon space and addon-owned presentation relationships.
+- Applied live group alpha and scale to the ordinary BUFFS, DEBUFFS, and ENCHANTMENTS hosts so headers, managed descendants, native item-enchantment rows, and the Fishing Lure hierarchy inherit the configured state without rewriting logical dimensions.
+- Connected BUFFS/DEBUFFS saved sort and `maxBars` to the public managed setters; prototype sort buttons remain temporary overrides and later config apply reasserts the saved mode.
+- Added BUFFS/DEBUFFS `growUp` through supported FlowLayout anchor/growth settings while keeping the external header and inter-group chain topology fixed.
+- Adopted the managed ENCHANTMENTS 7+2+1 capacity policy and changed native item-enchantment placement/sorting to AfterAuraGroups with Slot/Normal order; legacy ENCHANTMENTS global sort and `maxBars` remain intentionally ignored.
+- Replaced initial-login-only native enchant recovery with a bounded every-world-transition quiet-turn recovery protected by epochs/generations and able to complete once after combat.
+- Removed temporary transition trace instrumentation after diagnosis; no trace command or routine diagnostic chat output remains.
 
 ### Compatibility
 
@@ -72,4 +79,6 @@ Historical development prior to the creation of this document is intentionally n
 - Runtime-validated Phase A.1 startup/reload configuration consumption and the Phase C.1 live out-of-combat font/color/width/height/spacing slice across existing and newly assigned/created/reused rows, headers, `Sync Group Bars`, and width/height/spacing change ordering.
 - Runtime-validated square icon resizing, `height + iconGap` boundaries for LEFT and RIGHT startup icon sides, public AuraGroup/item-enchantment layout replacement, fishing-lure spacing, group chaining, and combat regression without manual container sizing or managed-child enumeration.
 - Runtime-validated routine diagnostic silence for normal aura/rune gain and removal while preserving semantic routing and explicit manual diagnostic output.
-- Kept live icon-side reanchoring, scale/alpha, growth, placement/position, remaining behavior/filter settings, exact ENCHANTMENTS combined sort/cap semantics, broader native enchant/effect coverage, persistence, production cutover, rollback policy, and eventual legacy cleanup pending.
+- Runtime-validated live LEFT/RIGHT icon changes, host alpha/scale, BUFFS/DEBUFFS saved sorting and maximum counts, mixed-scale chaining, and BUFFS growth direction; DEBUFFS growth uses the same supported implementation without an equivalent direct test claim.
+- Runtime-validated MainHand native-row recovery after portal, Home teleport, Hearthstone, dungeon, Delve/no-loading-screen, and legitimate no-enchant transitions, followed by fresh enchant application, without manual refresh, Lua errors, or trace spam.
+- Kept ENCHANTMENTS grow-up, remaining placement/host parity, remaining behavior/filter settings, legacy-only ENCHANTMENTS control cleanup, direct OffHand/both-slot transition coverage, persistence, production cutover, rollback policy, and eventual legacy cleanup pending.

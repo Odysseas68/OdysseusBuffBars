@@ -23,4 +23,9 @@ This changelog records repository history beginning with the creation of the sta
 - Added runtime-validated live out-of-combat managed synchronization for font size, complete bar/background colors, width, height, and row spacing through the existing configuration apply path.
 - Preserved managed self-sizing while synchronizing AuraGroup and native item-enchantment layouts, row/icon geometry, headers, future/reused rows, and fishing-lure spacing.
 - Silenced routine automatic managed-routing diagnostics by default while retaining manual diagnostic helpers and unexpected failure output.
-- Kept managed icon-side changes reload-only and retained scale/alpha, growth, placement/position, remaining behavior/filter settings, and production cutover as pending work.
+- At the preceding checkpoint, kept managed icon-side changes reload-only and retained scale/alpha, growth, placement/position, remaining behavior/filter settings, and production cutover as pending work.
+- Advanced live out-of-combat configuration synchronization with LEFT/RIGHT icon reanchoring, ordinary-host scale/alpha, BUFFS/DEBUFFS saved sorting, managed maximum counts, and BUFFS/DEBUFFS FlowLayout growth direction.
+- Established the managed ENCHANTMENTS 7+2+1 policy: seven `HelpfulEnhancements`, MainHand/OffHand native providers placed after aura groups in Slot/Normal order, and one fixed ordinary Fishing Lure footer.
+- Added bounded native item-enchantment recovery after every world/loading transition by coalescing player inventory activity to one container refresh, with epoch protection and one post-combat completion when required.
+- Runtime-validated live icon/scale/alpha/sort/maximum-count synchronization, BUFFS growth direction, and MainHand transition recovery across portals, Home teleport, Hearthstone, dungeon entry/exit, Delve/no-loading-screen behavior, legitimate no-enchant state, and fresh reapplication.
+- Removed temporary transition trace instrumentation after diagnosis; normal runtime remains silent.
