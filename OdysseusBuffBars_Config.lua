@@ -1451,21 +1451,21 @@ function Config:BuildGroupPage(page, settings)
     offsetY:SetWidth(200)
     page.controls.offsetY = offsetY
 
-    local filterHeader = CreateLabel(page, "Filters")
-    filterHeader:SetPoint("TOPLEFT", maxBars, "BOTTOMLEFT", 0, -14)
-
-    local filterButton = CreateButton(page, "Whitelist / Blacklist")
-    filterButton:SetPoint("TOPLEFT", filterHeader, "BOTTOMLEFT", 0, -8)
-    filterButton:SetWidth(170)
-    filterButton:SetScript("OnClick", function()
-        self:ToggleFiltersFrame(settings)
-    end)
-    page.controls.filterButton = filterButton
-
-    local behaviorAnchor = filterButton
+    local behaviorAnchor = maxBars
     local behaviorOffsetX = -4
-    local behaviorOffsetY = -8
+    local behaviorOffsetY = -14
     if settings.id == 1 then
+        local filterHeader = CreateLabel(page, "Filters")
+        filterHeader:SetPoint("TOPLEFT", maxBars, "BOTTOMLEFT", 0, -14)
+
+        local filterButton = CreateButton(page, "Whitelist / Blacklist")
+        filterButton:SetPoint("TOPLEFT", filterHeader, "BOTTOMLEFT", 0, -8)
+        filterButton:SetWidth(170)
+        filterButton:SetScript("OnClick", function()
+            self:ToggleFiltersFrame(settings)
+        end)
+        page.controls.filterButton = filterButton
+
         local showTimed = CreateCheck(page, "Show timed auras", function(value)
             settings.showTimed = value
             self:Apply()
@@ -1583,7 +1583,9 @@ function Config:BuildGroupPage(page, settings)
             Config:SetControlEnabled(page.controls.showTimeless, enabled)
         end
         Config:SetControlEnabled(page.controls.growUp, enabled)
-        Config:SetControlEnabled(page.controls.filterButton, enabled)
+        if page.controls.filterButton then
+            Config:SetControlEnabled(page.controls.filterButton, enabled)
+        end
         Config:SetControlEnabled(page.controls.sortDropdown, enabled)
         Config:SetControlEnabled(page.controls.iconDropdown, enabled)
         Config:SetControlEnabled(page.controls.anchorDropdown, enabled)

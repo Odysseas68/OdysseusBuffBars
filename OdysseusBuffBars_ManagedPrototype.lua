@@ -796,7 +796,6 @@ end
 
 local function CompileManagedEffectiveHelpfulRoutes(
     buffFilters,
-    enhancementFilters,
     semanticEnhancementSpellIDs,
     overrides
 )
@@ -804,7 +803,6 @@ local function CompileManagedEffectiveHelpfulRoutes(
     local effectiveRoutes = {}
 
     AddFilterSpellIDs(relevantSpellIDs, buffFilters)
-    AddFilterSpellIDs(relevantSpellIDs, enhancementFilters)
 
     if type(overrides) == "table" then
         for spellID, override in pairs(overrides) do
@@ -859,9 +857,7 @@ local function CompileManagedBuffCandidateFilters(filters, effectiveRoutes)
     }
 end
 
-local function CompileManagedEnhancementCandidateFilters(filters, effectiveRoutes)
-    local whitelistSpellIDs, hasWhitelist = GetEnabledNumericSpellIDs(filters and filters.whitelist)
-    local blacklistSpellIDs = GetEnabledNumericSpellIDs(filters and filters.blacklist)
+local function CompileManagedEnhancementCandidateFilters(effectiveRoutes)
     local includeSpellIDs = {}
     local excludeSpellIDs = {}
 
@@ -869,15 +865,7 @@ local function CompileManagedEnhancementCandidateFilters(filters, effectiveRoute
         if route == MANAGED_HELPFUL_ROUTE_HIDDEN then
             excludeSpellIDs[spellID] = true
         elseif route == MANAGED_HELPFUL_ROUTE_ENCHANTMENTS then
-            if hasWhitelist then
-                if whitelistSpellIDs[spellID] then
-                    includeSpellIDs[spellID] = true
-                end
-            elseif blacklistSpellIDs[spellID] then
-                excludeSpellIDs[spellID] = true
-            else
-                includeSpellIDs[spellID] = true
-            end
+            includeSpellIDs[spellID] = true
         end
     end
 
@@ -889,14 +877,12 @@ end
 
 local function CompileManagedCandidateFilterState(
     buffFilters,
-    enhancementFilters,
     semanticEnhancementSpellIDs,
     overrides,
     buffMaxDuration
 )
     local effectiveRoutes = CompileManagedEffectiveHelpfulRoutes(
         buffFilters,
-        enhancementFilters,
         semanticEnhancementSpellIDs,
         overrides
     )
@@ -909,7 +895,6 @@ local function CompileManagedCandidateFilterState(
     return {
         buffCandidateFilters = buffCandidateFilters,
         enhancementCandidateFilters = CompileManagedEnhancementCandidateFilters(
-            enhancementFilters,
             effectiveRoutes
         ),
     }
@@ -994,12 +979,10 @@ end
 
 local function CompileCurrentManagedCandidateFilterState()
     local buffSettings = GetGroupSettings(1)
-    local enhancementSettings = GetGroupSettings(3)
     local buffDurationMode = ResolveManagedBuffDurationMode(buffSettings)
         or GetRetainedManagedBuffDurationMode()
     return CompileManagedCandidateFilterState(
         buffSettings and buffSettings.filters,
-        enhancementSettings and enhancementSettings.filters,
         currentHelpfulEnhancementSpellIDs,
         OBB.db and OBB.db.overrides,
         GetManagedBuffMaxDuration(buffDurationMode)

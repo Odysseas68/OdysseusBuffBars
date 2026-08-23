@@ -84,21 +84,21 @@ The TOC must load only this addon's active files and bundled libraries. The old 
 - Hide default Blizzard frames is reapplied when Blizzard Edit Mode closes, with short delayed retries, because Edit Mode can show the default aura frames again after applying its layout.
 - General includes `Override Settings`; overrides are keyed by numeric `spellID`, can hide matching auras, and can route HELPFUL auras between BUFFS and ENCHANTMENTS.
 - Override Settings intentionally does not do name-based matching and does not yet route across HELPFUL/HARMFUL filters.
-- Managed HELPFUL candidate filters must be composed from all active semantic-routing, override, destination-filter, and supported duration state through one authoritative compiler; apply the complete BUFFS and `HelpfulEnhancements` descriptors together.
-- Resolve effective HELPFUL ownership before destination filtering. A destination whitelist or blacklist may admit/reject only within the resolved route and must never establish group ownership.
-- Populate BUFFS/ENCHANTMENTS `Current group auras` from current readable managed HELPFUL ownership using the same precedence: hidden, explicit group override, semantic ENCHANTMENTS route, default BUFFS. Do not use legacy cached group membership for those two lists.
+- Managed destination whitelist/blacklist filtering is BUFFS-only. Compose complete BUFFS and `HelpfulEnhancements` descriptors together, but do not apply a destination-filter stage to managed DEBUFFS or ENCHANTMENTS.
+- Resolve HELPFUL ownership as hidden, explicit B/E group override, semantic ENCHANTMENTS route, then default BUFFS. Only afterward may the BUFFS destination filter reject/admit BUFF-owned IDs; ownership routing is not destination filtering.
+- Populate managed HELPFUL current-aura ownership from current readable source state using the same precedence. Only BUFFS exposes the Whitelist/Blacklist UI; do not interpret internal E ownership rows as destination-filter support.
 - Current managed HELPFUL discovery is runtime-only, returns copied UI rows, and must not mutate persistent filter/override tables. Do not enumerate AuraButtons or private managed collections for config population.
-- Destination filters change visibility after ownership and must not move current-aura editor ownership. DEBUFFS editor ownership/filter policy remains separate and legacy-backed pending a safe managed HARMFUL decision.
+- Managed DEBUFFS is intentionally broad/unfiltered. Managed ENCHANTMENTS is intentionally broad across effective `HelpfulEnhancements`, MainHand, OffHand, and Fishing Lure sources. Do not reintroduce partial D/E destination filtering without a new explicit product decision plus source/runtime justification.
+- Preserve historical D/E filter SavedVariables during migration and rollback. Legacy D/E may still consume them; managed D/E must not expose or consume them.
 - When Blizzard candidate filters can own duration admission, do not read managed aura duration values addon-side. Managed BUFFS supports ALL and TIMED_ONLY; managed DEBUFFS and ENCHANTMENTS intentionally ignore legacy timed/timeless flags and show all eligible durations.
 - Numeric slider values also have edit boxes for exact manual entry.
 - Group pages include a `Font Size` setting for bar name, duration, and count text.
-- Group pages include a `Whitelist / Blacklist` button that opens a small per-group filter frame.
-- The filter frame uses the same UI for every group. BUFFS/ENCHANTMENTS current rows come from current readable managed HELPFUL ownership; DEBUFFS remains populated from legacy aura data.
+- The BUFFS page includes a `Whitelist / Blacklist` button; D/E do not. BUFFS current rows come from current readable managed HELPFUL ownership.
 - Filter row checkbox hitboxes are intentionally small; the icon and text are display-only beside the checkbox.
 - The filter frame is taller and uses a lightweight scrollbar under `Current group auras` for groups with many known spell rows.
-- The legacy runtime cache continues to support DEBUFFS and saved/manual rows. B/E current convenience rows disappear when their active readable HELPFUL aura disappears, while persistent filter entries remain available separately.
+- The legacy runtime cache and stored D/E filter tables remain for legacy compatibility. BUFFS current convenience rows disappear when their active readable HELPFUL aura disappears, while persistent filter entries remain available separately.
 - Per-group filters are stored in `OdysseusBuffBarsDB` under each group as `filters.whitelist` and `filters.blacklist`.
-- Filter matching is spellID-first: if a group whitelist has entries, only those spell IDs are shown; otherwise the blacklist hides matching spell IDs.
+- BUFF managed filter matching is spellID-first: an active whitelist suppresses its blacklist; otherwise the blacklist rejects matching BUFF-owned IDs. Legacy per-group matching remains unchanged.
 - Manual spellID entries are still supported and remain visible as saved spell rows even when the aura is not currently active.
 - Filter config changes are out-of-combat only; `/obb refresh` can still be used in combat.
 - Configuration opening, controls, anchor dragging, and config frame drag/resize are locked during combat; attempts print a chat warning.
