@@ -288,6 +288,17 @@ local function CanDisplayFilterText(value)
 end
 
 local function GetCurrentAuraFilterRows(settings)
+    if settings.id == 1 or settings.id == 3 then
+        local managedPrototype = OBB.ManagedPrototype
+        if managedPrototype and managedPrototype.GetCurrentHelpfulAuraFilterRows then
+            local rows = managedPrototype.GetCurrentHelpfulAuraFilterRows(settings.id)
+            if type(rows) == "table" then
+                return rows
+            end
+        end
+        return {}
+    end
+
     local rows = {}
     local seen = {}
     local knownRows = OBB.filterAuraRows and OBB.filterAuraRows[settings.id]
@@ -970,6 +981,16 @@ function Config:RefreshFiltersFrame()
     end
 end
 
+function Config:RefreshManagedHelpfulFilterEditor()
+    local frame = self.filtersFrame
+    if not frame or not frame:IsShown() or not frame.settings then
+        return
+    end
+    if frame.settings.id == 1 or frame.settings.id == 3 then
+        self:RefreshFiltersFrame()
+    end
+end
+
 function Config:Toggle()
     self:Initialize()
     if self:IsCombatLocked() then
@@ -1095,6 +1116,7 @@ function Config:CreateOverridesFrame()
         end
         OBB:RefreshAll()
         RefreshManagedHelpfulCandidateFilters()
+        self:RefreshManagedHelpfulFilterEditor()
         self:RefreshOverridesFrame()
     end)
 
@@ -1115,6 +1137,7 @@ function Config:CreateOverridesFrame()
         frame.hiddenValue = false
         OBB:RefreshAll()
         RefreshManagedHelpfulCandidateFilters()
+        self:RefreshManagedHelpfulFilterEditor()
         self:RefreshOverridesFrame()
     end)
 

@@ -163,7 +163,7 @@
 - [ ] Complete a final behavior/filter parity audit after the remaining source-specific policy and UI work.
 - [ ] Clean up or relabel legacy-only ENCHANTMENTS sort/maximum controls so the UI reflects the intentional managed 7+2+1 and Slot/Normal policy.
 - [ ] Decide native MainHand/OffHand per-ID filter/hide policy; current E whitelist/blacklist intentionally applies only to `HelpfulEnhancements`, not native providers or Fishing Lure.
-- [ ] Populate each filter editor's `Current group auras` from effective managed ownership rather than the legacy historical seen-aura cache; retain manual Spell ID entry and do not treat stale UI rows as a backend routing defect.
+- [x] Populate BUFFS/ENCHANTMENTS `Current group auras` from current active readable managed HELPFUL ownership using the shared effective-route resolver; keep destination filters independent, preserve manual/saved IDs, and leave DEBUFFS legacy-backed.
 - [ ] Decide the DEBUFFS filter/override product policy after targeted validation; the broad managed HARMFUL group intentionally does not consume general saved identity filters/hidden overrides.
 - [ ] Complete broader Live validation of native MainHand/OffHand item-enchantment lifecycle and interaction, then integrate the validated native and semantic HELPFUL sources into production ENCHANTMENTS.
 - [ ] Broaden runtime testing across classes, effects, bobbers, profession tools, and lure variants without converting observed IDs into compatibility tables.

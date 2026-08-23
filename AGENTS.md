@@ -86,14 +86,17 @@ The TOC must load only this addon's active files and bundled libraries. The old 
 - Override Settings intentionally does not do name-based matching and does not yet route across HELPFUL/HARMFUL filters.
 - Managed HELPFUL candidate filters must be composed from all active semantic-routing, override, destination-filter, and supported duration state through one authoritative compiler; apply the complete BUFFS and `HelpfulEnhancements` descriptors together.
 - Resolve effective HELPFUL ownership before destination filtering. A destination whitelist or blacklist may admit/reject only within the resolved route and must never establish group ownership.
+- Populate BUFFS/ENCHANTMENTS `Current group auras` from current readable managed HELPFUL ownership using the same precedence: hidden, explicit group override, semantic ENCHANTMENTS route, default BUFFS. Do not use legacy cached group membership for those two lists.
+- Current managed HELPFUL discovery is runtime-only, returns copied UI rows, and must not mutate persistent filter/override tables. Do not enumerate AuraButtons or private managed collections for config population.
+- Destination filters change visibility after ownership and must not move current-aura editor ownership. DEBUFFS editor ownership/filter policy remains separate and legacy-backed pending a safe managed HARMFUL decision.
 - When Blizzard candidate filters can own duration admission, do not read managed aura duration values addon-side. Managed BUFFS supports ALL and TIMED_ONLY; managed DEBUFFS and ENCHANTMENTS intentionally ignore legacy timed/timeless flags and show all eligible durations.
 - Numeric slider values also have edit boxes for exact manual entry.
 - Group pages include a `Font Size` setting for bar name, duration, and count text.
 - Group pages include a `Whitelist / Blacklist` button that opens a small per-group filter frame.
-- The filter frame uses the same UI for every group and populates checkbox rows from the selected group's current aura data.
+- The filter frame uses the same UI for every group. BUFFS/ENCHANTMENTS current rows come from current readable managed HELPFUL ownership; DEBUFFS remains populated from legacy aura data.
 - Filter row checkbox hitboxes are intentionally small; the icon and text are display-only beside the checkbox.
 - The filter frame is taller and uses a lightweight scrollbar under `Current group auras` for groups with many known spell rows.
-- A small runtime cache keeps currently/previously scanned group spell rows visible even after a whitelist/blacklist changes the displayed bars.
+- The legacy runtime cache continues to support DEBUFFS and saved/manual rows. B/E current convenience rows disappear when their active readable HELPFUL aura disappears, while persistent filter entries remain available separately.
 - Per-group filters are stored in `OdysseusBuffBarsDB` under each group as `filters.whitelist` and `filters.blacklist`.
 - Filter matching is spellID-first: if a group whitelist has entries, only those spell IDs are shown; otherwise the blacklist hides matching spell IDs.
 - Manual spellID entries are still supported and remain visible as saved spell rows even when the aura is not currently active.

@@ -770,6 +770,23 @@ local MANAGED_HELPFUL_ROUTE_HIDDEN = "HIDDEN"
 local MANAGED_HELPFUL_ROUTE_BUFFS = "BUFFS"
 local MANAGED_HELPFUL_ROUTE_ENCHANTMENTS = "ENCHANTMENTS"
 
+local function ResolveManagedEffectiveHelpfulRoute(spellID, semanticEnhancementSpellIDs, overrides)
+    local override = type(overrides) == "table" and overrides[spellID] or nil
+    if type(override) == "table" and override.hidden then
+        return MANAGED_HELPFUL_ROUTE_HIDDEN
+    end
+    if type(override) == "table" and override.group == "BUFFS" then
+        return MANAGED_HELPFUL_ROUTE_BUFFS
+    end
+    if type(override) == "table" and override.group == "ENCHANTMENTS" then
+        return MANAGED_HELPFUL_ROUTE_ENCHANTMENTS
+    end
+    if semanticEnhancementSpellIDs[spellID] then
+        return MANAGED_HELPFUL_ROUTE_ENCHANTMENTS
+    end
+    return MANAGED_HELPFUL_ROUTE_BUFFS
+end
+
 local function AddFilterSpellIDs(destinationSpellIDs, filters)
     local whitelistSpellIDs = GetEnabledNumericSpellIDs(filters and filters.whitelist)
     local blacklistSpellIDs = GetEnabledNumericSpellIDs(filters and filters.blacklist)
@@ -798,18 +815,11 @@ local function CompileManagedEffectiveHelpfulRoutes(
     end
 
     for spellID in pairs(relevantSpellIDs) do
-        local override = type(overrides) == "table" and overrides[spellID] or nil
-        if type(override) == "table" and override.hidden then
-            effectiveRoutes[spellID] = MANAGED_HELPFUL_ROUTE_HIDDEN
-        elseif type(override) == "table" and override.group == "BUFFS" then
-            effectiveRoutes[spellID] = MANAGED_HELPFUL_ROUTE_BUFFS
-        elseif type(override) == "table" and override.group == "ENCHANTMENTS" then
-            effectiveRoutes[spellID] = MANAGED_HELPFUL_ROUTE_ENCHANTMENTS
-        elseif semanticEnhancementSpellIDs[spellID] then
-            effectiveRoutes[spellID] = MANAGED_HELPFUL_ROUTE_ENCHANTMENTS
-        else
-            effectiveRoutes[spellID] = MANAGED_HELPFUL_ROUTE_BUFFS
-        end
+        effectiveRoutes[spellID] = ResolveManagedEffectiveHelpfulRoute(
+            spellID,
+            semanticEnhancementSpellIDs,
+            overrides
+        )
     end
 
     return effectiveRoutes
@@ -946,6 +956,7 @@ end
 -- The desired routed membership is prototype-owned source state. The applied
 -- snapshot represents the complete two-group composition, not just routing.
 local currentHelpfulEnhancementSpellIDs = {}
+local currentReadableHelpfulAuraRows = {}
 local lastAppliedManagedCandidateFilterState
 local MANAGED_BUFF_DURATION_MODE_ALL = "ALL"
 local MANAGED_BUFF_DURATION_MODE_TIMED_ONLY = "TIMED_ONLY"
@@ -993,6 +1004,38 @@ local function CompileCurrentManagedCandidateFilterState()
         OBB.db and OBB.db.overrides,
         GetManagedBuffMaxDuration(buffDurationMode)
     )
+end
+
+function ManagedPrototype.GetCurrentHelpfulAuraFilterRows(groupID)
+    local expectedRoute
+    if groupID == 1 then
+        expectedRoute = MANAGED_HELPFUL_ROUTE_BUFFS
+    elseif groupID == 3 then
+        expectedRoute = MANAGED_HELPFUL_ROUTE_ENCHANTMENTS
+    else
+        return nil
+    end
+
+    local rows = {}
+    local overrides = OBB.db and OBB.db.overrides
+    for spellID, data in pairs(currentReadableHelpfulAuraRows) do
+        local route = ResolveManagedEffectiveHelpfulRoute(
+            spellID,
+            currentHelpfulEnhancementSpellIDs,
+            overrides
+        )
+        if route == expectedRoute then
+            rows[#rows + 1] = {
+                spellID = spellID,
+                name = data.name or ("Spell " .. tostring(spellID)),
+                icon = data.icon,
+            }
+        end
+    end
+    table.sort(rows, function(left, right)
+        return left.spellID < right.spellID
+    end)
+    return rows
 end
 
 function ManagedPrototype:RefreshCandidateFilters()
@@ -1192,21 +1235,36 @@ local function IsRoutedHelpfulEnhancementClassification(classification)
         or classification == "FISHING_BOBBER"
 end
 
-local function CollectDiscoveredHelpfulEnhancements(auras, printDetails)
+local function CollectCurrentReadableHelpfulAuraState(auras, printDetails)
     local discoveredSpellIDs = {}
     local discoveredSpellIDList = {}
+    local readableAuraRows = {}
 
     for _, auraData in ipairs(auras) do
         if IsReadableDiagnosticValue(auraData) and type(auraData) == "table" then
             local spellID = auraData.spellId
             if IsReadableDiagnosticValue(spellID) and type(spellID) == "number" then
+                local name = auraData.name
+                if not IsReadableDiagnosticValue(name) or type(name) ~= "string" then
+                    name = nil
+                end
+                local icon = auraData.icon
+                if not IsReadableDiagnosticValue(icon) then
+                    icon = nil
+                end
+                readableAuraRows[spellID] = {
+                    spellID = spellID,
+                    name = name,
+                    icon = icon,
+                }
+
                 local classificationSuccess, classification = pcall(
                     ManagedPrototype.ClassifyHelpfulEnhancement,
                     spellID
                 )
                 if not classificationSuccess then
                     PrintDiagnostic("classification failed for spellID=" .. spellID)
-                    return nil, nil
+                    return nil, nil, nil
                 end
 
                 if IsReadableDiagnosticValue(classification)
@@ -1228,7 +1286,7 @@ local function CollectDiscoveredHelpfulEnhancements(auras, printDetails)
         end
     end
 
-    return discoveredSpellIDs, discoveredSpellIDList
+    return discoveredSpellIDs, discoveredSpellIDList, readableAuraRows
 end
 
 local automaticDiscoveryFrame
@@ -1252,6 +1310,13 @@ local function SetAutomaticHelpfulEnhancementDiscoveryPending(pending)
     UpdateAutomaticDiscoveryFrameRegenRegistration()
 end
 
+local function RefreshOpenManagedHelpfulFilterEditor()
+    local config = OBB.Config
+    if config and config.RefreshManagedHelpfulFilterEditor then
+        config:RefreshManagedHelpfulFilterEditor()
+    end
+end
+
 local function RunHelpfulEnhancementDiscovery(printDetails)
     if _G.InCombatLockdown and _G.InCombatLockdown() then
         return false, nil, "combat lockdown"
@@ -1267,14 +1332,15 @@ local function RunHelpfulEnhancementDiscovery(printDetails)
         return false, nil, "readable player HELPFUL auras are unavailable"
     end
 
-    local discoverySuccess, discoveredSpellIDs, discoveredSpellIDList = pcall(
-        CollectDiscoveredHelpfulEnhancements,
+    local discoverySuccess, discoveredSpellIDs, discoveredSpellIDList, readableAuraRows = pcall(
+        CollectCurrentReadableHelpfulAuraState,
         auras,
         printDetails
     )
     if not discoverySuccess
         or type(discoveredSpellIDs) ~= "table"
         or type(discoveredSpellIDList) ~= "table"
+        or type(readableAuraRows) ~= "table"
     then
         return false, nil, "HELPFUL aura discovery failed"
     end
@@ -1293,6 +1359,7 @@ local function RunHelpfulEnhancementDiscovery(printDetails)
     if routingChanged then
         currentHelpfulEnhancementSpellIDs = CopySpellIDSet(discoveredSpellIDs)
     end
+    currentReadableHelpfulAuraRows = readableAuraRows
 
     local applySuccess, applied, compositionChanged = pcall(
         ManagedPrototype.RefreshCandidateFilters,
@@ -1302,6 +1369,7 @@ local function RunHelpfulEnhancementDiscovery(printDetails)
         return false, nil, "managed filter application failed"
     end
 
+    RefreshOpenManagedHelpfulFilterEditor()
     return true, #discoveredSpellIDList, nil, routingChanged or compositionChanged
 end
 

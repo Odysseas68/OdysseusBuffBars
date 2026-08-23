@@ -1,6 +1,6 @@
 # Managed AuraContainer Migration
 
-Phase A, managed AuraButton presentation, Phase B.2 dynamic self-sizing, native managed sorting, and the original player-BUFFS filtering milestone were validated on the Retail 12.1 PTR. Retail Live now also validates centralized HELPFUL route/override/destination-filter composition and BUFF ALL/TIMED_ONLY duration admission. The isolated BUFFS, DEBUFFS, and ENCHANTMENTS prototypes pass runtime comparison against the legacy visual presentation. These remain parallel prototypes; DEBUFF identity policy, native item/lure per-ID policy, filter-editor effective-ownership population, final parity, and production cutover are not complete.
+Phase A, managed AuraButton presentation, Phase B.2 dynamic self-sizing, and native managed behavior are validated. Retail Live now also validates centralized HELPFUL route/override/filter composition, BUFF duration admission, and current effective-ownership population for the BUFFS/ENCHANTMENTS editor lists. These remain parallel prototypes; DEBUFF identity policy, native item/lure per-ID policy, final parity, and production cutover are not complete.
 
 Evidence labels used below:
 
@@ -21,7 +21,7 @@ Current milestone status:
 | Managed visual parity | Runtime validated for BUFFS, DEBUFFS, and ENCHANTMENTS from the accepted `260 x 18`, three-pixel-spacing baseline, with live OOC font, color, width, height, and spacing synchronization. |
 | Phase A.1 startup configuration consumption | Runtime validated. Initialization occurs after SavedVariables adoption/defaults/migrations/normalization and consumes a copied configuration snapshot. |
 | Live configuration synchronization | Runtime validated out of combat for font/color/geometry, `iconSide`, host scale/alpha, BUFFS/DEBUFFS sort and `maxBars`, BUFFS/ENCHANTMENTS growth direction, BUFFS SCREEN, DEBUFFS SCREEN/BELOW/RIGHT/LEFT relative to BUFFS, and ENCHANTMENTS SCREEN/BELOW/RIGHT/LEFT relative to DEBUFFS. DEBUFFS growth is implemented through the same supported path without equivalent direct real-HARMFUL coverage. |
-| Persistent position and full configuration integration | Partial. Supported placement and the managed HELPFUL behavior/filter slice are runtime validated. ABOVE retires with legacy. Arbitrary graph/cycle parity, editor ownership discovery, DEBUFF/native-item filter policy, final audit, legacy-only control cleanup, and production integration remain pending. |
+| Persistent position and full configuration integration | Partial. Supported placement, managed HELPFUL behavior/filtering, and B/E current effective-ownership editor population are runtime validated. ABOVE retires with legacy. Arbitrary graph/cycle parity, DEBUFF/native-item policy, final audit, cleanup, and production integration remain pending. |
 | Development comparison workflow | Runtime validated for legacy presentation hiding, comparison precedence, per-SCREEN-root temporary offset, mixed topologies, dragging without saved-coordinate drift, reset, configuration, and combat. Both backends remain active; this is not production selection. |
 | DEBUFFS/ENCHANTMENTS production integration and production cutover | Pending; the validated enhancement-routing policy is still prototype-only. |
 | Blizzard BuffFrame visibility during combat | Unresolved and separate from the managed implementation. |
@@ -129,7 +129,7 @@ Additional verified findings:
 | Custom bar count and host resizing | Managed layout and visibility can be secret-dependent; addon code must not infer active aura counts from provider capacity. |
 | Blizzard-frame hiding | Blizzard now reasserts management during combat. Repeated insecure hiding is not a sustainable replacement for supported behavior. |
 | Filter discovery cache | The current cache depends on addon-readable aura identity. Its purpose and population method must be redesigned. |
-| Runtime configuration | Presentation, placement, growth, BUFFS/DEBUFFS sort/max, centralized HELPFUL override/filter composition, and BUFF ALL/TIMED_ONLY are validated. Effective-ownership editor population, DEBUFF/native-item filter policy, and final parity remain. |
+| Runtime configuration | Presentation, placement, growth, centralized HELPFUL composition, BUFF duration policy, and B/E current effective-ownership editor population are validated. DEBUFF/native-item filter policy and final parity remain. |
 | Fishing profession-tool lure | Managed item-enchantment slots cover MainHand, OffHand, and Ranged, not the fishing profession-tool slot. OBB uses one event/API-driven ordinary row rather than misrepresenting it as a managed AuraButton. |
 
 Verified legacy Retail 12.1 limitations:
@@ -339,7 +339,8 @@ Configuration status is therefore deliberately split:
 - **Intentionally different from legacy:** managed ENCHANTMENTS ignores global legacy sort/`maxBars` and uses its fixed 7+2+1/source-order policy.
 - **Intentionally unsupported/retiring:** managed ABOVE. Preserve existing values; remove the managed choice and require an explicit supported replacement at cutover rather than silently remapping.
 - **Runtime-validated behavior/filter slice:** centralized complete HELPFUL descriptor composition; hidden and BUFFS/ENCHANTMENTS group overrides; route-before-destination whitelist/blacklist precedence; BUFF and `HelpfulEnhancements` destination filtering; BUFF ALL/TIMED_ONLY duration admission; and intentional D/E ALL-duration behavior.
-- **Pending/research:** BUFFS as a child, arbitrary `anchorTo` graphs, broader cycle policy, full ENCHANTMENTS bounds, the empty-container parity decision, effective-ownership editor population, DEBUFF filter/override policy, native item-enchantment per-ID filter/hide policy, legacy-only control cleanup, final behavior/filter audit, production cutover, and removal of comparison infrastructure and the legacy renderer.
+- **Runtime-validated editor population:** BUFFS/ENCHANTMENTS current rows use active readable managed HELPFUL ownership, react to overrides/hidden state, remain independent of destination visibility filters, and preserve persistent/manual IDs separately.
+- **Pending/research:** BUFFS as a child, arbitrary `anchorTo` graphs, broader cycle policy, full ENCHANTMENTS bounds, the empty-container parity decision, DEBUFF filter/override policy, native item-enchantment per-ID filter/hide policy, legacy-only control cleanup, final behavior/filter audit, production cutover, and removal of comparison infrastructure and the legacy renderer.
 
 This synchronization does not change ownership. Blizzard continues to own managed AuraButton assignment, aura identity, SpellName/DurationText content, DurationBar timing, native tooltips, native BUFF and weapon-enchantment cancellation, and managed container sizing/layout. OBB owns only its permitted presentation/configuration layer and the existing ordinary fishing-lure row. The lure's detection, slot resolution, timer, tooltip ownership/anchor, and unsupported cancellation behavior are unchanged.
 
@@ -484,7 +485,11 @@ Managed HELPFUL behavior/filter composition:
 - BUFF TIMELESS_ONLY and NONE are not mapped. Unsupported saved combinations remain untouched and retain the last successfully applied supported descriptor; before the first successful apply, ALL is the internal managed baseline. Legacy presentation continues consuming the saved flags.
 - Managed DEBUFFS and ENCHANTMENTS always include timed and timeless eligible state. D protects meaningful permanent mission/encounter/raid/Mythic+ HARMFUL state; E applies ALL to `HelpfulEnhancements`, MainHand, OffHand, and Fishing Lure. Neither uses `maxDuration` or consumes saved duration flags.
 - `showTimed`/`showTimeless` are no longer in `Sync Group Bars` fan-out. Only BUFFS retains the two controls; D/E Grow Up occupies their former position. D/E stored values and the schema remain untouched.
-- The editor's `Current group auras` remains the legacy historical seen-aura cache, not current effective managed ownership. A routed Rune or override can leave stale group listings across deletion/reload while backend ownership is correct. Manual Spell ID entry remains available; effective-ownership population is a future UI/discovery task.
+- BUFFS/ENCHANTMENTS `Current group auras` use a fresh runtime-only snapshot built during the existing guarded readable player HELPFUL discovery. The shared route resolver applies hidden -> explicit group override -> semantic E route -> default BUFFS; destination whitelist/blacklist is deliberately absent because it filters visibility after ownership.
+- The prototype returns copied rows sorted by numeric spell ID rather than exposing mutable ownership/source tables. BUFFS receives only effective-B IDs; ENCHANTMENTS receives only effective-E HELPFUL AuraGroup IDs. Hidden IDs appear in neither, and E does not include native MainHand/OffHand providers or Fishing Lure.
+- Override Save/Delete refreshes an open B/E editor immediately. Runtime testing confirmed ordinary B->E and semantic E->B movement plus deletion restoring natural ownership without reload or aura membership change. Destination filters can hide a renderer row while its owned convenience-list entry remains.
+- Current rows disappear when an aura expires or is removed; persistent whitelist/blacklist data is not mutated. Manual Spell ID entry remains available for inactive, hidden, historical, encounter-specific, and test IDs. DEBUFFS stays on the legacy historical cache pending a separate managed HARMFUL policy.
+- Editor opening/rendering reads the current snapshot. Existing discovery replaces it on `PLAYER_ENTERING_WORLD`, player `UNIT_AURA`, established post-combat discovery, and semantic routing updates; override Save/Delete re-renders an open B/E editor. Closed editors are not continuously rebuilt. No polling, ticker, new `OnUpdate`, retry queue, AuraButton enumeration, or private collection access is added; combat retains the last safe snapshot until established post-combat discovery.
 - DEBUFFS remains broad. General saved DEBUFF identity filters and hidden overrides are not claimed because non-`NeverSecret` player HARMFUL identity restrictions still prevent safe full parity.
 
 Retail Live validation covered active routed Rune while editing BUFF blacklist/whitelist, empty/repopulated routing, unchanged rediscovery, reload/combat/loading, Rune/Flask E->B overrides, ordinary B->E overrides, hidden/delete-restore behavior, destination filter combinations, and the correction preventing BUFF/E whitelists from pulling across ownership. ALL/TIMED_ONLY switching, reload persistence, filter/override composition, and D/E ALL/UI/sync decisions also passed without reported Lua, taint, or blocked-action regressions.
@@ -604,7 +609,7 @@ Rollback: return that group to the contained direct scanner.
 
 - The isolated player-BUFFS prototype has validated saved maximum count, native saved sort/growth, centralized HELPFUL route/override/destination-filter composition, and ALL/TIMED_ONLY duration admission.
 - Carry those mappings into the production backend without changing the existing SavedVariables schema.
-- Preserve the documented BUFF unsupported-state fallback and D/E ALL policies; complete effective-ownership editor population, DEBUFF/native-item policy, and final parity audit before production integration.
+- Preserve the documented BUFF unsupported-state fallback, D/E ALL policies, and current B/E ownership UI; complete DEBUFF/native-item policy and final parity audit before production integration.
 - Preserve the PTR-validated sort directions rather than inferring behavior from enum names.
 
 Rollback: preserve existing SavedVariables fields and switch the group backend back.
@@ -686,7 +691,7 @@ Every phase should also include LuaCheck, load/reload testing, Lua error capture
 6. Does the validated semantic spell-metadata classifier remain sufficiently precise across a broader Retail aura population and any future categories?
 7. What supported Retail or Edit Mode mechanism, if any, replaces combat-time hiding of Blizzard aura frames?
 8. Should target, focus, and pet support remain part of the product despite not being exposed in the current configuration UI?
-9. How should the filter editor obtain known spell IDs once live aura discovery no longer reads addon-owned aura records?
+9. What safe current-ownership population policy should the DEBUFF editor use if managed HARMFUL identity filtering becomes supportable?
 10. Does an actual private player HARMFUL aura traverse the verified default public-plus-private source path with correct presentation, sorting, tooltip, and removal behavior on Retail Live?
 11. Is one container per group acceptable under realistic multi-group combat load?
 12. Which public names and semantics survive the final PTR-to-Live transition?
