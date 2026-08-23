@@ -147,7 +147,8 @@
 - [x] Implement and runtime-validate ENCHANTMENTS `growUp` while keeping Fishing Lure as a fixed footer outside FlowLayout in both directions.
 - [ ] Add remaining host placement/chaining parity only after research and runtime validation: arbitrary `anchorTo` graphs, BUFFS as a child, BELOW beyond the supported parent relationships, LEFT/RIGHT, ABOVE, and broader cycle policy.
 - [ ] Retain startup/reload-only status for unsupported geometry/layout properties until each live mutation path is explicitly implemented and runtime validated.
-- [ ] Add managed `anchorsShown`/header-visibility synchronization; managed SCREEN-root drag persistence and lock behavior are complete for the supported topology.
+- [x] Add and runtime-validate managed `anchorsShown` header visibility without moving hosts, reclaiming reserved header geometry, changing placement, or affecting aura rows; keep lock and development visibility controls independent.
+- [x] Keep OBB SavedVariables as the sole managed-host position authority by clearing WoW user-placed ownership after hosts become movable, after successful SCREEN-root drag persistence, and during safe restoration; runtime-validate the saved BELOW chain across two full exit/login cycles without anchor-dropdown repair.
 - [ ] Research a future full-bounds ENCHANTMENTS parent if downstream chaining is required; the ordinary Fishing Lure footer remains outside the terminal ENCHANTMENTS container and is not included in its managed bounds.
 - [ ] Decide whether the managed empty-container `1 x 1` bound should remain an accepted parity difference from the legacy one-row minimum; do not fake a minimum or manually size the container without new research and validation.
 - [ ] Complete remaining configuration integration, including timed/timeless parity, remaining behavior/filter settings, and saved override composition beyond current behavior.

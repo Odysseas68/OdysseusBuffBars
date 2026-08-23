@@ -282,6 +282,9 @@ function OBB:ToggleAnchors()
     if self.Bars then
         self.Bars:ApplyLegacyBarsVisibility()
     end
+    if self.ManagedPrototype and self.ManagedPrototype.ApplyHeaderVisibility then
+        self.ManagedPrototype:ApplyHeaderVisibility()
+    end
 end
 
 local eventFrame = CreateFrame("Frame")

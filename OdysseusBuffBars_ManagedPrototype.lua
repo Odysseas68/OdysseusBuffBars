@@ -1788,6 +1788,21 @@ local function ApplyManagedPlacement(prototype, placement)
     return true
 end
 
+function ManagedPrototype:ApplyHeaderVisibility()
+    if not OBB.db or not self.groupHeaders then
+        return false
+    end
+
+    local shown = OBB.db.anchorsShown == true
+    for _, group in ipairs(MANAGED_GROUPS) do
+        local header = self.groupHeaders[group.key]
+        if header then
+            header:SetShown(shown)
+        end
+    end
+    return true
+end
+
 function ManagedPrototype:ApplyConfiguration(_reason)
     if not self.initialized
         or not self.startupConfig
@@ -2156,7 +2171,12 @@ local function GetAppliedManagedScreenState(prototype, group)
     return nil
 end
 
+local function ClearManagedHostUserPlaced(host)
+    host:SetUserPlaced(false)
+end
+
 local function RestoreAppliedManagedScreenPosition(prototype, group)
+    ClearManagedHostUserPlaced(prototype[group.hostKey])
     local state = GetAppliedManagedScreenState(prototype, group)
     if not state then
         return false
@@ -2249,6 +2269,7 @@ local function FinishManagedScreenDrag(prototype, group)
     settings.x = savedX
     settings.y = savedY
     RecordManagedScreenPosition(prototype, group, savedX, savedY)
+    ClearManagedHostUserPlaced(host)
 
     if OBB.Bars and OBB.Bars.UpdateAllGroupPositions then
         OBB.Bars:UpdateAllGroupPositions()
@@ -2316,6 +2337,8 @@ local function CreateManagedAuraPrototype()
     local headerStyle = groupConfig.headerStyle
     local savedX, savedY, hostX, hostY = GetManagedScreenPosition(settings, headerStyle, 420, -180)
     local host = CreateFrame("Frame", "OdysseusBuffBarsManagedPrototypeHost", UIParent)
+    host:SetMovable(true)
+    ClearManagedHostUserPlaced(host)
     host:SetSize(
         headerStyle.width + (HOST_PADDING * 2),
         headerStyle.height + headerStyle.firstRowGap
@@ -2335,7 +2358,6 @@ local function CreateManagedAuraPrototype()
     host:SetFrameStrata("MEDIUM")
     host:SetScale(groupConfig.scale)
     host:SetAlpha(groupConfig.alpha)
-    host:SetMovable(true)
     host:SetClampedToScreen(true)
     host:Hide()
 
@@ -2506,6 +2528,8 @@ local function CreateManagedDebuffPrototype()
         UIParent,
         "DisableUntrustedLayoutScriptsTemplate"
     )
+    host:SetMovable(true)
+    ClearManagedHostUserPlaced(host)
     host:SetSize(
         headerStyle.width + (HOST_PADDING * 2),
         headerStyle.height + headerStyle.firstRowGap
@@ -2516,7 +2540,6 @@ local function CreateManagedDebuffPrototype()
     host:SetFrameStrata("MEDIUM")
     host:SetScale(groupConfig.scale)
     host:SetAlpha(groupConfig.alpha)
-    host:SetMovable(true)
     host:Hide()
 
     local header = CreateFrame(
@@ -2607,6 +2630,8 @@ local function CreateManagedEnchantmentPrototype()
         UIParent,
         "DisableUntrustedLayoutScriptsTemplate"
     )
+    host:SetMovable(true)
+    ClearManagedHostUserPlaced(host)
     host:SetSize(
         headerStyle.width + (HOST_PADDING * 2),
         headerStyle.height + headerStyle.firstRowGap
@@ -2617,7 +2642,6 @@ local function CreateManagedEnchantmentPrototype()
     host:SetFrameStrata("MEDIUM")
     host:SetScale(groupConfig.scale)
     host:SetAlpha(groupConfig.alpha)
-    host:SetMovable(true)
     host:Hide()
 
     local header = CreateFrame(
@@ -2721,6 +2745,7 @@ function ManagedPrototype:Initialize()
     CreateManagedEnchantmentPrototype()
     CreateManagedDragEventFrame()
     self:RefreshCandidateFilters()
+    self:ApplyHeaderVisibility()
     self.initializing = nil
     self.initialized = true
     return true
