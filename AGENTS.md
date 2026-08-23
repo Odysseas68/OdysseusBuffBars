@@ -84,6 +84,9 @@ The TOC must load only this addon's active files and bundled libraries. The old 
 - Hide default Blizzard frames is reapplied when Blizzard Edit Mode closes, with short delayed retries, because Edit Mode can show the default aura frames again after applying its layout.
 - General includes `Override Settings`; overrides are keyed by numeric `spellID`, can hide matching auras, and can route HELPFUL auras between BUFFS and ENCHANTMENTS.
 - Override Settings intentionally does not do name-based matching and does not yet route across HELPFUL/HARMFUL filters.
+- Managed HELPFUL candidate filters must be composed from all active semantic-routing, override, destination-filter, and supported duration state through one authoritative compiler; apply the complete BUFFS and `HelpfulEnhancements` descriptors together.
+- Resolve effective HELPFUL ownership before destination filtering. A destination whitelist or blacklist may admit/reject only within the resolved route and must never establish group ownership.
+- When Blizzard candidate filters can own duration admission, do not read managed aura duration values addon-side. Managed BUFFS supports ALL and TIMED_ONLY; managed DEBUFFS and ENCHANTMENTS intentionally ignore legacy timed/timeless flags and show all eligible durations.
 - Numeric slider values also have edit boxes for exact manual entry.
 - Group pages include a `Font Size` setting for bar name, duration, and count text.
 - Group pages include a `Whitelist / Blacklist` button that opens a small per-group filter frame.

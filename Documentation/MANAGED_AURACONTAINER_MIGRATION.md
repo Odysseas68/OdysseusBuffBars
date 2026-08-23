@@ -1,6 +1,6 @@
 # Managed AuraContainer Migration
 
-Phase A, managed AuraButton presentation, Phase B.2 dynamic self-sizing, native managed sorting, player-BUFFS whitelist/blacklist semantics, and automatic synchronization from the existing BUFFS filter editor are validated on the Retail 12.1 PTR. The isolated BUFFS, DEBUFFS, and ENCHANTMENTS prototypes pass Retail Live runtime comparison against the legacy visual presentation. The current configuration bridge live-synchronizes presentation geometry, LEFT/RIGHT icon placement, host scale/alpha, all three groups' growth direction, supported SCREEN/BELOW/RIGHT/LEFT placement, and SCREEN-root drag persistence; BUFFS/DEBUFFS additionally consume saved sort and maximum counts. RIGHT/LEFT use prototype-owned logical widths rather than empty physical container bounds. Managed ABOVE is intentionally unsupported and planned for retirement with the legacy renderer. These remain parallel prototypes; arbitrary placement parity, broader configuration parity, and production cutover are not complete.
+Phase A, managed AuraButton presentation, Phase B.2 dynamic self-sizing, native managed sorting, and the original player-BUFFS filtering milestone were validated on the Retail 12.1 PTR. Retail Live now also validates centralized HELPFUL route/override/destination-filter composition and BUFF ALL/TIMED_ONLY duration admission. The isolated BUFFS, DEBUFFS, and ENCHANTMENTS prototypes pass runtime comparison against the legacy visual presentation. These remain parallel prototypes; DEBUFF identity policy, native item/lure per-ID policy, filter-editor effective-ownership population, final parity, and production cutover are not complete.
 
 Evidence labels used below:
 
@@ -21,7 +21,7 @@ Current milestone status:
 | Managed visual parity | Runtime validated for BUFFS, DEBUFFS, and ENCHANTMENTS from the accepted `260 x 18`, three-pixel-spacing baseline, with live OOC font, color, width, height, and spacing synchronization. |
 | Phase A.1 startup configuration consumption | Runtime validated. Initialization occurs after SavedVariables adoption/defaults/migrations/normalization and consumes a copied configuration snapshot. |
 | Live configuration synchronization | Runtime validated out of combat for font/color/geometry, `iconSide`, host scale/alpha, BUFFS/DEBUFFS sort and `maxBars`, BUFFS/ENCHANTMENTS growth direction, BUFFS SCREEN, DEBUFFS SCREEN/BELOW/RIGHT/LEFT relative to BUFFS, and ENCHANTMENTS SCREEN/BELOW/RIGHT/LEFT relative to DEBUFFS. DEBUFFS growth is implemented through the same supported path without equivalent direct real-HARMFUL coverage. |
-| Persistent position and full configuration integration | Partial. Supported SCREEN/BELOW/RIGHT/LEFT placement has runtime-validated switching, offsets, relevant logical-width changes, growth/scale, reset, combat, header/comparison interaction, and native enchant/lure behavior. ABOVE is intentionally unsupported and planned for retirement with legacy. Arbitrary graph/cycle parity, remaining behavior/filter settings, legacy-only control cleanup, and production integration remain pending. |
+| Persistent position and full configuration integration | Partial. Supported placement and the managed HELPFUL behavior/filter slice are runtime validated. ABOVE retires with legacy. Arbitrary graph/cycle parity, editor ownership discovery, DEBUFF/native-item filter policy, final audit, legacy-only control cleanup, and production integration remain pending. |
 | Development comparison workflow | Runtime validated for legacy presentation hiding, comparison precedence, per-SCREEN-root temporary offset, mixed topologies, dragging without saved-coordinate drift, reset, configuration, and combat. Both backends remain active; this is not production selection. |
 | DEBUFFS/ENCHANTMENTS production integration and production cutover | Pending; the validated enhancement-routing policy is still prototype-only. |
 | Blizzard BuffFrame visibility during combat | Unresolved and separate from the managed implementation. |
@@ -129,7 +129,7 @@ Additional verified findings:
 | Custom bar count and host resizing | Managed layout and visibility can be secret-dependent; addon code must not infer active aura counts from provider capacity. |
 | Blizzard-frame hiding | Blizzard now reasserts management during combat. Repeated insecure hiding is not a sustainable replacement for supported behavior. |
 | Filter discovery cache | The current cache depends on addon-readable aura identity. Its purpose and population method must be redesigned. |
-| Runtime configuration | Presentation, icon side, host scale/alpha, all three growth directions, and BUFFS/DEBUFFS sort/max support have advanced through public or addon-owned surfaces. Placement/host synchronization and remaining behavior/filter mutations still require implementation and targeted validation. |
+| Runtime configuration | Presentation, placement, growth, BUFFS/DEBUFFS sort/max, centralized HELPFUL override/filter composition, and BUFF ALL/TIMED_ONLY are validated. Effective-ownership editor population, DEBUFF/native-item filter policy, and final parity remain. |
 | Fishing profession-tool lure | Managed item-enchantment slots cover MainHand, OffHand, and Ranged, not the fishing profession-tool slot. OBB uses one event/API-driven ordinary row rather than misrepresenting it as a managed AuraButton. |
 
 Verified legacy Retail 12.1 limitations:
@@ -338,7 +338,8 @@ Configuration status is therefore deliberately split:
 - **Implemented/source-static through the same supported path:** DEBUFFS `growUp`, without an equivalent direct runtime test claim.
 - **Intentionally different from legacy:** managed ENCHANTMENTS ignores global legacy sort/`maxBars` and uses its fixed 7+2+1/source-order policy.
 - **Intentionally unsupported/retiring:** managed ABOVE. Preserve existing values; remove the managed choice and require an explicit supported replacement at cutover rather than silently remapping.
-- **Pending/research:** BUFFS as a child, arbitrary `anchorTo` graphs, BELOW/RIGHT/LEFT beyond the supported parent relationships, broader cycle policy, full ENCHANTMENTS bounds, the empty-container parity decision, timed/timeless parity, DEBUFF filter parity, native item-enchantment filtering/hiding parity, additional saved-override composition, legacy-only control cleanup, production cutover, and removal of comparison infrastructure and the legacy renderer.
+- **Runtime-validated behavior/filter slice:** centralized complete HELPFUL descriptor composition; hidden and BUFFS/ENCHANTMENTS group overrides; route-before-destination whitelist/blacklist precedence; BUFF and `HelpfulEnhancements` destination filtering; BUFF ALL/TIMED_ONLY duration admission; and intentional D/E ALL-duration behavior.
+- **Pending/research:** BUFFS as a child, arbitrary `anchorTo` graphs, broader cycle policy, full ENCHANTMENTS bounds, the empty-container parity decision, effective-ownership editor population, DEBUFF filter/override policy, native item-enchantment per-ID filter/hide policy, legacy-only control cleanup, final behavior/filter audit, production cutover, and removal of comparison infrastructure and the legacy renderer.
 
 This synchronization does not change ownership. Blizzard continues to own managed AuraButton assignment, aura identity, SpellName/DurationText content, DurationBar timing, native tooltips, native BUFF and weapon-enchantment cancellation, and managed container sizing/layout. OBB owns only its permitted presentation/configuration layer and the existing ordinary fishing-lure row. The lure's detection, slot resolution, timer, tooltip ownership/anchor, and unsupported cancellation behavior are unchanged.
 
@@ -347,14 +348,14 @@ This synchronization does not change ownership. Blizzard continues to own manage
 Map existing settings to native mechanisms where verified:
 
 - `HELPFUL` and `HARMFUL` > filter strings.
-- Player-BUFFS spell whitelist/blacklist > PTR-validated candidate include/exclude spell-ID filters; other groups remain subject to research and validation.
+- Managed HELPFUL route/override/filter state > one complete BUFFS + `HelpfulEnhancements` candidate-filter composition, with route resolution before destination filtering.
 - Maximum bars > maximum frame count.
 - Name sorting > `NameOnly`.
 - Remaining-time sorting > `ExpirationOnly` with `Reverse`, preserving timeless-first and longest-to-shortest legacy OBB behavior.
 - Default sorting > native default method.
 - Growth and spacing > container flow and group layout options.
 
-The BUFFS/DEBUFFS sort, maximum count, and growth mappings above now synchronize live out of combat. Timed-only and timeless-only selection remain compatibility gaps rather than safe mappings. ENCHANTMENTS deliberately uses its own policy rather than these global mappings.
+The BUFFS/DEBUFFS sort, maximum count, and growth mappings above synchronize live out of combat. BUFFS supports ALL by omitting `maxDuration` and TIMED_ONLY through `maxDuration = math.huge`; Blizzard filters zero-duration permanent candidates and the addon does not inspect duration values. TIMELESS_ONLY and NONE remain unsupported and retain the last supported managed descriptor, with ALL as the fresh-session fallback. Managed DEBUFFS and ENCHANTMENTS intentionally ignore saved duration flags and show all eligible sources. ENCHANTMENTS otherwise retains its source-specific policy.
 
 ### Enhancements
 
@@ -471,23 +472,22 @@ Native managed sorting implementation:
 
 Native sorting passed PTR runtime validation.
 
-Managed player-BUFFS filtering implementation:
+Managed HELPFUL behavior/filter composition:
 
-- The isolated managed `HELPFUL` group reads the existing BUFFS SavedVariables maps at `groupSettings.filters.whitelist` and `groupSettings.filters.blacklist`; it does not rename, migrate, or mutate those tables.
-- One compiler copies only enabled numeric spell-ID keys into a fresh candidate-filter table. If the whitelist has entries, it supplies only `includeSpellIDs`. Otherwise it supplies only `excludeSpellIDs` when the blacklist has entries. Empty lists compile to an empty candidate-filter table.
-- This preserves legacy OBB precedence: a non-empty whitelist enables whitelist mode and suppresses the blacklist, so an ID saved in both lists remains included. Passing both maps would incorrectly give Blizzard's exclude-first behavior precedence.
-- The prototype applies the complete compiled table to the long-lived group with `SetAuraGroupCandidateFilters(AURA_GROUP_KEY, candidateFilters)`. Blizzard owns the full refresh, candidate admission, sorting, frame reuse, and self-sizing layout; the addon does not recreate the group or manually refresh aura data.
-- `OBB.ManagedPrototype:RefreshCandidateFilters()` is the single managed refresh helper. It reads the current BUFFS maps, compiles the validated policy, and calls the public setter without reading aura data or touching sorting/layout.
-- The existing BUFFS filter editor remains the only editing UI. Its manual Add, manual Remove, and per-row checkbox mutation paths notify the managed helper after the SavedVariables mutation and the existing legacy `OBB:RefreshAll()` call succeed.
-- The temporary prototype `Apply Filters` button was removed and the original header/sort-control layout was restored. Saved filters are still compiled after `ADDON_LOADED` for reload coverage.
-- Synchronization is explicit and mutation-driven. It does not poll SavedVariables, use `OnUpdate`, compare tables repeatedly, add a duplicate editor, or add SavedVariables.
-- Filter mutation is blocked during combat and is not queued. The active managed filter remains in force until the next allowed out-of-combat refresh.
-- This slice is player `HELPFUL` only. It does not migrate DEBUFFS, ENCHANTMENTS, or their legacy filters, and it does not call `C_UnitAuras`, inspect AuraButton identity, enumerate managed buttons, or populate discovery data.
-- Managed identity filtering and editor discovery remain separate concerns. The existing editor can retain manual numeric IDs and legacy-known rows, but no supported managed active-identity enumerator exists and no direct scanner was added for discovery.
+- `RefreshCandidateFilters()` has no routing argument. Prototype-owned semantic membership, existing numeric overrides, BUFF/E filters, and supported BUFF duration state compile into a complete two-group descriptor snapshot. Both public setters run before the copied last-successful snapshot advances.
+- Effective ownership is exactly `HIDDEN`, `BUFFS`, or `ENCHANTMENTS`, resolved by hidden -> explicit group override -> semantic enhancement route -> default BUFFS. Destination filters run only after ownership; they can reject/admit within a route but cannot create a route.
+- With any enabled numeric BUFF whitelist entry, blacklist is ignored and only whitelisted effective-BUFF IDs are included. Otherwise BUFF blacklist excludes matching effective-BUFF IDs. Effective-E and hidden IDs remain BUFF exclusions in either mode.
+- With an active ENCHANTMENTS whitelist, `HelpfulEnhancements` includes effective-E IDs intersected with that whitelist. Otherwise it includes effective-E IDs minus the E blacklist. An explicit E override can populate this group while semantic membership is empty. Hidden IDs are excluded.
+- Existing overrides retain their SavedVariables shape: `hidden` or `group = "BUFFS" | "ENCHANTMENTS"`. Removing an override immediately restores semantic/default ownership because semantic source state remains separate. Hidden removes the ID from both managed HELPFUL groups.
+- E spell-ID filters do not apply to MainHand, OffHand, or Fishing Lure. Those distinct sources remain intentionally unaffected under the unchanged 7+2+1 architecture.
+- BUFF ALL (`true/true`) omits `maxDuration`. TIMED_ONLY (`true/false`) uses `math.huge`; Blizzard rejects zero-duration permanent/timeless candidates while retaining positive finite originals. No managed aura durations are read by addon code.
+- BUFF TIMELESS_ONLY and NONE are not mapped. Unsupported saved combinations remain untouched and retain the last successfully applied supported descriptor; before the first successful apply, ALL is the internal managed baseline. Legacy presentation continues consuming the saved flags.
+- Managed DEBUFFS and ENCHANTMENTS always include timed and timeless eligible state. D protects meaningful permanent mission/encounter/raid/Mythic+ HARMFUL state; E applies ALL to `HelpfulEnhancements`, MainHand, OffHand, and Fishing Lure. Neither uses `maxDuration` or consumes saved duration flags.
+- `showTimed`/`showTimeless` are no longer in `Sync Group Bars` fan-out. Only BUFFS retains the two controls; D/E Grow Up occupies their former position. D/E stored values and the schema remain untouched.
+- The editor's `Current group auras` remains the legacy historical seen-aura cache, not current effective managed ownership. A routed Rune or override can leave stale group listings across deletion/reload while backend ownership is correct. Manual Spell ID entry remains available; effective-ownership population is a future UI/discovery task.
+- DEBUFFS remains broad. General saved DEBUFF identity filters and hidden overrides are not claimed because non-`NeverSecret` player HARMFUL identity restrictions still prevent safe full parity.
 
-Managed whitelist/blacklist semantics, native sorting, managed grow/shrink, tooltip, cancellation, and automatic editor synchronization passed PTR validation. Manual add, remove, and checkbox changes immediately updated both frames out of combat; clearing the whitelist activated blacklist mode; the current native sort and self-sizing remained active; and reload retained the compiled policy. In combat, the editor was unavailable and managed filter mutation remained blocked while the already-active filter continued governing managed aura updates. No errors, taint, or blocked actions were observed.
-
-The validated player-BUFFS prototype covers the core managed lifecycle, presentation, timed and timeless transitions, application counts, filtering, sorting, interaction, combat updates, reload behavior, visual parity, live icon side/scale/alpha, saved sort/maximum count, directly tested growth direction, SCREEN placement, managed drag persistence, managed header visibility, SavedVariables-only host ownership, lock/combat handling, and comparison interaction. BUFFS-as-child, other directions, arbitrary graphs/cycles, remaining behavior/filter parity, and production backend cutover remain pending.
+Retail Live validation covered active routed Rune while editing BUFF blacklist/whitelist, empty/repopulated routing, unchanged rediscovery, reload/combat/loading, Rune/Flask E->B overrides, ordinary B->E overrides, hidden/delete-restore behavior, destination filter combinations, and the correction preventing BUFF/E whitelists from pulling across ownership. ALL/TIMED_ONLY switching, reload persistence, filter/override composition, and D/E ALL/UI/sync decisions also passed without reported Lua, taint, or blocked-action regressions.
 
 Rollback: existing bars remain authoritative.
 
@@ -525,7 +525,7 @@ Status: Core managed MainHand lifecycle, bounded transition recovery, dynamic se
 - In BELOW/RIGHT/LEFT modes the dependency remains DEBUFFS container -> ENCHANTMENTS host. In SCREEN mode ENCHANTMENTS can be dragged and persisted independently. It consumes supported live presentation, icon-side, scale, alpha, `growUp`, SCREEN, BELOW, RIGHT, and LEFT values, but intentionally ignores saved legacy sort/`maxBars` semantics.
 - ENCHANTMENTS owns a third independent `CustomAuraContainerTemplate`. It is configured early, shown before enablement, kept long-lived, and left at the managed one-pixel empty minimum until active native item-enchantment or `HelpfulEnhancements` frames establish larger FlowLayout bounds.
 - The container calls `AddItemEnchantment(AuraContainerItemEnchantmentSlot.MainHand, options)` and `AddItemEnchantment(AuraContainerItemEnchantmentSlot.OffHand, options)`. Each registration uses the same bar initializer and `hidePermanent = false`. Ranged is not registered.
-- The same container owns a long-lived `AddAuraGroup("HelpfulEnhancements", "HELPFUL", options)` group capped at seven rows. Its candidate filter is updated with dynamically discovered `includeSpellIDs`; managed BUFFS `Helpful` receives the same membership as `excludeSpellIDs` to prevent duplicate presentation. Fishing Bobber consumes one of these seven slots. It has no legacy ENCHANTMENTS whitelist/blacklist connection.
+- The same container owns a long-lived `AddAuraGroup("HelpfulEnhancements", "HELPFUL", options)` group capped at seven rows. Its candidate filter is compiled from effective E ownership plus the E whitelist/blacklist policy; managed BUFFS receives the complementary route exclusions. Fishing Bobber consumes one slot. Native providers and Fishing Lure do not participate in this AuraGroup filter.
 - Each fixed container-owned managed frame registers `SetIcon`, `SetSpellName`, `SetApplicationCount`, `SetDurationText`, and `SetDurationBar`. The primary text is Blizzard's equipped-item name. Blizzard owns application-count clearing, the retained duration object, countdown updates, StatusBar progress, equipment/enchant event refreshes, inactive-frame clearing, and frame reuse.
 - Native item enchantments use `CustomAuraContainerItemEnchantmentPlacement.AfterAuraGroups` and `AuraContainerItemEnchantmentSortMethod.Slot` with `AuraContainerSortDirection.Normal`. Only MainHand and OffHand are registered; Ranged is absent. In DOWN layout the intended order is HelpfulEnhancements, MainHand, OffHand, then the ordinary Fishing Lure footer. Later width/height/spacing layout replacement preserves `AfterAuraGroups`.
 - Tooltip behavior remains the native AuraButton inventory-item path. No addon hover handler, tooltip scraping, tooltip fallback, raw item-link parsing, hardcoded enchant-name map, or `enchantID == spellID` assumption is present.
@@ -559,9 +559,9 @@ Dynamic managed routing:
 
 - The final prototype has no hardcoded routing spell-ID list. The temporary control route for `1232325` was removed; discovered IDs are session-only, are not persisted, add no SavedVariables, and do not create a historical enhancement database.
 - Item IDs are not treated as aura spell IDs. Bloom Skewers item ID `242302` was never used in candidate filters; the observed active Well Fed aura spell ID was `1232325`.
-- The same discovered membership is applied as ENCHANTMENTS `HelpfulEnhancements` `includeSpellIDs` and managed BUFFS `Helpful` `excludeSpellIDs`. The auras remain managed HELPFUL entries, move between OBB presentation groups, and are not duplicated.
+- Discovered membership remains semantic source state. The authoritative compiler combines it with higher-precedence overrides and destination filters to produce both effective descriptors. The auras remain managed HELPFUL entries, move between OBB presentation groups, and are not duplicated.
 - Automatic discovery runs on `PLAYER_ENTERING_WORLD` and player-filtered `UNIT_AURA`. Restricted update payloads are not parsed for semantic discovery; the prototype performs a safe full HELPFUL rediscovery. No polling or continuous `OnUpdate` scanner is used. The manual diagnostic remains `/run OdysseusBuffBars.ManagedPrototype.DiscoverAndApplyHelpfulEnhancementRouting()`.
-- The last successfully applied set is remembered for the session. Equality is membership-based, independent of table identity and iteration order. `nil` means no successful synchronization yet; an empty table means the empty routing set was successfully applied. Unchanged normal aura events remain silent and skip filter reapplication; changed sets refresh both routing sides, and remembered state updates only after successful application. An empty set remains meaningful and clears stale routing.
+- Semantic membership and the last successfully applied complete candidate descriptor snapshot are retained separately. Equality is membership-based. Unchanged discovery remains silent, but setter suppression occurs only when the complete BUFF/E descriptors already match; an empty semantic set remains meaningful and clears stale semantic ownership without discarding overrides or filters.
 
 Runtime evidence:
 
@@ -602,9 +602,9 @@ Rollback: return that group to the contained direct scanner.
 
 ### Phase D — Filtering and sorting parity
 
-- The isolated player-BUFFS prototype has validated live saved maximum count, native saved-sort synchronization, growth direction, whitelist/blacklist mapping, and automatic filter-editor synchronization.
+- The isolated player-BUFFS prototype has validated saved maximum count, native saved sort/growth, centralized HELPFUL route/override/destination-filter composition, and ALL/TIMED_ONLY duration admission.
 - Carry those mappings into the production backend without changing the existing SavedVariables schema.
-- Resolve or explicitly document timed/timeless limitations, carry the validated semantic enhancement-routing policy into production integration without persisted or hardcoded ID tables, and extend the validated configuration bridge only to unsupported placement graphs/directions and remaining behavior/filter settings after targeted validation.
+- Preserve the documented BUFF unsupported-state fallback and D/E ALL policies; complete effective-ownership editor population, DEBUFF/native-item policy, and final parity audit before production integration.
 - Preserve the PTR-validated sort directions rather than inferring behavior from enum names.
 
 Rollback: preserve existing SavedVariables fields and switch the group backend back.
@@ -650,7 +650,7 @@ After all groups pass validation:
 | Reintroducing ABOVE through unsafe dynamic-height ownership | High | Keep ABOVE unsupported/retiring unless a separate bottom-owned, full-visible-bounds architecture is researched and runtime validated. |
 | Stale addon-owned aura caches | High | Stop duplicating managed state as each group migrates. |
 | Cancellation regression | High | Use native AuraButton cancellation and validate in combat. |
-| Timed/timeless parity failure | High | Treat as unresolved product behavior; do not approximate silently. |
+| Timed/timeless policy regression | High | Keep BUFF limited to ALL/TIMED_ONLY with retained fallback; keep D/E intentionally ALL and avoid addon-side duration reads. |
 | Enhancement routing parity failure | High | Retain the validated guarded spell-metadata classifier and paired managed include/exclude filters; broaden categories only with targeted evidence. |
 | Restricted-layout tooltip taint | High | Do not own tooltips from ordinary frames whose layout depends on restricted managed bounds; use an independent owner such as `UIParent`. |
 | Blizzard frames reappearing in combat | High | Do not repeatedly hide managed frames; identify supported behavior. |
@@ -681,7 +681,7 @@ Every phase should also include LuaCheck, load/reload testing, Lua error capture
 1. Which additional container and group setters, if any, should be exposed through final configuration, and which must remain out-of-combat only?
 2. Where must `DisableUntrustedLayoutScriptsTemplate` be applied if future stack-wide chrome depends on managed bounds?
 3. What product policy should replace general legacy DEBUFFS spell-ID filtering now that non-`NeverSecret` player HARMFUL auras are known to skip identity maps?
-4. Is exact timed-only or timeless-only selection expressible without reading protected aura data?
+4. Should final UI prevent or explain unsupported BUFF TIMELESS_ONLY/NONE combinations while preserving rollback-compatible SavedVariables?
 5. Does combined native item-enchantment and `HelpfulEnhancements` layout remain correct under simultaneous MainHand, OffHand, and routed-aura churn?
 6. Does the validated semantic spell-metadata classifier remain sufficiently precise across a broader Retail aura population and any future categories?
 7. What supported Retail or Edit Mode mechanism, if any, replaces combat-time hiding of Blizzard aura frames?

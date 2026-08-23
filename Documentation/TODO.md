@@ -156,11 +156,15 @@
 - [x] Keep OBB SavedVariables as the sole managed-host position authority by clearing WoW user-placed ownership after hosts become movable, after successful SCREEN-root drag persistence, and during safe restoration; runtime-validate the saved BELOW chain across two full exit/login cycles without anchor-dropdown repair.
 - [ ] Research a future full-bounds ENCHANTMENTS parent if downstream chaining is required; the ordinary Fishing Lure footer remains outside the terminal ENCHANTMENTS container and is not included in its managed bounds.
 - [ ] Decide whether the managed empty-container `1 x 1` bound should remain an accepted parity difference from the legacy one-row minimum; do not fake a minimum or manually size the container without new research and validation.
-- [ ] Complete remaining configuration integration, including timed/timeless parity, remaining behavior/filter settings, and saved override composition beyond current behavior.
+- [x] Centralize complete managed HELPFUL candidate-filter composition across semantic routing, existing hidden/group overrides, BUFF/HelpfulEnhancements destination filters, and supported BUFF duration state; apply/snapshot both descriptors together and preserve routing across filter-editor mutations.
+- [x] Enforce route-before-destination-filter semantics, including BUFF and HelpfulEnhancements whitelist precedence, cross-destination whitelist isolation, hidden routing, override deletion restoration, and explicit E override population from an empty semantic set.
+- [x] Implement and runtime-validate BUFF ALL/TIMED_ONLY through Blizzard candidate filters; intentionally retain the last supported state for TIMELESS_ONLY/NONE while preserving SavedVariables and using ALL on fresh unsupported initialization.
+- [x] Adopt managed DEBUFFS/ENCHANTMENTS ALL-duration policy, remove their duration controls, and make BUFF duration flags group-local rather than part of `Sync Group Bars` fan-out without schema migration.
+- [ ] Complete a final behavior/filter parity audit after the remaining source-specific policy and UI work.
 - [ ] Clean up or relabel legacy-only ENCHANTMENTS sort/maximum controls so the UI reflects the intentional managed 7+2+1 and Slot/Normal policy.
-- [ ] Resolve native item-enchantment filtering/hiding parity before claiming full ENCHANTMENTS configuration equivalence.
-- [ ] Redesign filter-row discovery for a fully managed backend if supported discovery is still required; do not depend on direct aura identity scanning.
-- [ ] Decide the DEBUFFS filtering product policy after targeted validation, then integrate and cut over DEBUFFS separately.
+- [ ] Decide native MainHand/OffHand per-ID filter/hide policy; current E whitelist/blacklist intentionally applies only to `HelpfulEnhancements`, not native providers or Fishing Lure.
+- [ ] Populate each filter editor's `Current group auras` from effective managed ownership rather than the legacy historical seen-aura cache; retain manual Spell ID entry and do not treat stale UI rows as a backend routing defect.
+- [ ] Decide the DEBUFFS filter/override product policy after targeted validation; the broad managed HARMFUL group intentionally does not consume general saved identity filters/hidden overrides.
 - [ ] Complete broader Live validation of native MainHand/OffHand item-enchantment lifecycle and interaction, then integrate the validated native and semantic HELPFUL sources into production ENCHANTMENTS.
 - [ ] Broaden runtime testing across classes, effects, bobbers, profession tools, and lure variants without converting observed IDs into compatibility tables.
 - [ ] Investigate the transient observation where ordinary HELPFUL auras with `classification=nil` briefly appeared in ENCHANTMENTS before refresh; observed spell IDs were `1287425`, `1281559`, and `296553`, with no established cause or fix.

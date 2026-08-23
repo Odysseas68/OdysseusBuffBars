@@ -225,14 +225,16 @@ local function EnsureGroupFilters(settings)
     return settings.filters
 end
 
-local function RefreshManagedBuffFilters(settings)
-    if not settings or settings.id ~= 1 then
-        return
-    end
-
+local function RefreshManagedHelpfulCandidateFilters()
     local managedPrototype = OBB.ManagedPrototype
     if managedPrototype and managedPrototype.RefreshCandidateFilters then
         managedPrototype:RefreshCandidateFilters()
+    end
+end
+
+local function RefreshManagedHelpfulGroupFilters(settings)
+    if settings and (settings.id == 1 or settings.id == 3) then
+        RefreshManagedHelpfulCandidateFilters()
     end
 end
 
@@ -839,7 +841,7 @@ function Config:CreateFiltersFrame()
         frame.input:SetText("")
         frame.input:ClearFocus()
         OBB:RefreshAll()
-        RefreshManagedBuffFilters(frame.settings)
+        RefreshManagedHelpfulGroupFilters(frame.settings)
         self:RefreshFiltersFrame()
     end)
 
@@ -860,7 +862,7 @@ function Config:CreateFiltersFrame()
         frame.input:SetText("")
         frame.input:ClearFocus()
         OBB:RefreshAll()
-        RefreshManagedBuffFilters(frame.settings)
+        RefreshManagedHelpfulGroupFilters(frame.settings)
         self:RefreshFiltersFrame()
     end)
 
@@ -920,7 +922,7 @@ function Config:CreateFiltersFrame()
             local activeList = frame.activeList or "whitelist"
             filters[activeList][spellID] = rowButton:GetChecked() and true or nil
             OBB:RefreshAll()
-            RefreshManagedBuffFilters(frame.settings)
+            RefreshManagedHelpfulGroupFilters(frame.settings)
             Config:RefreshFiltersFrame()
         end)
         frame.rows[index] = row
@@ -1092,6 +1094,7 @@ function Config:CreateOverridesFrame()
             }
         end
         OBB:RefreshAll()
+        RefreshManagedHelpfulCandidateFilters()
         self:RefreshOverridesFrame()
     end)
 
@@ -1111,6 +1114,7 @@ function Config:CreateOverridesFrame()
         frame.selectedGroup = nil
         frame.hiddenValue = false
         OBB:RefreshAll()
+        RefreshManagedHelpfulCandidateFilters()
         self:RefreshOverridesFrame()
     end)
 
@@ -1435,23 +1439,27 @@ function Config:BuildGroupPage(page, settings)
     end)
     page.controls.filterButton = filterButton
 
-    local showTimed = CreateCheck(page, "Show timed auras", function(value)
-        ApplyGroupBarSetting(settings, function(groupSettings)
-            groupSettings.showTimed = value
+    local behaviorAnchor = filterButton
+    local behaviorOffsetX = -4
+    local behaviorOffsetY = -8
+    if settings.id == 1 then
+        local showTimed = CreateCheck(page, "Show timed auras", function(value)
+            settings.showTimed = value
+            self:Apply()
         end)
-        self:Apply()
-    end)
-    showTimed:SetPoint("TOPLEFT", filterButton, "BOTTOMLEFT", -4, -8)
-    page.controls.showTimed = showTimed
+        showTimed:SetPoint("TOPLEFT", filterButton, "BOTTOMLEFT", -4, -8)
+        page.controls.showTimed = showTimed
 
-    local showTimeless = CreateCheck(page, "Show timeless auras", function(value)
-        ApplyGroupBarSetting(settings, function(groupSettings)
-            groupSettings.showTimeless = value
+        local showTimeless = CreateCheck(page, "Show timeless auras", function(value)
+            settings.showTimeless = value
+            self:Apply()
         end)
-        self:Apply()
-    end)
-    showTimeless:SetPoint("TOPLEFT", showTimed, "BOTTOMLEFT", 0, -4)
-    page.controls.showTimeless = showTimeless
+        showTimeless:SetPoint("TOPLEFT", showTimed, "BOTTOMLEFT", 0, -4)
+        page.controls.showTimeless = showTimeless
+        behaviorAnchor = showTimeless
+        behaviorOffsetX = 0
+        behaviorOffsetY = -4
+    end
 
     local growUp = CreateCheck(page, "Grow upward", function(value)
         ApplyGroupBarSetting(settings, function(groupSettings)
@@ -1459,7 +1467,7 @@ function Config:BuildGroupPage(page, settings)
         end)
         self:Apply()
     end)
-    growUp:SetPoint("TOPLEFT", showTimeless, "BOTTOMLEFT", 0, -4)
+    growUp:SetPoint("TOPLEFT", behaviorAnchor, "BOTTOMLEFT", behaviorOffsetX, behaviorOffsetY)
     page.controls.growUp = growUp
 
     local sortingHeader = CreateLabel(page, "Sorting")
@@ -1518,8 +1526,10 @@ function Config:BuildGroupPage(page, settings)
         SetSliderValue(page.controls.bgAlpha, settings.barBgColor and settings.barBgColor[4] or 0.1)
         SetSliderValue(page.controls.offsetX, settings.offsetX or 0)
         SetSliderValue(page.controls.offsetY, settings.offsetY or 0)
-        page.controls.showTimed:SetChecked(settings.showTimed)
-        page.controls.showTimeless:SetChecked(settings.showTimeless)
+        if page.controls.showTimed then
+            page.controls.showTimed:SetChecked(settings.showTimed)
+            page.controls.showTimeless:SetChecked(settings.showTimeless)
+        end
         page.controls.growUp:SetChecked(settings.growUp)
         page.controls.sortDropdown:RefreshText("Sort: " .. (settings.sort or "default"))
         page.controls.iconDropdown:RefreshText("Icon: " .. (settings.iconSide or "LEFT"))
@@ -1545,8 +1555,10 @@ function Config:BuildGroupPage(page, settings)
         Config:SetControlEnabled(page.controls.offsetX.valueBox, enabled)
         Config:SetControlEnabled(page.controls.offsetY.slider, enabled)
         Config:SetControlEnabled(page.controls.offsetY.valueBox, enabled)
-        Config:SetControlEnabled(page.controls.showTimed, enabled)
-        Config:SetControlEnabled(page.controls.showTimeless, enabled)
+        if page.controls.showTimed then
+            Config:SetControlEnabled(page.controls.showTimed, enabled)
+            Config:SetControlEnabled(page.controls.showTimeless, enabled)
+        end
         Config:SetControlEnabled(page.controls.growUp, enabled)
         Config:SetControlEnabled(page.controls.filterButton, enabled)
         Config:SetControlEnabled(page.controls.sortDropdown, enabled)

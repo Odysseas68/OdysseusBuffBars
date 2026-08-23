@@ -722,63 +722,280 @@ local function CopySpellIDSet(sourceSpellIDs)
     return spellIDs
 end
 
-local function CompileManagedBuffCandidateFilters(filters, routedSpellIDs)
-    local whitelist = filters and filters.whitelist
-    local blacklist = filters and filters.blacklist
-    local includeSpellIDs = {}
-    local excludeSpellIDs = CopySpellIDSet(routedSpellIDs)
-    local hasWhitelist = false
+local function AreSpellIDSetsEqual(leftSpellIDs, rightSpellIDs)
+    if leftSpellIDs == nil or rightSpellIDs == nil then
+        return leftSpellIDs == rightSpellIDs
+    end
 
-    if type(whitelist) == "table" then
-        for spellID, enabled in pairs(whitelist) do
+    for spellID, enabled in pairs(leftSpellIDs) do
+        if enabled and not rightSpellIDs[spellID] then
+            return false
+        end
+    end
+
+    for spellID, enabled in pairs(rightSpellIDs) do
+        if enabled and not leftSpellIDs[spellID] then
+            return false
+        end
+    end
+
+    return true
+end
+
+local function GetEnabledNumericSpellIDs(filterTable)
+    local spellIDs = {}
+    local hasEntries = false
+
+    if type(filterTable) == "table" then
+        for spellID, enabled in pairs(filterTable) do
             if enabled and type(spellID) == "number" then
-                includeSpellIDs[spellID] = true
-                hasWhitelist = true
+                spellIDs[spellID] = true
+                hasEntries = true
             end
         end
     end
 
+    return spellIDs, hasEntries
+end
+
+local function AddSpellIDs(destinationSpellIDs, sourceSpellIDs)
+    for spellID, enabled in pairs(sourceSpellIDs or {}) do
+        if enabled then
+            destinationSpellIDs[spellID] = true
+        end
+    end
+end
+
+local MANAGED_HELPFUL_ROUTE_HIDDEN = "HIDDEN"
+local MANAGED_HELPFUL_ROUTE_BUFFS = "BUFFS"
+local MANAGED_HELPFUL_ROUTE_ENCHANTMENTS = "ENCHANTMENTS"
+
+local function AddFilterSpellIDs(destinationSpellIDs, filters)
+    local whitelistSpellIDs = GetEnabledNumericSpellIDs(filters and filters.whitelist)
+    local blacklistSpellIDs = GetEnabledNumericSpellIDs(filters and filters.blacklist)
+    AddSpellIDs(destinationSpellIDs, whitelistSpellIDs)
+    AddSpellIDs(destinationSpellIDs, blacklistSpellIDs)
+end
+
+local function CompileManagedEffectiveHelpfulRoutes(
+    buffFilters,
+    enhancementFilters,
+    semanticEnhancementSpellIDs,
+    overrides
+)
+    local relevantSpellIDs = CopySpellIDSet(semanticEnhancementSpellIDs)
+    local effectiveRoutes = {}
+
+    AddFilterSpellIDs(relevantSpellIDs, buffFilters)
+    AddFilterSpellIDs(relevantSpellIDs, enhancementFilters)
+
+    if type(overrides) == "table" then
+        for spellID, override in pairs(overrides) do
+            if type(spellID) == "number" and type(override) == "table" then
+                relevantSpellIDs[spellID] = true
+            end
+        end
+    end
+
+    for spellID in pairs(relevantSpellIDs) do
+        local override = type(overrides) == "table" and overrides[spellID] or nil
+        if type(override) == "table" and override.hidden then
+            effectiveRoutes[spellID] = MANAGED_HELPFUL_ROUTE_HIDDEN
+        elseif type(override) == "table" and override.group == "BUFFS" then
+            effectiveRoutes[spellID] = MANAGED_HELPFUL_ROUTE_BUFFS
+        elseif type(override) == "table" and override.group == "ENCHANTMENTS" then
+            effectiveRoutes[spellID] = MANAGED_HELPFUL_ROUTE_ENCHANTMENTS
+        elseif semanticEnhancementSpellIDs[spellID] then
+            effectiveRoutes[spellID] = MANAGED_HELPFUL_ROUTE_ENCHANTMENTS
+        else
+            effectiveRoutes[spellID] = MANAGED_HELPFUL_ROUTE_BUFFS
+        end
+    end
+
+    return effectiveRoutes
+end
+
+local function CompileManagedBuffCandidateFilters(filters, effectiveRoutes)
+    local whitelistSpellIDs, hasWhitelist = GetEnabledNumericSpellIDs(filters and filters.whitelist)
+    local excludeSpellIDs = {}
+
+    for spellID, route in pairs(effectiveRoutes) do
+        if route ~= MANAGED_HELPFUL_ROUTE_BUFFS then
+            excludeSpellIDs[spellID] = true
+        end
+    end
+
     if hasWhitelist then
+        local includeSpellIDs = {}
+        for spellID in pairs(whitelistSpellIDs) do
+            if effectiveRoutes[spellID] == MANAGED_HELPFUL_ROUTE_BUFFS then
+                includeSpellIDs[spellID] = true
+            end
+        end
         return {
             includeSpellIDs = includeSpellIDs,
             excludeSpellIDs = excludeSpellIDs,
         }
     end
 
-    if type(blacklist) == "table" then
-        for spellID, enabled in pairs(blacklist) do
-            if enabled and type(spellID) == "number" then
-                excludeSpellIDs[spellID] = true
-            end
+    local blacklistSpellIDs = GetEnabledNumericSpellIDs(filters and filters.blacklist)
+    for spellID in pairs(blacklistSpellIDs) do
+        if effectiveRoutes[spellID] == MANAGED_HELPFUL_ROUTE_BUFFS then
+            excludeSpellIDs[spellID] = true
         end
     end
-
     return {
         excludeSpellIDs = excludeSpellIDs,
     }
 end
 
-local function CompileManagedEnhancementCandidateFilters(routedSpellIDs)
+local function CompileManagedEnhancementCandidateFilters(filters, effectiveRoutes)
+    local whitelistSpellIDs, hasWhitelist = GetEnabledNumericSpellIDs(filters and filters.whitelist)
+    local blacklistSpellIDs = GetEnabledNumericSpellIDs(filters and filters.blacklist)
+    local includeSpellIDs = {}
+    local excludeSpellIDs = {}
+
+    for spellID, route in pairs(effectiveRoutes) do
+        if route == MANAGED_HELPFUL_ROUTE_HIDDEN then
+            excludeSpellIDs[spellID] = true
+        elseif route == MANAGED_HELPFUL_ROUTE_ENCHANTMENTS then
+            if hasWhitelist then
+                if whitelistSpellIDs[spellID] then
+                    includeSpellIDs[spellID] = true
+                end
+            elseif blacklistSpellIDs[spellID] then
+                excludeSpellIDs[spellID] = true
+            else
+                includeSpellIDs[spellID] = true
+            end
+        end
+    end
+
     return {
-        includeSpellIDs = CopySpellIDSet(routedSpellIDs),
+        includeSpellIDs = includeSpellIDs,
+        excludeSpellIDs = excludeSpellIDs,
     }
 end
 
-local function GetLegacyBuffFilters()
-    if not OBB.db or type(OBB.db.groups) ~= "table" then
-        return nil
+local function CompileManagedCandidateFilterState(
+    buffFilters,
+    enhancementFilters,
+    semanticEnhancementSpellIDs,
+    overrides,
+    buffMaxDuration
+)
+    local effectiveRoutes = CompileManagedEffectiveHelpfulRoutes(
+        buffFilters,
+        enhancementFilters,
+        semanticEnhancementSpellIDs,
+        overrides
+    )
+    local buffCandidateFilters = CompileManagedBuffCandidateFilters(
+        buffFilters,
+        effectiveRoutes
+    )
+    buffCandidateFilters.maxDuration = buffMaxDuration
+
+    return {
+        buffCandidateFilters = buffCandidateFilters,
+        enhancementCandidateFilters = CompileManagedEnhancementCandidateFilters(
+            enhancementFilters,
+            effectiveRoutes
+        ),
+    }
+end
+
+local function AreManagedCandidateFilterStatesEqual(leftState, rightState)
+    if leftState == nil or rightState == nil then
+        return leftState == rightState
     end
 
-    for _, groupSettings in ipairs(OBB.db.groups) do
-        if groupSettings.id == 1 then
-            return groupSettings.filters
-        end
+    local leftBuff = leftState.buffCandidateFilters
+    local rightBuff = rightState.buffCandidateFilters
+    local leftEnhancement = leftState.enhancementCandidateFilters
+    local rightEnhancement = rightState.enhancementCandidateFilters
+    return leftBuff.maxDuration == rightBuff.maxDuration
+        and AreSpellIDSetsEqual(leftBuff.includeSpellIDs, rightBuff.includeSpellIDs)
+        and AreSpellIDSetsEqual(leftBuff.excludeSpellIDs, rightBuff.excludeSpellIDs)
+        and AreSpellIDSetsEqual(leftEnhancement.includeSpellIDs, rightEnhancement.includeSpellIDs)
+        and AreSpellIDSetsEqual(leftEnhancement.excludeSpellIDs, rightEnhancement.excludeSpellIDs)
+end
+
+local function CopyManagedCandidateFilterState(state)
+    return {
+        buffCandidateFilters = {
+            maxDuration = state.buffCandidateFilters.maxDuration,
+            includeSpellIDs = state.buffCandidateFilters.includeSpellIDs
+                and CopySpellIDSet(state.buffCandidateFilters.includeSpellIDs)
+                or nil,
+            excludeSpellIDs = state.buffCandidateFilters.excludeSpellIDs
+                and CopySpellIDSet(state.buffCandidateFilters.excludeSpellIDs)
+                or nil,
+        },
+        enhancementCandidateFilters = {
+            includeSpellIDs = state.enhancementCandidateFilters.includeSpellIDs
+                and CopySpellIDSet(state.enhancementCandidateFilters.includeSpellIDs)
+                or nil,
+            excludeSpellIDs = state.enhancementCandidateFilters.excludeSpellIDs
+                and CopySpellIDSet(state.enhancementCandidateFilters.excludeSpellIDs)
+                or nil,
+        },
+    }
+end
+
+-- The desired routed membership is prototype-owned source state. The applied
+-- snapshot represents the complete two-group composition, not just routing.
+local currentHelpfulEnhancementSpellIDs = {}
+local lastAppliedManagedCandidateFilterState
+local MANAGED_BUFF_DURATION_MODE_ALL = "ALL"
+local MANAGED_BUFF_DURATION_MODE_TIMED_ONLY = "TIMED_ONLY"
+
+local function ResolveManagedBuffDurationMode(settings)
+    if settings and settings.showTimed == true and settings.showTimeless == true then
+        return MANAGED_BUFF_DURATION_MODE_ALL
+    end
+    if settings and settings.showTimed == true and settings.showTimeless == false then
+        return MANAGED_BUFF_DURATION_MODE_TIMED_ONLY
     end
 
     return nil
 end
 
-function ManagedPrototype:RefreshCandidateFilters(routedSpellIDs)
+-- Unsupported legacy combinations retain the duration field from the last
+-- complete applied descriptor. Before the first apply, ALL is the safe baseline.
+local function GetRetainedManagedBuffDurationMode()
+    local appliedBuffFilters = lastAppliedManagedCandidateFilterState
+        and lastAppliedManagedCandidateFilterState.buffCandidateFilters
+    if appliedBuffFilters and appliedBuffFilters.maxDuration == math.huge then
+        return MANAGED_BUFF_DURATION_MODE_TIMED_ONLY
+    end
+
+    return MANAGED_BUFF_DURATION_MODE_ALL
+end
+
+local function GetManagedBuffMaxDuration(mode)
+    if mode == MANAGED_BUFF_DURATION_MODE_TIMED_ONLY then
+        return math.huge
+    end
+
+    return nil
+end
+
+local function CompileCurrentManagedCandidateFilterState()
+    local buffSettings = GetGroupSettings(1)
+    local enhancementSettings = GetGroupSettings(3)
+    local buffDurationMode = ResolveManagedBuffDurationMode(buffSettings)
+        or GetRetainedManagedBuffDurationMode()
+    return CompileManagedCandidateFilterState(
+        buffSettings and buffSettings.filters,
+        enhancementSettings and enhancementSettings.filters,
+        currentHelpfulEnhancementSpellIDs,
+        OBB.db and OBB.db.overrides,
+        GetManagedBuffMaxDuration(buffDurationMode)
+    )
+end
+
+function ManagedPrototype:RefreshCandidateFilters()
     if InCombatLockdown and InCombatLockdown() then
         return false
     end
@@ -789,14 +1006,21 @@ function ManagedPrototype:RefreshCandidateFilters(routedSpellIDs)
         return false
     end
 
-    local buffCandidateFilters = CompileManagedBuffCandidateFilters(GetLegacyBuffFilters(), routedSpellIDs)
-    local enhancementCandidateFilters = CompileManagedEnhancementCandidateFilters(routedSpellIDs)
-    self.container:SetAuraGroupCandidateFilters(AURA_GROUP_KEY, buffCandidateFilters)
+    local candidateFilterState = CompileCurrentManagedCandidateFilterState()
+    if AreManagedCandidateFilterStatesEqual(lastAppliedManagedCandidateFilterState, candidateFilterState) then
+        return true, false
+    end
+
+    self.container:SetAuraGroupCandidateFilters(
+        AURA_GROUP_KEY,
+        candidateFilterState.buffCandidateFilters
+    )
     self.enchantmentContainer:SetAuraGroupCandidateFilters(
         ENHANCEMENT_AURA_GROUP_KEY,
-        enhancementCandidateFilters
+        candidateFilterState.enhancementCandidateFilters
     )
-    return true
+    lastAppliedManagedCandidateFilterState = CopyManagedCandidateFilterState(candidateFilterState)
+    return true, true
 end
 
 local function IsReadableDiagnosticValue(value)
@@ -1010,7 +1234,6 @@ end
 local automaticDiscoveryFrame
 local automaticDiscoveryPending
 local nativeEnchantmentRecoveryDeferredForCombat
-local lastAppliedHelpfulEnhancementSpellIDs
 
 local function UpdateAutomaticDiscoveryFrameRegenRegistration()
     if not automaticDiscoveryFrame then
@@ -1022,26 +1245,6 @@ local function UpdateAutomaticDiscoveryFrameRegenRegistration()
     else
         automaticDiscoveryFrame:UnregisterEvent("PLAYER_REGEN_ENABLED")
     end
-end
-
-local function AreSpellIDSetsEqual(leftSpellIDs, rightSpellIDs)
-    if leftSpellIDs == nil or rightSpellIDs == nil then
-        return false
-    end
-
-    for spellID, enabled in pairs(leftSpellIDs) do
-        if enabled and not rightSpellIDs[spellID] then
-            return false
-        end
-    end
-
-    for spellID, enabled in pairs(rightSpellIDs) do
-        if enabled and not leftSpellIDs[spellID] then
-            return false
-        end
-    end
-
-    return true
 end
 
 local function SetAutomaticHelpfulEnhancementDiscoveryPending(pending)
@@ -1083,21 +1286,23 @@ local function RunHelpfulEnhancementDiscovery(printDetails)
         end
     end
 
-    if AreSpellIDSetsEqual(lastAppliedHelpfulEnhancementSpellIDs, discoveredSpellIDs) then
-        return true, #discoveredSpellIDList, nil, false
+    local routingChanged = not AreSpellIDSetsEqual(
+        currentHelpfulEnhancementSpellIDs,
+        discoveredSpellIDs
+    )
+    if routingChanged then
+        currentHelpfulEnhancementSpellIDs = CopySpellIDSet(discoveredSpellIDs)
     end
 
-    local applySuccess, applied = pcall(
+    local applySuccess, applied, compositionChanged = pcall(
         ManagedPrototype.RefreshCandidateFilters,
-        ManagedPrototype,
-        discoveredSpellIDs
+        ManagedPrototype
     )
     if not applySuccess or not applied then
         return false, nil, "managed filter application failed"
     end
 
-    lastAppliedHelpfulEnhancementSpellIDs = CopySpellIDSet(discoveredSpellIDs)
-    return true, #discoveredSpellIDList, nil, true
+    return true, #discoveredSpellIDList, nil, routingChanged or compositionChanged
 end
 
 function ManagedPrototype.DiscoverAndApplyHelpfulEnhancementRouting()
@@ -1976,6 +2181,10 @@ function ManagedPrototype:ApplyConfiguration(_reason)
         ApplyManagedPlacement(self, placement)
     end
 
+    if not self:RefreshCandidateFilters() then
+        return false, "candidate filters not applied"
+    end
+
     return true
 end
 
@@ -2455,7 +2664,7 @@ local function CreateManagedAuraPrototype()
     local activeSortMode = groupConfig.sortMode
     local activeSort = SORT_MODES[activeSortMode]
     container:AddAuraGroup(AURA_GROUP_KEY, "HELPFUL", {
-        candidateFilters = CompileManagedBuffCandidateFilters(GetLegacyBuffFilters()),
+        candidateFilters = CompileCurrentManagedCandidateFilterState().buffCandidateFilters,
         maxFrameCount = groupConfig.maxBars,
         initializeFrame = InitializeAuraButton,
         sortMethod = activeSort.method,
@@ -2754,7 +2963,7 @@ local function CreateManagedEnchantmentPrototype()
     })
     local activeSort = SORT_MODES[groupConfig.sortMode]
     container:AddAuraGroup(ENHANCEMENT_AURA_GROUP_KEY, "HELPFUL", {
-        candidateFilters = CompileManagedEnhancementCandidateFilters(),
+        candidateFilters = CompileCurrentManagedCandidateFilterState().enhancementCandidateFilters,
         maxFrameCount = groupConfig.maxBars,
         initializeFrame = InitializeEnchantmentAuraButton,
         sortMethod = activeSort.method,
