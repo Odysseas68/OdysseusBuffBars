@@ -145,7 +145,12 @@
 ## Remaining Migration Work
 
 - [x] Implement and runtime-validate ENCHANTMENTS `growUp` while keeping Fishing Lure as a fixed footer outside FlowLayout in both directions.
-- [ ] Add remaining host placement/chaining parity only after research and runtime validation: arbitrary `anchorTo` graphs, BUFFS as a child, BELOW beyond the supported parent relationships, LEFT/RIGHT, ABOVE, and broader cycle policy.
+- [x] Implement and runtime-validate RIGHT for DEBUFFS relative to BUFFS and ENCHANTMENTS relative to DEBUFFS using applied parent logical width, including empty/non-empty state, live parent-width changes, offsets, switching, growth/scale, parent dragging, reset, combat, and native enchant/lure behavior.
+- [x] Implement and runtime-validate LEFT for the same supported chain using applied child logical width, including empty state, live child-width changes, parent-width independence, offsets, switching, drag following/refusal, reset, comparison/header modes, combat, and native enchant/lure transitions.
+- [x] Complete ABOVE research and intentionally defer it for the managed prototype/migration period; do not add dynamic-height reads, polling, private hooks, duplicated row-height logic, or a second content-height authority.
+- [ ] At production cutover, remove ABOVE from managed placement choices and require an explicit supported replacement for existing ABOVE users without silently remapping or prematurely discarding the saved legacy value.
+- [ ] Decide whether arbitrary `anchorTo` graphs, BUFFS as a child, BELOW/RIGHT/LEFT beyond the supported parent relationships, and broader cycle parity are still desired; do not generalize current validation.
+- [ ] Optionally evaluate minor lateral visual-alignment polish without treating the runtime-validated logical geometry as defective.
 - [ ] Retain startup/reload-only status for unsupported geometry/layout properties until each live mutation path is explicitly implemented and runtime validated.
 - [x] Add and runtime-validate managed `anchorsShown` header visibility without moving hosts, reclaiming reserved header geometry, changing placement, or affecting aura rows; keep lock and development visibility controls independent.
 - [x] Keep OBB SavedVariables as the sole managed-host position authority by clearing WoW user-placed ownership after hosts become movable, after successful SCREEN-root drag persistence, and during safe restoration; runtime-validate the saved BELOW chain across two full exit/login cycles without anchor-dropdown repair.

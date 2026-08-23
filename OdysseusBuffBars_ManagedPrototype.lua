@@ -175,6 +175,7 @@ local MANAGED_DEBUFF_PLACEMENT = {
     key = "DEBUFFS",
     id = 2,
     parentGroupID = 1,
+    parentGroupKey = "BUFFS",
     hostKey = "debuffHost",
     parentContainerKey = "container",
     screenX = 420,
@@ -184,6 +185,7 @@ local MANAGED_ENCHANTMENT_PLACEMENT = {
     key = "ENCHANTMENTS",
     id = 3,
     parentGroupID = 2,
+    parentGroupKey = "DEBUFFS",
     hostKey = "enchantmentHost",
     parentContainerKey = "debuffContainer",
     screenX = 420,
@@ -305,7 +307,19 @@ local function IsSupportedManagedBelowPlacement(settings, placement)
         and settings.placement == "BELOW"
 end
 
-local function BuildManagedPlacementState(settings, placement)
+local function IsSupportedManagedRightPlacement(settings, placement)
+    return settings
+        and settings.anchorTo == placement.parentGroupID
+        and settings.placement == "RIGHT"
+end
+
+local function IsSupportedManagedLeftPlacement(settings, placement)
+    return settings
+        and settings.anchorTo == placement.parentGroupID
+        and settings.placement == "LEFT"
+end
+
+local function BuildManagedPlacementState(prototype, settings, placement)
     if IsSupportedManagedScreenPlacement(settings) then
         return {
             mode = "SCREEN",
@@ -323,15 +337,36 @@ local function BuildManagedPlacementState(settings, placement)
         }
     end
 
+    if IsSupportedManagedRightPlacement(settings, placement) then
+        return {
+            mode = "RIGHT",
+            parentGroupID = placement.parentGroupID,
+            offsetX = settings.offsetX or MANAGED_GROUP_GAP,
+            offsetY = settings.offsetY or 0,
+            parentWidth = prototype.currentBarStyles[placement.parentGroupKey].width,
+        }
+    end
+
+    if IsSupportedManagedLeftPlacement(settings, placement) then
+        return {
+            mode = "LEFT",
+            parentGroupID = placement.parentGroupID,
+            offsetX = settings.offsetX or -MANAGED_GROUP_GAP,
+            offsetY = settings.offsetY or 0,
+            childWidth = prototype.currentBarStyles[placement.key].width,
+        }
+    end
+
     return nil
 end
 
-local function GetSupportedManagedPlacementState(placement)
+local function GetSupportedManagedPlacementState(prototype, placement)
     if not IsManagedBuffsScreenRoot(GetGroupSettings(1)) then
         return nil
     end
 
     local debuffState = BuildManagedPlacementState(
+        prototype,
         GetGroupSettings(MANAGED_DEBUFF_PLACEMENT.id),
         MANAGED_DEBUFF_PLACEMENT
     )
@@ -343,6 +378,7 @@ local function GetSupportedManagedPlacementState(placement)
     end
 
     return BuildManagedPlacementState(
+        prototype,
         GetGroupSettings(MANAGED_ENCHANTMENT_PLACEMENT.id),
         MANAGED_ENCHANTMENT_PLACEMENT
     )
@@ -366,9 +402,15 @@ local function AreManagedPlacementStatesEqual(left, right)
         return left.x == right.x and left.y == right.y
     end
 
-    return left.parentGroupID == right.parentGroupID
+    local equal = left.parentGroupID == right.parentGroupID
         and left.offsetX == right.offsetX
         and left.offsetY == right.offsetY
+    if left.mode == "RIGHT" then
+        equal = equal and left.parentWidth == right.parentWidth
+    elseif left.mode == "LEFT" then
+        equal = equal and left.childWidth == right.childWidth
+    end
+    return equal
 end
 
 local function SetManagedScreenHostPoint(prototype, group, state, clearExistingPoints)
@@ -398,12 +440,27 @@ local function SetManagedHostPoint(prototype, placement, state, clearExistingPoi
         host:ClearAllPoints()
     end
 
+    local relativePoint = "BOTTOMLEFT"
+    local hostOffsetX = state.offsetX - HOST_PADDING
+    local hostOffsetY = state.offsetY
+    if state.mode == "RIGHT" then
+        local headerStyle = prototype.startupConfig[placement.key].headerStyle
+        relativePoint = "TOPLEFT"
+        hostOffsetX = state.parentWidth + state.offsetX - HOST_PADDING
+        hostOffsetY = state.offsetY + headerStyle.height + headerStyle.firstRowGap
+    elseif state.mode == "LEFT" then
+        local headerStyle = prototype.startupConfig[placement.key].headerStyle
+        relativePoint = "TOPLEFT"
+        hostOffsetX = state.offsetX - HOST_PADDING - state.childWidth
+        hostOffsetY = state.offsetY + headerStyle.height + headerStyle.firstRowGap
+    end
+
     host:SetPoint(
         "TOPLEFT",
         prototype[placement.parentContainerKey],
-        "BOTTOMLEFT",
-        state.offsetX - HOST_PADDING,
-        state.offsetY
+        relativePoint,
+        hostOffsetX,
+        hostOffsetY
     )
 end
 
@@ -417,11 +474,16 @@ local function RecordManagedPlacement(prototype, placement, state)
         }
     else
         appliedState = {
-            mode = "BELOW",
+            mode = state.mode,
             parentGroupID = state.parentGroupID,
             offsetX = state.offsetX,
             offsetY = state.offsetY,
         }
+        if state.mode == "RIGHT" then
+            appliedState.parentWidth = state.parentWidth
+        elseif state.mode == "LEFT" then
+            appliedState.childWidth = state.childWidth
+        end
     end
     prototype.appliedManagedPlacements[placement.key] = appliedState
 end
@@ -1773,7 +1835,7 @@ local function ApplyManagedBuffsScreenPosition(prototype)
 end
 
 local function ApplyManagedPlacement(prototype, placement)
-    local desiredState = GetSupportedManagedPlacementState(placement)
+    local desiredState = GetSupportedManagedPlacementState(prototype, placement)
     if not desiredState then
         return false
     end
@@ -2517,7 +2579,7 @@ end
 
 local function CreateManagedDebuffPrototype()
     local placement = MANAGED_DEBUFF_PLACEMENT
-    local appliedState = GetSupportedManagedPlacementState(placement)
+    local appliedState = GetSupportedManagedPlacementState(ManagedPrototype, placement)
         or BuildDefaultManagedPlacementState(placement)
     local groupConfig = ManagedPrototype.startupConfig.DEBUFFS
     local barStyle = groupConfig.barStyle
@@ -2619,7 +2681,7 @@ end
 
 local function CreateManagedEnchantmentPrototype()
     local placement = MANAGED_ENCHANTMENT_PLACEMENT
-    local appliedState = GetSupportedManagedPlacementState(placement)
+    local appliedState = GetSupportedManagedPlacementState(ManagedPrototype, placement)
         or BuildDefaultManagedPlacementState(placement)
     local groupConfig = ManagedPrototype.startupConfig.ENCHANTMENTS
     local barStyle = groupConfig.barStyle
