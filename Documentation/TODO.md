@@ -122,10 +122,13 @@
 - [x] Remove temporary transition trace instrumentation after diagnosis and keep normal runtime silent.
 - [x] Runtime-validate MainHand recovery across a Silvermoon portal return, Home teleport in both directions, Stormwind portal, Hearthstone, dungeon entry/exit, Delve/no-loading-screen behavior, legitimate no-enchant transition, and a fresh enchant afterward, with correct duration and no manual refresh.
 - [x] Runtime-validate ENCHANTMENTS DOWN/UP live switching, reload persistence, mixed managed sources, width/height/spacing/icon-side changes while UP, loading and no-enchant transitions, native recovery without growth reset, and combat behavior without reported Lua/taint/tooltip/cancellation regression.
+- [x] Confirm a real MainHand weapon oil through `/reload`, loading/portal transition, Fishing Lure coexistence, UP growth, correct duration, native weapon tooltip, and non-combat right-click cancellation. The observed enchant ID `8051`, expiring state, `6798682` remaining milliseconds, and zero charges are evidence only; automatic recovery passed without running the diagnostic manual refresh.
+- [x] Confirm MainHand and OffHand use the same native registration options and bounded recovery path. Treat OffHand as source-validated and structurally symmetric when no suitable active OffHand enchant is available.
+- [x] Record the supported naming boundary: public temporary-enchantment data does not provide a clean effect name, so do not tooltip-scrape, inspect private provider state, enumerate AuraButtons, use restricted geometry/state, hardcode ID-name mappings, or add a compatibility database.
 - [ ] Live-validate broader MainHand apply/refresh/remove behavior, charge clearing/count formatting, equipment swaps, and empty `1 x 1` collapse.
-- [ ] Live-validate OffHand independently and simultaneously with MainHand, including equipment swaps and removing one row without disturbing the other.
-- [ ] Live-validate MainHand-before-OffHand Slot/Normal ordering with both native temporary-enchantment rows active.
-- [ ] Live-validate combat cancellation and OffHand cancellation; record any restriction, taint, or blocked action without adding a workaround.
+- [ ] Opportunistically live-validate OffHand independently and simultaneously with MainHand when a suitable real enchant is available, including equipment swaps and removing one row without disturbing the other; this is coverage, not a known implementation gap.
+- [ ] Opportunistically validate MainHand-before-OffHand Slot/Normal ordering with both native temporary-enchantment rows active.
+- [ ] Live-validate combat cancellation; opportunistically cover OffHand cancellation with a suitable real enchant, recording any restriction, taint, or blocked action without adding a workaround.
 - [ ] Live-validate BUFFS -> DEBUFFS -> ENCHANTMENTS anchor propagation, managed grow/shrink, rapid enchant churn, and Blizzard-owned post-login apply/remove updates.
 - [ ] Exercise and record permanent/zero-duration behavior with `hidePermanent = false` if a suitable case is available.
 - [x] Research and Live-validate semantic classification of readable active HELPFUL spell metadata for Food, Flask/Phial, and Augment Rune effects; use no duration thresholds, item IDs, or hardcoded routing spell-ID table.
@@ -166,10 +169,10 @@
 - [x] Build current active readable B/E HELPFUL ownership projection through the shared resolver and use it for BUFFS `Current group auras`; E no longer exposes a destination-filter editor under the final broad policy.
 - [x] Finalize managed DEBUFFS as intentionally broad/unfiltered, remove its Whitelist/Blacklist control, and preserve historical filter tables for legacy/rollback.
 - [x] Remove D/E Whitelist/Blacklist controls and place Grow Up directly below Max Bars without changing defaults or SavedVariables schema.
-- [ ] Complete broader Live validation of native MainHand/OffHand item-enchantment lifecycle and interaction, then integrate the validated native and semantic HELPFUL sources into production ENCHANTMENTS.
+- [ ] Complete broader Live validation of native MainHand lifecycle and interaction, take opportunistic OffHand/dual-slot coverage when a practical test case is available, then integrate the validated native and semantic HELPFUL sources into production ENCHANTMENTS.
 - [ ] Broaden runtime testing across classes, effects, bobbers, profession tools, and lure variants without converting observed IDs into compatibility tables.
 - [ ] Investigate the transient observation where ordinary HELPFUL auras with `classification=nil` briefly appeared in ENCHANTMENTS before refresh; observed spell IDs were `1287425`, `1281559`, and `296553`, with no established cause or fix.
-- [ ] Optionally research a supported localized temporary-enchant effect name beyond equipped-item/slot presentation.
+- [x] Close temporary-enchant effect naming at the current supported public boundary: retain equipped-item/slot presentation and native tooltip context unless Blizzard adds a clean public name API.
 - [ ] Optionally research safe profession-tool lure cancellation; do not claim slot-28 cancellation until runtime validated.
 - [ ] Research supported/Edit Mode handling for Blizzard BuffFrame visibility; do not claim the combat reappearance issue is fixed.
 - [ ] Cut over player BUFFS to exactly one production backend and remove its duplicate legacy display.
