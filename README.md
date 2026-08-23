@@ -8,7 +8,7 @@ A standalone World of Warcraft Retail addon implementing a modern managed AuraCo
 - 🚧 Player DEBUFFS
 - 🚧 Managed ENCHANTMENTS parity
 - ✅ Managed visual parity
-- 🚧 Final behavior/filter parity
+- ✅ Managed behavior/filter parity audit
 - 🚧 Final production migration
 
 The managed Player BUFFS implementation has been validated on the PTR for the AuraContainer lifecycle, dynamic self-sizing, native sorting, native whitelist/blacklist filtering, automatic configuration synchronization, native tooltips, native right-click cancellation, and combat operation.
@@ -18,6 +18,8 @@ Core managed MainHand temporary-enchantment lifecycle is validated on Retail Liv
 A Retail `12.1.0.69404` source audit confirmed that supported public temporary-enchantment data supplies slot, enchant ID, remaining time, expiration state, charges, equipped-item tooltip context, native row identity, and cancellation slot, but no clean enchant-effect name or public mapping to a spell or item. The numeric `enchantID` is an internal item-enchantment identifier and must not be passed to `C_Spell` or `C_Item` as though it belonged to those domains. Managed native rows intentionally retain their equipped-weapon/slot presentation, Blizzard's localized inventory tooltip, and native cancellation; the addon does not manufacture a separate name through tooltip parsing, private state, AuraButton enumeration, or hardcoded compatibility data. This is settled product behavior unless Blizzard adds a documented public mapping.
 
 Managed filtering is intentionally group-specific. BUFFS alone exposes destination whitelist/blacklist filtering, current effective-ownership rows, manual Spell ID entry, and ALL/TIMED_ONLY behavior. DEBUFFS is deliberately broad so eligible managed player HARMFUL state remains visible. ENCHANTMENTS is deliberately broad across effective `HelpfulEnhancements` ownership plus its native MainHand/OffHand and Fishing Lure sources. HELPFUL ownership remains separate: hidden, explicit B/E group override, semantic ENCHANTMENTS route, then default BUFFS; only BUFFS applies a destination filter afterward. Historical D/E filter SavedVariables remain preserved for legacy comparison and rollback but are neither exposed nor consumed by managed D/E.
+
+A historical transient observation in which ordinary `classification=nil` HELPFUL auras briefly appeared in ENCHANTMENTS could not be reproduced during focused current-architecture validation. Semantic state, effective ownership, desired descriptors, and applied descriptors remained consistent through ordinary/semantic aura churn, overrides and filters, combat deferral, empty-set reconstruction, and a portal/loading transition. The original cause remains unknown, so the observation is preserved as historical evidence rather than described as definitively fixed; it is no longer a known managed-routing implementation blocker.
 
 The legacy backend remains active during migration. `Show Legacy BuffBars (Development)` can hide only its addon-owned presentation, while `Legacy Comparison Mode (Development)` temporarily forces that presentation visible and shifts each effective legacy SCREEN root by its width plus 24 UI units for side-by-side parity work. Comparison never changes real saved placement; disabling it returns legacy bars to the managed-authoritative shared coordinates. Blizzard default-frame visibility remains independent. This temporary workflow is not production renderer selection.
 
@@ -39,5 +41,5 @@ The legacy backend remains active during migration. `Show Legacy BuffBars (Devel
 - Player DEBUFFS — Core managed behavior validated; integration pending
 - Managed ENCHANTMENTS — MainHand runtime validated; OffHand structurally covered with opportunistic direct validation remaining
 - Visual parity — Validated across the three managed areas
-- Configuration integration — Managed BUFF destination filtering and the intentional broad/unfiltered D/E policies are runtime validated; final parity audit pending
+- Configuration integration — Managed BUFF destination filtering and the intentional broad/unfiltered D/E policies are runtime validated; the final parity audit and focused HELPFUL-routing investigation found no current routing implementation blocker
 - Production migration — Planned

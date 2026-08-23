@@ -142,7 +142,6 @@
 - [x] Runtime-validate Bright Baubles apply, visible countdown, natural expiration with one scheduled API recheck, row hiding, and reapplication without presence polling.
 - [x] Fix the lure tooltip `UntrustedLayoutScriptExecution` by owning `GameTooltip` from `UIParent` at `ANCHOR_CURSOR`; validate the fishing-tool inventory tooltip without observed taint.
 - [x] Keep native weapon-enchant right-click cancellation distinct from the fishing-lure row, which currently performs no cancellation action.
-- [ ] Decide final native temporary weapon-enchant naming/presentation between Blizzard's equipped-weapon name, a static slot label, or a supported effect-name source; do not scrape tooltips or hardcode enchant-ID mappings.
 - [ ] Evaluate Ranged registration only in a Retail context that can exercise inventory slot 18.
 
 ## Remaining Migration Work
@@ -163,7 +162,7 @@
 - [x] Resolve ownership before filtering, preserve hidden/override restoration, and finalize destination whitelist/blacklist as BUFFS-only; every effective-E ID remains eligible for `HelpfulEnhancements`.
 - [x] Implement and runtime-validate BUFF ALL/TIMED_ONLY through Blizzard candidate filters; intentionally retain the last supported state for TIMELESS_ONLY/NONE while preserving SavedVariables and using ALL on fresh unsupported initialization.
 - [x] Adopt managed DEBUFFS/ENCHANTMENTS ALL-duration policy, remove their duration controls, and make BUFF duration flags group-local rather than part of `Sync Group Bars` fan-out without schema migration.
-- [ ] Complete a final managed-vs-legacy parity audit after the now-final group-specific filtering policy.
+- [x] Complete the final managed-vs-legacy parity audit after the now-final group-specific filtering policy; renderer-authority and production-cutover cleanup remain separate work.
 - [ ] Clean up or relabel legacy-only ENCHANTMENTS sort/maximum controls so the UI reflects the intentional managed 7+2+1 and Slot/Normal policy.
 - [x] Finalize managed ENCHANTMENTS as broad/source-owned with no destination per-ID filtering across `HelpfulEnhancements`, MainHand, OffHand, or Fishing Lure; preserve historical filter tables for legacy/rollback.
 - [x] Build current active readable B/E HELPFUL ownership projection through the shared resolver and use it for BUFFS `Current group auras`; E no longer exposes a destination-filter editor under the final broad policy.
@@ -171,10 +170,10 @@
 - [x] Remove D/E Whitelist/Blacklist controls and place Grow Up directly below Max Bars without changing defaults or SavedVariables schema.
 - [ ] Complete broader Live validation of native MainHand lifecycle and interaction, take opportunistic OffHand/dual-slot coverage when a practical test case is available, then integrate the validated native and semantic HELPFUL sources into production ENCHANTMENTS.
 - [ ] Broaden runtime testing across classes, effects, bobbers, profession tools, and lure variants without converting observed IDs into compatibility tables.
-- [ ] Investigate the transient observation where ordinary HELPFUL auras with `classification=nil` briefly appeared in ENCHANTMENTS before refresh; observed spell IDs were `1287425`, `1281559`, and `296553`, with no established cause or fix.
+- [x] Close the historical transient `classification=nil` ENCHANTMENTS observation as unreproduced on the current architecture after focused validation. Preserve that it genuinely occurred and its cause remains unknown, but do not treat it as a current routing implementation blocker or claim a specific fix.
 - [x] Close temporary-enchant effect naming at the Retail `12.1.0.69404` supported public boundary: `enchantID` has no public spell/item/name mapping, generic tooltip text is not production metadata, and equipped-item/slot presentation plus native tooltip context remains final unless Blizzard adds a documented resolver.
 - [ ] Optionally research safe profession-tool lure cancellation; do not claim slot-28 cancellation until runtime validated.
-- [ ] Research supported/Edit Mode handling for Blizzard BuffFrame visibility; do not claim the combat reappearance issue is fixed.
+- [x] Confirm Blizzard Edit Mode owns BuffFrame visibility and its Aura Frame `Hidden` setting is the supported user-facing mechanism; keep OBB's best-effort legacy toggle non-authoritative and schedule its cutover cleanup separately.
 - [ ] Cut over player BUFFS to exactly one production backend and remove its duplicate legacy display.
 - [ ] Validate final production configuration, combat behavior, rollback, and SavedVariables compatibility.
 - [ ] Remove temporary scanner and tooltip containment only after all required groups complete production migration.

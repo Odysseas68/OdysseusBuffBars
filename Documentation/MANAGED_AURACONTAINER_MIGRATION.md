@@ -1,6 +1,6 @@
 # Managed AuraContainer Migration
 
-Phase A, managed AuraButton presentation, Phase B.2 dynamic self-sizing, and native managed behavior are validated. Retail Live now also validates the final group-specific filtering policy: BUFFS retains destination filtering, while managed DEBUFFS and ENCHANTMENTS are intentionally broad/unfiltered. HELPFUL routing and hidden/group overrides remain ownership policy. These remain parallel prototypes; final parity audit and production cutover are not complete.
+Phase A, managed AuraButton presentation, Phase B.2 dynamic self-sizing, and native managed behavior are validated. Retail Live now also validates the final group-specific filtering policy: BUFFS retains destination filtering, while managed DEBUFFS and ENCHANTMENTS are intentionally broad/unfiltered. HELPFUL routing and hidden/group overrides remain ownership policy. The final parity audit and focused HELPFUL-routing investigation found no current routing implementation blocker; these remain parallel prototypes because renderer authority, cutover integration, cleanup, and final production validation are not complete.
 
 Evidence labels used below:
 
@@ -21,10 +21,10 @@ Current milestone status:
 | Managed visual parity | Runtime validated for BUFFS, DEBUFFS, and ENCHANTMENTS from the accepted `260 x 18`, three-pixel-spacing baseline, with live OOC font, color, width, height, and spacing synchronization. |
 | Phase A.1 startup configuration consumption | Runtime validated. Initialization occurs after SavedVariables adoption/defaults/migrations/normalization and consumes a copied configuration snapshot. |
 | Live configuration synchronization | Runtime validated out of combat for font/color/geometry, `iconSide`, host scale/alpha, BUFFS/DEBUFFS sort and `maxBars`, BUFFS/ENCHANTMENTS growth direction, BUFFS SCREEN, DEBUFFS SCREEN/BELOW/RIGHT/LEFT relative to BUFFS, and ENCHANTMENTS SCREEN/BELOW/RIGHT/LEFT relative to DEBUFFS. DEBUFFS growth is implemented through the same supported path without equivalent direct real-HARMFUL coverage. |
-| Persistent position and full configuration integration | Partial. Supported placement and final B/D/E filtering/control policy are runtime validated. ABOVE retires with legacy. Arbitrary graph/cycle parity, final audit, cleanup, and production integration remain pending. |
+| Persistent position and full configuration integration | Partial. Supported placement and final B/D/E filtering/control policy are runtime validated. ABOVE retires with legacy. The final parity audit is complete; arbitrary graph/cycle retirement decisions, cleanup, and production integration remain pending. |
 | Development comparison workflow | Runtime validated for legacy presentation hiding, comparison precedence, per-SCREEN-root temporary offset, mixed topologies, dragging without saved-coordinate drift, reset, configuration, and combat. Both backends remain active; this is not production selection. |
-| DEBUFFS/ENCHANTMENTS production integration and production cutover | Pending; the validated enhancement-routing policy is still prototype-only. |
-| Blizzard BuffFrame visibility during combat | Unresolved and separate from the managed implementation. |
+| DEBUFFS/ENCHANTMENTS production integration and production cutover | Pending; the validated enhancement-routing policy remains prototype-only but has no known routing implementation blocker from the historical transient observation. |
+| Blizzard BuffFrame visibility during combat | Blizzard Edit Mode owns BuffFrame visibility; the supported user-facing solution is the Aura Frame visibility setting `Hidden`, while OBB's best-effort legacy toggle is not authoritative. |
 
 ## 1. Current Architecture
 
@@ -124,7 +124,7 @@ Additional verified findings:
 | Separate secure cancel overlay | Reimplements behavior already owned by AuraButton and depends on addon-provided identity/index. |
 | Legacy name-based enhancement heuristics | They cannot be carried forward unchanged. The validated prototype instead classifies readable active spell metadata, then applies the resulting spell-ID membership through managed candidate filters. |
 | Timed/timeless filtering | No verified general-purpose native selector provides exact parity. `maxDuration` is not a complete replacement. |
-| Whitelist and blacklist | Native spell-ID candidate filtering is PTR validated for player BUFFS. General player-DEBUFFS parity is unavailable because non-`NeverSecret` harmful auras on the assistable player unit skip identity maps; product policy remains unresolved. |
+| Whitelist and blacklist | Native spell-ID candidate filtering is PTR validated for player BUFFS. General player-DEBUFFS parity is unavailable because non-`NeverSecret` harmful auras on the assistable player unit skip identity maps; broad/unfiltered managed DEBUFFS is the finalized product policy. |
 | Three independent movable groups | A container has one unit and one coordinated flow surface. Independent placement favors one container per existing group. |
 | Custom bar count and host resizing | Managed layout and visibility can be secret-dependent; addon code must not infer active aura counts from provider capacity. |
 | Blizzard-frame hiding | Blizzard now reasserts management during combat. Repeated insecure hiding is not a sustainable replacement for supported behavior. |
@@ -137,7 +137,7 @@ Verified legacy Retail 12.1 limitations:
 - Direct aura scanning becomes unavailable or secret in combat. Temporary `pcall` containment prevents repeated scanner failures but cannot restore correct combat state.
 - Legacy timers can become stale or show `0s` during combat.
 - The legacy indexed `GameTooltip:SetUnitAura` path is suppressed on Retail 12.1+ because it can invoke forbidden secret-aura access.
-- The legacy `Hide Blizzard Icons` option works when toggled out of combat, but Blizzard's default buff icons reappear when combat begins and disappear again after combat. This is an unresolved Blizzard BuffFrame visibility issue, not a managed-frame failure; no fix is claimed.
+- The legacy `Hide Blizzard Icons` option can be overwritten by Blizzard's BuffFrame/Edit Mode ownership during combat transitions. The supported user-facing solution is the Edit Mode Aura Frame visibility setting `Hidden`; OBB does not claim a combat-safe API for changing another Edit Mode system.
 
 ## 4. Recommended Target Architecture
 
@@ -570,7 +570,13 @@ Runtime evidence:
 
 - Successfully classified and routed examples were `1232325` Well Fed -> `FOOD`, `432021` Flask of Alchemical Chaos -> `FLASK_PHIAL`, and `1234969` Ethereal Augmentation -> `AUGMENT_RUNE`. Cross-character validation also covered `393438` Draconic Augmentation -> `AUGMENT_RUNE` and `1233712` Hearty Well Fed -> `FOOD`. These are evidence examples, not a permanent supported-ID table.
 - Unrelated tested HELPFUL auras returned no enhancement classification, including Soul Leech, Sign of the Emissary, Hellbent Commander, Ula'tek's Gift, Flight Style: Steady, Void-Touched Orbs, and Wild Imp. This sample does not prove zero false positives across all Retail auras.
-- A separate transient observation remains uninvestigated: ordinary HELPFUL auras with `classification=nil` briefly appeared in ENCHANTMENTS before refreshing. Observed spell IDs were `1287425` (Void-Touched Orbs), `1281559` (Hellbent Commander), and `296553` (Wild Imp). No root cause or fix is established.
+- **Historical observation — not reproducible on current architecture after focused validation.** Ordinary HELPFUL auras with `classification=nil` had genuinely been observed briefly in ENCHANTMENTS in earlier testing, including Void-Touched Orbs, Hellbent Commander, and Wild Imp. The exact original cause was never determined, subsequent routing/compiler/editor architecture changed substantially, and no particular patch is credited with fixing it.
+- Focused current-architecture diagnostics repeatedly observed ordinary HELPFUL effects such as Soul Leech, Sign of Battle, Wild Imp, Sentinel's Blessing, Void-Touched Orbs, Demonic Core, Arcanoweave Insight, Rune of Critical Power, Rune of Void-Tainted Shell, Food & Drink, and additional combat/proc effects with `classification=nil`, no hidden or group override, semantic membership false, `retainedFromEarlier=false`, and effective BUFFS ownership. These names are runtime evidence only and are not a compatibility list.
+- Limited Edition Rocket Bobber, Ethereal Augmentation, and Hearty Well Fed correctly classified as `FISHING_BOBBER`, `AUGMENT_RUNE`, and `FOOD`; only classified semantic IDs entered the tested semantic E set.
+- Combat blocked discovery and intentionally retained the existing semantic set without adding an ordinary unclassified ID. Fresh `PLAYER_REGEN_ENABLED` discovery then succeeded with correct semantic state.
+- Removal and repopulation exercised `{Bobber,Rune} -> {Rune} -> {} -> {Rune}` and later `{Rune} -> {Food,Rune} -> {Food} -> {Food,Rune}`. BUFF exclusions and E includes matched every observed membership transition. Unchanged complete descriptors suppressed redundant setters; changed membership ran both setters and left applied descriptors equal to desired descriptors, with no stale semantic ID observed.
+- During a portal/loading transition, the early `PLAYER_ENTERING_WORLD` readable scan reconstructed `{Rune} -> {}`, followed by player `UNIT_AURA` rebuilding `{} -> {Rune}`. No ordinary `classification=nil` aura entered E, no incorrect visual placement was observed, and Rune returned correctly. Subsequent Food and Rune testing kept Hearty Well Fed in E while Food & Drink remained BUFF-owned.
+- Current semantic state, effective ownership, desired descriptors, applied descriptors, and visible placement therefore remained internally consistent throughout the focused test. This does not prove the historical event impossible or identify its cause, but it is no longer treated as a production-cutover blocker; renderer-authority and cutover work remain separate.
 - Initially active Food, Flask, and Rune effects appeared in BUFFS. After discovery and candidate-filter refresh, they moved into ENCHANTMENTS, disappeared from BUFFS, showed no observed duplicates, and retained correct managed timers.
 - The discovered set was exercised for initial population, identical rediscovery, growth, shrink, transition to empty, and repopulation. Observed transitions included `2 -> 3`, `3 -> 2`, and `1 -> 0 -> 1 -> 2`; no stale routed row was observed.
 - `C_TooltipInfo.GetUnitAuraByAuraInstanceID(unitToken, auraInstanceID, filter)` was verified and used for active-aura diagnostics. Well Fed, Ethereal Augmentation, and Flask of Alchemical Chaos tooltips exposed the active aura name, current effect, and remaining time. Tooltip parsing is possible and was researched, but was not selected as the primary classifier because spell metadata was cleaner for these categories.
@@ -628,8 +634,8 @@ Rollback: preserve existing SavedVariables fields and switch the group backend b
 
 ### Phase G — Blizzard-frame visibility policy
 
-- Determine whether Retail exposes a supported setting or Edit Mode behavior for suppressing the default aura presentation.
-- If no supported combat-safe method exists, accept the Blizzard frames during combat rather than fighting managed ownership.
+- Treat Blizzard Edit Mode as the owner of default Aura Frame visibility and direct users who want suppression to its supported `Hidden` setting.
+- Retire or relabel OBB's best-effort legacy hide-default control during production cleanup rather than fighting Blizzard's combat-time visibility updates.
 
 ### Phase H — Complete cutover
 
@@ -656,7 +662,7 @@ After all groups pass validation:
 | Timed/timeless policy regression | High | Keep BUFF limited to ALL/TIMED_ONLY with retained fallback; keep D/E intentionally ALL and avoid addon-side duration reads. |
 | Enhancement routing parity failure | High | Retain the validated guarded spell-metadata classifier and paired managed include/exclude filters; broaden categories only with targeted evidence. |
 | Restricted-layout tooltip taint | High | Do not own tooltips from ordinary frames whose layout depends on restricted managed bounds; use an independent owner such as `UIParent`. |
-| Blizzard frames reappearing in combat | High | Do not repeatedly hide managed frames; identify supported behavior. |
+| Blizzard frames reappearing in combat | High | Use the supported Edit Mode Aura Frame `Hidden` setting; do not repeatedly fight Blizzard-managed visibility. |
 | Post-login setter restrictions | High | Create long-lived structures early and queue uncertain mutations out of combat. |
 | Sort-direction mismatch | Medium | Test known aura sets with distinct names and expiration times. |
 | Target or unit-token lifecycle gaps | Medium | Test target swaps, unit disappearance, reconnects, and reloads. |
@@ -687,7 +693,7 @@ Every phase should also include LuaCheck, load/reload testing, Lua error capture
 4. Should final UI prevent or explain unsupported BUFF TIMELESS_ONLY/NONE combinations while preserving rollback-compatible SavedVariables?
 5. Does combined native item-enchantment and `HelpfulEnhancements` layout remain correct under simultaneous MainHand, OffHand, and routed-aura churn?
 6. Does the validated semantic spell-metadata classifier remain sufficiently precise across a broader Retail aura population and any future categories?
-7. What supported Retail or Edit Mode mechanism, if any, replaces combat-time hiding of Blizzard aura frames?
+7. Should OBB remove or relabel its best-effort legacy Blizzard-frame visibility control at cutover now that Edit Mode `Hidden` is the supported user-facing mechanism?
 8. Should target, focus, and pet support remain part of the product despite not being exposed in the current configuration UI?
 9. Which legacy D/E filter controls and stored-data explanations should remain visible during final cutover and rollback preparation?
 10. Does an actual private player HARMFUL aura traverse the verified default public-plus-private source path with correct presentation, sorting, tooltip, and removal behavior on Retail Live?
