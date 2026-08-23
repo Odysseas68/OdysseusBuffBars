@@ -172,7 +172,7 @@
 - [ ] Complete broader Live validation of native MainHand lifecycle and interaction, take opportunistic OffHand/dual-slot coverage when a practical test case is available, then integrate the validated native and semantic HELPFUL sources into production ENCHANTMENTS.
 - [ ] Broaden runtime testing across classes, effects, bobbers, profession tools, and lure variants without converting observed IDs into compatibility tables.
 - [ ] Investigate the transient observation where ordinary HELPFUL auras with `classification=nil` briefly appeared in ENCHANTMENTS before refresh; observed spell IDs were `1287425`, `1281559`, and `296553`, with no established cause or fix.
-- [x] Close temporary-enchant effect naming at the current supported public boundary: retain equipped-item/slot presentation and native tooltip context unless Blizzard adds a clean public name API.
+- [x] Close temporary-enchant effect naming at the Retail `12.1.0.69404` supported public boundary: `enchantID` has no public spell/item/name mapping, generic tooltip text is not production metadata, and equipped-item/slot presentation plus native tooltip context remains final unless Blizzard adds a documented resolver.
 - [ ] Optionally research safe profession-tool lure cancellation; do not claim slot-28 cancellation until runtime validated.
 - [ ] Research supported/Edit Mode handling for Blizzard BuffFrame visibility; do not claim the combat reappearance issue is fixed.
 - [ ] Cut over player BUFFS to exactly one production backend and remove its duplicate legacy display.
