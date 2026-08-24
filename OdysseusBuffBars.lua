@@ -472,12 +472,28 @@ function OBB:OnAddonLoaded(name)
         OdysseusBuffBarsDB = OdysseusBuffBarsTestDB
     end
 
-    OdysseusBuffBarsDB = CopyDefaults(defaults, OdysseusBuffBarsDB)
+    local savedDB = OdysseusBuffBarsDB
+    local explicitUnparentedPlacements = {}
+    local savedGroups = type(savedDB) == "table" and savedDB.groups
+    if type(savedGroups) == "table" then
+        for index, groupSettings in ipairs(savedGroups) do
+            if type(groupSettings) == "table"
+                and groupSettings.placement ~= nil
+                and groupSettings.anchorTo == nil
+            then
+                local groupID = type(groupSettings.id) == "number" and groupSettings.id or index
+                explicitUnparentedPlacements[groupID] = true
+            end
+        end
+    end
+
+    OdysseusBuffBarsDB = CopyDefaults(defaults, savedDB)
     self.db = OdysseusBuffBarsDB
     self.db.overrides = self.db.overrides or {}
 
     for _, groupSettings in ipairs(self.db.groups) do
         groupSettings.id = groupSettings.id or _
+        local hadExplicitUnparentedPlacement = explicitUnparentedPlacements[groupSettings.id] == true
         groupSettings.filters = groupSettings.filters or {}
         groupSettings.filters.whitelist = groupSettings.filters.whitelist or {}
         groupSettings.filters.blacklist = groupSettings.filters.blacklist or {}
@@ -490,13 +506,21 @@ function OBB:OnAddonLoaded(name)
             groupSettings.offsetX = groupSettings.offsetX or 0
             groupSettings.offsetY = groupSettings.offsetY or 0
         elseif groupSettings.id == 2 then
-            groupSettings.anchorTo = groupSettings.anchorTo == nil and 1 or groupSettings.anchorTo
+            if hadExplicitUnparentedPlacement then
+                groupSettings.anchorTo = nil
+            else
+                groupSettings.anchorTo = groupSettings.anchorTo == nil and 1 or groupSettings.anchorTo
+            end
             groupSettings.placement = groupSettings.placement or "BELOW"
             groupSettings.offsetX = groupSettings.offsetX or 0
             groupSettings.offsetY = groupSettings.offsetY or -8
         elseif groupSettings.id == 3 then
             groupSettings.kind = groupSettings.kind or "ENCHANTMENTS"
-            groupSettings.anchorTo = groupSettings.anchorTo == nil and 2 or groupSettings.anchorTo
+            if hadExplicitUnparentedPlacement then
+                groupSettings.anchorTo = nil
+            else
+                groupSettings.anchorTo = groupSettings.anchorTo == nil and 2 or groupSettings.anchorTo
+            end
             groupSettings.placement = groupSettings.placement or "BELOW"
             groupSettings.offsetX = groupSettings.offsetX or 0
             groupSettings.offsetY = groupSettings.offsetY or -8

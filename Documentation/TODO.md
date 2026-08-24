@@ -180,10 +180,16 @@
 - [x] Validate production configuration, combat behavior, mode-aware refresh, LEGACY/STAGED rollback, reload restoration, and SavedVariables preservation for the completed authority cutover.
 - [ ] Remove temporary scanner and tooltip containment only in a separate cleanup task after rollback support is deliberately retired.
 - [ ] Remove obsolete legacy scanner caches, events, ordinary bars, and cancellation overlays only after complete cutover.
-- [ ] Remove the temporary legacy visibility/comparison controls and presentation-offset path when the legacy renderer is retired.
+- [x] Remove the temporary legacy visibility/comparison controls and presentation-offset path while preserving the defaulted SavedVariables as dormant compatibility/history fields and keeping LEGACY/STAGED rollback intact.
+- [x] Preserve intentional D/E SCREEN roots during startup normalization without a new SavedVariables discriminator, generic `CopyDefaults` change, or managed-preflight repair; runtime-validate D SCREEN, E SCREEN, both SCREEN, D BELOW B, E BELOW D, and Reset Positions across reload.
+- [ ] Define the managed-only compatibility policy and prevent unsupported placement choices in Config without silently rewriting preserved legacy topology.
+- [ ] Retire LEGACY/STAGED authority deliberately, then remove legacy scanner/cache/event ownership and ordinary Bars only after rollback is no longer required.
+- [ ] Move the Fishing Lure formatter out of Auras before removing legacy Auras; retire the secure cancel-overlay implementation with legacy Bars.
 - [ ] Audit and simplify event ownership after LEGACY/STAGED rollback support is retired.
 - [ ] Evaluate removal of `OdysseusBuffBars_Auras.lua` and legacy-only portions of `OdysseusBuffBars_Bars.lua`; update TOC entries only after code is actually retired.
-- [ ] Evaluate renaming and/or splitting the roughly 112.5 KB production-critical `OdysseusBuffBars_ManagedPrototype.lua` in a separate reviewable task; do not create immediate post-cutover churn in this checkpoint.
+- [ ] Rename `OdysseusBuffBars_ManagedPrototype.lua` to `OdysseusBuffBars_Managed.lua` in a separate reviewable task, then clean up `OBB.ManagedPrototype`, compatibility aliases, and remaining prototype/PTR terminology.
+- [ ] Add eventual bar-texture/font media options. Retain LibSharedMedia-3.0 for that work; evaluate any LSM update later as an isolated task.
+- [ ] Take targeted private-HARMFUL coverage and opportunistic OffHand/simultaneous weapon-enchant coverage without treating either as completed validation.
 - [ ] Perform version, build-date, release metadata, tag, and release work only after cleanup is complete.
 
-The all-managed production authority migration is complete. Legacy rollback/development retirement, file/TOC cleanup, optional ManagedPrototype rename/split, remaining opportunistic runtime coverage, and release metadata remain separate work.
+The all-managed production authority migration, post-cutover presentation cleanup Phase 1, and D/E SCREEN startup normalization are complete. Managed-only compatibility decisions, Config topology constraints, authority/backend retirement, file/TOC cleanup, managed production renaming, media options, remaining targeted/opportunistic runtime coverage, and release metadata remain separate work.

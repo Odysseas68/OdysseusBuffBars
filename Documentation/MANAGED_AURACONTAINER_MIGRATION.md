@@ -1,6 +1,6 @@
 # Managed AuraContainer Migration
 
-Phase A, managed AuraButton presentation, Phase B.2 dynamic self-sizing, native managed behavior, and the all-managed production authority cutover are validated. Supported startup now enters MANAGED for BUFFS, DEBUFFS, and ENCHANTMENTS through non-destructive preflight. Retail Live also validates the final group-specific filtering policy: BUFFS retains destination filtering, while managed DEBUFFS and ENCHANTMENTS are intentionally broad/unfiltered. HELPFUL routing and hidden/group overrides remain ownership policy. Legacy scanning/rendering remains only for session rollback/development and will be addressed in a separate cleanup phase.
+Phase A, managed AuraButton presentation, Phase B.2 dynamic self-sizing, native managed behavior, and the all-managed production authority cutover are validated. Supported startup now enters MANAGED for BUFFS, DEBUFFS, and ENCHANTMENTS through non-destructive preflight. Retail Live also validates the final group-specific filtering policy: BUFFS retains destination filtering, while managed DEBUFFS and ENCHANTMENTS are intentionally broad/unfiltered. HELPFUL routing and hidden/group overrides remain ownership policy. Post-cutover cleanup Phase 1 removed the legacy presentation/comparison controls and offset path while retaining authority rollback; legacy scanning/rendering remains only for session rollback/development and later cleanup.
 
 Evidence labels used below:
 
@@ -21,10 +21,10 @@ Current milestone status:
 | Managed visual parity | Runtime validated for BUFFS, DEBUFFS, and ENCHANTMENTS from the accepted `260 x 18`, three-pixel-spacing baseline, with live OOC font, color, width, height, and spacing synchronization. |
 | Phase A.1 startup configuration consumption | Runtime validated. Initialization occurs after SavedVariables adoption/defaults/migrations/normalization and consumes a copied configuration snapshot. |
 | Live configuration synchronization | Runtime validated out of combat for font/color/geometry, `iconSide`, host scale/alpha, BUFFS/DEBUFFS sort and `maxBars`, BUFFS/ENCHANTMENTS growth direction, BUFFS SCREEN, DEBUFFS SCREEN/BELOW/RIGHT/LEFT relative to BUFFS, and ENCHANTMENTS SCREEN/BELOW/RIGHT/LEFT relative to DEBUFFS. DEBUFFS growth is implemented through the same supported path without equivalent direct real-HARMFUL coverage. |
-| Persistent position and full configuration integration | Supported placement and final B/D/E filtering/control policy are runtime validated for production. ABOVE, arbitrary graph/cycle retirement decisions, and cleanup remain separate work. |
-| Development comparison workflow | Runtime validated for legacy presentation hiding, comparison precedence, temporary offsets, rollback modes, configuration, and combat. MANAGED authority excludes all legacy B/D/E presentation and disables comparison. |
+| Persistent position and full configuration integration | Supported placement and final B/D/E filtering/control policy are runtime validated for production. Startup normalization now preserves serialized D/E SCREEN roots without a schema field or preflight change; D SCREEN, E SCREEN, both SCREEN, D BELOW B, E BELOW D, and Reset Positions passed reload testing. ABOVE and arbitrary graph/cycle retirement decisions remain separate work. |
+| Historical development comparison workflow | Runtime validation is preserved as migration history. The controls and temporary offset path are now retired; authority alone determines eligible legacy presentation. |
 | Runtime renderer authority | Normal supported startup: MANAGED B/D/E. Session-only STAGED, MANAGED, and LEGACY mode switches; no SavedVariables field or migration. |
-| Remaining production work | Authority cutover is complete. Legacy scanner/bar/comparison/secure-overlay retirement, file/TOC cleanup, possible ManagedPrototype rename/split, and release metadata remain separate tasks. |
+| Remaining production work | Authority cutover and comparison-presentation cleanup are complete. Legacy scanner/bar/secure-overlay retirement, file/TOC cleanup, possible ManagedPrototype rename/split, and release metadata remain separate tasks. |
 | Blizzard BuffFrame visibility during combat | Blizzard Edit Mode owns BuffFrame visibility; the supported user-facing solution is the Aura Frame visibility setting `Hidden`, while OBB's best-effort legacy toggle is not authoritative. |
 
 ## 1. Current Architecture
@@ -51,7 +51,7 @@ DEBUFFS       MANAGED
 ENCHANTMENTS  MANAGED
 ```
 
-`Bars:ClearGroup()` retains legacy frames for rollback while hiding pooled rows, removing timer `OnUpdate`, clearing the owned tooltip and out-of-combat cancel state, clearing row data/elapsed state, resetting/hiding status bars, and clearing timer text. Authority-aware visibility keeps all legacy B/D/E groups and headers hidden regardless of `showLegacyBars`, comparison, or `anchorsShown` while MANAGED is authoritative.
+`Bars:ClearGroup()` retains legacy frames for rollback while hiding pooled rows, removing timer `OnUpdate`, clearing the owned tooltip and out-of-combat cancel state, clearing row data/elapsed state, resetting/hiding status bars, and clearing timer text. Authority-aware visibility keeps all legacy B/D/E groups and headers hidden while MANAGED is authoritative.
 
 Managed authority visibility is the inverse boundary for B/D/E: MANAGED shows/enables retained hosts and containers and lets headers follow `anchorsShown`; LEGACY hides headers, disables/hides containers out of combat, and hides but does not destroy hosts. STAGED preserves managed B/D/E prototype geometry while legacy B/E remain authoritative. Initialization and normal configuration reassert the selected mode.
 
@@ -72,6 +72,8 @@ The STAGED fallback retains one non-negotiable dependency: managed D BELOW/RIGHT
 - The original DEBUFFS matrix tests 1-10 passed: managed-only D startup, real population and combat churn, supported sort/max/presentation/SCREEN/BELOW/RIGHT/LEFT behavior, reset/loading, comparison isolation, two-way rollback, and reload restoration completed without a reported addon Lua, taint, or blocked-action error. A directly identified private-HARMFUL aura remains optional unclaimed coverage.
 - Slice 1 validated default and explicit STAGED, complete MANAGED and LEGACY transitions, unsupported BUFF-duration preflight rejection, Config state, combat switch refusal, duplicate prevention, and mode-aware `/obb refresh` plus Config `Refresh Auras` behavior.
 - Slice 2 validated supported normal reload into MANAGED; ordinary and semantic HELPFUL ownership; managed DEBUFFS; available managed ENCHANTMENTS/native scenarios; immediate MANAGED Config state; refresh without legacy resurrection; combat; LEGACY and STAGED rollback; return to MANAGED; and reload-after-rollback. BUFF duration NONE produced `OdysseusBuffBars renderer mode unchanged: BUFFS duration must be ALL or TIMED_ONLY`, left the addon operational in STAGED, and did not rewrite SavedVariables. Restoring ALL and reloading returned to MANAGED.
+- Post-cutover cleanup Phase 1 validated normal MANAGED reload, absence of both development checkboxes, fresh legacy B/D/E under explicit LEGACY, expected STAGED presentation, suppression after returning to MANAGED, and normal MANAGED restoration after `/reload`. Locked legacy positions remained independently preserved; while unlocked, managed dragging continued synchronizing the legacy rollback position. No duplicate production rows or Phase 1 runtime regression were reported.
+- The SCREEN persistence correction passed D SCREEN, E SCREEN, D and E both SCREEN, D BELOW B, E BELOW D, and Reset Positions across reload. Valid tested SCREEN states no longer produce the former `DEBUFFS placement is unsupported for managed mode` fallback and remain/start MANAGED. These results do not claim separate LEFT/RIGHT reload tests.
 - Direct OffHand-only and simultaneous MainHand/OffHand runtime coverage remains opportunistic because no suitable active OffHand enchant was available. Do not infer unperformed slot or private-aura coverage from the completed authority cutover.
 
 Key components:
@@ -313,6 +315,14 @@ For BUFFS, DEBUFFS, and ENCHANTMENTS, `growUp=false` uses TOPLEFT with Right+Dow
 
 Managed placement is a separate ordinary-host layer over those self-sizing containers:
 
+Intentional SCREEN placement is serialized as an explicit `placement = "SCREEN"` with no `anchorTo` field. Recursive defaults previously could not distinguish that omitted nil from a missing parent and inserted the D/E default parent, creating contradictory SCREEN-plus-parent state that the unchanged managed preflight correctly rejected. Startup now records raw groups with an explicit placement and no parent before `CopyDefaults()`, then restores that intentional nil parent during normalization. This is transient only: there is no persistent discriminator, schema migration, generic defaulting change, or silent repair of malformed topology.
+
+- No placement and no parent retains the historical D->B / E->D defaults.
+- Explicit SCREEN and no parent remains an independent SCREEN root.
+- An explicit unsupported placement with no parent remains unsupported and rejectable.
+- Explicit SCREEN with an explicit parent remains contradictory and rejectable.
+- Normal anchored placement remains unchanged.
+
 - Saved `x`/`y` for every supported SCREEN root remain the logical stack top-left. Each managed host translates them to `hostX = x - 4` and `hostY = y + 22`, where 22 is the fixed 18-pixel header plus four-pixel first-row gap. The managed container then resolves exactly at the saved `x`/`y`.
 - In supported BELOW states, the DEBUFFS host anchors to the BUFFS container's `BOTTOMLEFT` and the ENCHANTMENTS host anchors to the DEBUFFS container's `BOTTOMLEFT`. Each uses `hostOffsetX = saved offsetX - 4` and `hostOffsetY = saved offsetY`; no 22-pixel header subtraction is applied. The default saved `(0, -8)` therefore becomes a host offset of `(-4, -8)`.
 - In supported RIGHT states, the host anchors `TOPLEFT` to the parent managed container's `TOPLEFT` at `parentLogicalWidth + offsetX - 4`, `offsetY + 22`. DEBUFFS uses the applied BUFFS logical width; ENCHANTMENTS uses the applied DEBUFFS logical width. Applied placement state retains that parent width so live changes cause reapplication. The initial physical-`TOPRIGHT` approach was rejected because an empty container collapses to approximately `1 x 1`, placing the child near the parent's left edge until a real aura expands it.
@@ -323,6 +333,8 @@ Managed placement is a separate ordinary-host layer over those self-sizing conta
 - Placement uses logical coordinates directly, with no pixel/scale conversion or scale-compensation branch. Growth and scale remain independent: Blizzard's calculated container bounds and inherited host scale carry changes through the declarative chain.
 - `Reset Positions` preserves its existing SavedVariables mutations but now completes through one `Config:Apply()` call: legacy `RefreshAll()`, one managed apply, then active-page refresh. The known legacy renderer's scale-related reset jump remains outside this managed checkpoint. Because both paths share SavedVariables, the managed prototype consumes the coordinates left by the legacy renderer; this is not a managed placement failure and is not fixed here.
 
+Supported production topology is deliberately narrow: BUFFS is the SCREEN root; DEBUFFS may be SCREEN or BELOW/RIGHT/LEFT of BUFFS; ENCHANTMENTS may be SCREEN or BELOW/RIGHT/LEFT of DEBUFFS. BUFFS anchored below D/E and arbitrary, reverse, or cyclic relationships remain unsupported. The managed preflight continues rejecting unsupported state without remapping or rewriting SavedVariables.
+
 Managed SCREEN-root dragging uses the same ordinary-host boundary:
 
 - Drag eligibility requires out of combat, unlocked settings, saved `anchorTo == nil`, saved `placement == "SCREEN"`, and copied applied managed state that is also SCREEN. Anchored groups refuse direct movement and use the existing `OdysseusBuffBars: move the parent anchor or set this group anchor to Screen first.` warning.
@@ -332,7 +344,7 @@ Managed SCREEN-root dragging uses the same ordinary-host boundary:
 Managed header visibility is independent of placement ownership:
 
 - The existing `anchorsShown` SavedVariables field controls all three addon-owned managed header Buttons as well as legacy anchors. `OBB:ToggleAnchors()` keeps its existing mutation/legacy path and sends one narrow `ApplyHeaderVisibility()` notification; no full managed configuration apply is required solely for visibility.
-- `anchorsShown=true` shows managed headers; `anchorsShown=false` hides them. Hiding does not move hosts or containers, reclaim the fixed header reservation, change SCREEN/BELOW/RIGHT/LEFT placement, coordinates or offsets, growth or scale, hide aura bars or Fishing Lure, or alter managed AuraContainers. Hidden headers naturally provide no drag input; showing them restores existing SCREEN-root dragging. `locked`, `showLegacyBars`, and `legacyComparisonMode` remain independent.
+- `anchorsShown=true` shows managed headers; `anchorsShown=false` hides them. Hiding does not move hosts or containers, reclaim the fixed header reservation, change SCREEN/BELOW/RIGHT/LEFT placement, coordinates or offsets, growth or scale, hide aura bars or Fishing Lure, or alter managed AuraContainers. Hidden headers naturally provide no drag input; showing them restores existing SCREEN-root dragging. `locked` remains independent.
 - No new SavedVariables field or schema version was introduced.
 
 ### ABOVE decision
@@ -341,24 +353,18 @@ Legacy ABOVE places the child stack's `BOTTOMLEFT` against the parent stack's `T
 
 The completed Live source audit (`live`, `81d15e42f16f3473131880500e7a8c8eb88fa5e6`) found no safe supported public mechanism for that dependency. CustomAuraContainer exposes no suitable post-layout/size callback; `OnSizeChanged` is unavailable under `UntrustedLayoutScriptExecution`; geometry accessors are secret-aware rather than a content-height contract; and no safe active displayed-count scalar was found. Over-constraining the container, forming a host/container/bounds cycle, polling, private hooks, duplicating active-row/height logic, or maintaining a second content-height authority are rejected.
 
-Managed ABOVE is intentionally unsupported for the rest of the prototype/migration period and will retire with the legacy renderer. Production managed placement will support SCREEN, BELOW, RIGHT, and LEFT. Existing `"ABOVE"` values must be preserved for rollback/migration history as appropriate and must not be silently converted; cutover should require the user to choose a supported replacement. This checkpoint does not implement that UI or migration behavior.
+Managed ABOVE is intentionally unsupported and will retire with the legacy renderer. Production managed placement supports SCREEN, BELOW, RIGHT, and LEFT only in the exact B-root/D-to-B/E-to-D topology above. Existing `"ABOVE"` values must be preserved for rollback/migration history and must not be silently converted; a future managed-only compatibility decision must prevent or explain unsupported choices. No such Config restriction or migration behavior is implemented yet.
 
-### Development-only legacy presentation and comparison
+### Retired development-only legacy presentation and comparison
 
-Two defaulted SavedVariables keys support temporary migration work without a schema-version change. They remain presentation controls and are separate from runtime renderer authority:
+The earlier migration phase used two defaulted SavedVariables keys without a schema-version change:
 
-- `showLegacyBars` defaults to `true`. `Show Legacy BuffBars (Development)` gates only eligible addon-owned legacy presentation in STAGED/LEGACY rollback modes. The gate owns legacy group frames/anchors and also clears externally parented secure cancel overlays and legacy tooltip state when hidden. `anchorsShown` remains independent.
-- `legacyComparisonMode` defaults to `false`. `Legacy Comparison Mode (Development)` forces eligible legacy presentation visible for parity comparison regardless of `showLegacyBars`; it is disabled in MANAGED, and authority-aware visibility prevents it from resurrecting any managed-authoritative group.
+- `showLegacyBars` defaulted to `true` and gated eligible legacy presentation.
+- `legacyComparisonMode` defaulted to `false` and enabled the temporary side-by-side parity view.
 
-Comparison positioning is presentation-only. Each effective legacy SCREEN root displays at `savedX + settings.width + 24` while retaining its real saved `y`. Chained legacy children keep their normal relative anchors and receive no second shift; multiple independent SCREEN roots each receive their own shift. Managed groups remain at the real authoritative saved coordinates. Legacy drag persistence subtracts the current comparison shift before saving, and managed drag persistence writes the real coordinates before refreshing legacy positioning, so comparison coordinates never become real `x`/`y`, `anchorTo`, `placement`, or offsets. Reset retains the real shared topology: managed uses the reset coordinates while legacy shows at the comparison offset until comparison is disabled.
+That workflow and its `settings.width + 24` SCREEN-root offset were runtime validated during migration and are retained here as historical evidence. The Config controls and runtime presentation behavior are now removed. Both SavedVariables remain preserved and defaulted for compatibility/history but are dormant: they are not read for presentation, and renderer authority alone exposes eligible legacy groups.
 
-The effective workflow is:
-
-- `showLegacyBars=false`, comparison off: managed presentation plus no eligible legacy presentation.
-- `showLegacyBars=true`, comparison off: the current STAGED/LEGACY mode's eligible legacy presentation uses real positions; MANAGED remains managed-only.
-- Comparison on, regardless of `showLegacyBars`: eligible STAGED/LEGACY presentation receives the comparison offset; MANAGED still exposes no legacy group.
-
-`hideBlizzardFrames` remains independent. These controls are temporary development infrastructure and are not production renderer selection.
+Legacy SCREEN roots now display and save their real shared coordinates directly. STAGED exposes legacy B/E and managed D; LEGACY exposes legacy B/D/E; MANAGED exposes no legacy group. `hideBlizzardFrames` remains independent.
 
 Earlier runtime validation passed for live presentation/configuration, supported SCREEN/BELOW topology, SCREEN-root dragging, header/comparison modes, SavedVariables-only position ownership, reset, lock/combat restrictions, mixed growth/scale, combat sizing/chaining, and native weapon-transition recovery. RIGHT validation then passed with empty and non-empty parents, stable aura appearance/disappearance, live parent-width changes, offsets, live mode switching, mixed growth/scale, parent dragging, reset, combat, and native enchant/lure behavior. LEFT validation passed with empty children, live child-width changes, parent-width independence, offsets, SCREEN/BELOW/RIGHT/LEFT switching, mixed growth/scale, drag refusal/following, reset, comparison/header modes, combat, and native enchant/lure transitions. No arbitrary graph or ABOVE runtime support is claimed.
 
@@ -366,13 +372,13 @@ Earlier runtime validation passed for live presentation/configuration, supported
 
 Configuration status is therefore deliberately split:
 
-- **Runtime-validated live OOC:** `fontSize`, `barColor`, `barBgColor`, `width`, `height`, `spacing`, `iconSide`, group `scale`, group `alpha`, BUFFS/DEBUFFS `sort`, BUFFS/DEBUFFS `maxBars`, BUFFS/ENCHANTMENTS `growUp`, supported BUFFS/DEBUFFS/ENCHANTMENTS SCREEN roots, supported DEBUFFS/ENCHANTMENTS BELOW/RIGHT/LEFT dependencies, SCREEN-root dragging/persistence and SavedVariables-only host ownership, managed `anchorsShown` visibility, and the development visibility/comparison workflow.
+- **Runtime-validated live OOC:** `fontSize`, `barColor`, `barBgColor`, `width`, `height`, `spacing`, `iconSide`, group `scale`, group `alpha`, BUFFS/DEBUFFS `sort`, BUFFS/DEBUFFS `maxBars`, BUFFS/ENCHANTMENTS `growUp`, supported BUFFS/DEBUFFS/ENCHANTMENTS SCREEN roots, supported DEBUFFS/ENCHANTMENTS BELOW/RIGHT/LEFT dependencies, SCREEN-root dragging/persistence and SavedVariables-only host ownership, and managed `anchorsShown` visibility. The retired development visibility/comparison workflow remains historical validation.
 - **Implemented/source-static through the same supported path:** DEBUFFS `growUp`, without an equivalent direct runtime test claim.
 - **Intentionally different from legacy:** managed ENCHANTMENTS ignores global legacy sort/`maxBars` and uses its fixed 7+2+1/source-order policy.
 - **Intentionally unsupported/retiring:** managed ABOVE. Preserve existing values; address the managed choice during cleanup without silently remapping or discarding rollback state.
 - **Runtime-validated behavior/filter policy:** effective HELPFUL ownership remains hidden -> explicit B/E override -> semantic E route -> default BUFFS. BUFFS alone then applies destination whitelist/blacklist and supports current rows/manual IDs plus ALL/TIMED_ONLY. Managed D/E are intentionally broad and expose neither destination filters nor duration controls.
-- **SavedVariables/legacy boundary:** historical D/E whitelist/blacklist tables remain untouched for legacy comparison, rollback, and compatibility; managed D/E do not expose or consume them.
-- **Pending/research:** BUFFS as a child, arbitrary `anchorTo` graphs, broader cycle policy, full ENCHANTMENTS/lure bounds, the empty-container parity decision, remaining native lifecycle validation, and eventual removal of comparison infrastructure and the legacy renderer.
+- **SavedVariables/legacy boundary:** historical D/E whitelist/blacklist tables remain untouched for legacy rollback and compatibility; managed D/E do not expose or consume them.
+- **Pending/research:** BUFFS as a child, arbitrary `anchorTo` graphs, broader cycle policy, full ENCHANTMENTS/lure bounds, the empty-container parity decision, remaining native lifecycle validation, and eventual removal of the legacy renderer.
 
 This synchronization does not change ownership. Blizzard continues to own managed AuraButton assignment, aura identity, SpellName/DurationText content, DurationBar timing, native tooltips, native BUFF and weapon-enchantment cancellation, and managed container sizing/layout. OBB owns only its permitted presentation/configuration layer and the existing ordinary fishing-lure row. The lure's detection, slot resolution, timer, tooltip ownership/anchor, and unsupported cancellation behavior are unchanged.
 

@@ -19,6 +19,9 @@ Historical development prior to the creation of this document is intentionally n
 
 ### Changed
 
+- Completed post-cutover cleanup Phase 1 by removing the `Show Legacy BuffBars (Development)` and `Legacy Comparison Mode (Development)` Config controls, their UI handling, and the legacy SCREEN comparison offset/save compensation. Their existing SavedVariables/default fields remain preserved and dormant; LEGACY/STAGED rollback and authority-driven visibility remain available.
+- Corrected startup normalization for intentional D/E SCREEN roots by preserving explicit raw placement with no serialized parent across recursive defaults. No persistent discriminator, schema migration, generic defaulting change, preflight relaxation, or unsupported-topology rewrite was introduced.
+- Runtime-validated normal MANAGED reload, explicit LEGACY/STAGED presentation, return/reload to MANAGED, legacy/managed rollback-position behavior, and the D/E SCREEN/anchored reload matrix. The tested SCREEN states no longer trigger the former unsupported-DEBUFFS fallback; LEFT/RIGHT reload was not separately claimed.
 - Completed the all-managed production renderer cutover. Supported startup now enters MANAGED authority for BUFFS, DEBUFFS, and ENCHANTMENTS through the existing non-destructive preflight/transaction; unsupported configuration remains safely STAGED without SavedVariables rewriting.
 - Generalized runtime authority to exactly `STAGED` (legacy B, managed D, legacy E), `MANAGED` (managed B/D/E), and `LEGACY` (legacy B/D/E). Independent per-group mutation and unsafe split states are rejected; session rollback remains out-of-combat and `/reload` attempts MANAGED again.
 - Made explicit refresh mode-aware through one managed HELPFUL/native-enchantment/Fishing-Lure coordinator, without adding a managed aura scanner, polling, or a private Blizzard force-refresh path.

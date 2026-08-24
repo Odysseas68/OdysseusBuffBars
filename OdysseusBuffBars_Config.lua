@@ -1190,39 +1190,8 @@ function Config:BuildGeneralPage(page)
     end)
     hideBlizzard:SetPoint("TOPLEFT", syncBars, "BOTTOMLEFT", 0, -4)
 
-    local showLegacyBars = CreateCheck(page, "Show Legacy BuffBars (Development)", function(value)
-        OBB.db.showLegacyBars = value
-        OBB.Bars:ApplyLegacyBarsVisibility()
-    end)
-    showLegacyBars:SetPoint("TOPLEFT", hideBlizzard, "BOTTOMLEFT", 0, -4)
-
-    local showLegacyBarsHint = CreateLabel(
-        page,
-        "Development only: hides the legacy BuffBars presentation while its backend stays active; "
-            .. "the managed prototype remains visible."
-    )
-    showLegacyBarsHint:SetPoint("TOPLEFT", showLegacyBars, "BOTTOMLEFT", 4, -2)
-    showLegacyBarsHint:SetPoint("RIGHT", page, "RIGHT", -8, 0)
-    showLegacyBarsHint:SetWordWrap(true)
-
-    local legacyComparisonMode = CreateCheck(page, "Legacy Comparison Mode (Development)", function(value)
-        OBB.db.legacyComparisonMode = value
-        OBB.Bars:UpdateAllGroupPositions()
-        OBB.Bars:ApplyLegacyBarsVisibility()
-    end)
-    legacyComparisonMode:SetPoint("TOPLEFT", showLegacyBarsHint, "BOTTOMLEFT", -4, -4)
-
-    local legacyComparisonHint = CreateLabel(
-        page,
-        "Temporarily shows and offsets legacy bars beside the managed prototype for visual parity; "
-            .. "shared positions stay unchanged and managed remains at the real position."
-    )
-    legacyComparisonHint:SetPoint("TOPLEFT", legacyComparisonMode, "BOTTOMLEFT", 4, -2)
-    legacyComparisonHint:SetPoint("RIGHT", page, "RIGHT", -8, 0)
-    legacyComparisonHint:SetWordWrap(true)
-
     local refresh = CreateButton(page, "Refresh Auras")
-    refresh:SetPoint("TOPLEFT", legacyComparisonHint, "BOTTOMLEFT", 0, -12)
+    refresh:SetPoint("TOPLEFT", hideBlizzard, "BOTTOMLEFT", 0, -12)
     refresh:SetWidth(130)
     refresh:SetScript("OnClick", function()
         if self:IsCombatLocked() then
@@ -1266,18 +1235,12 @@ function Config:BuildGeneralPage(page)
 
     function page:Refresh()
         local enabled = not Config:IsCombatLocked()
-        local rendererMode = OBB.GetRendererAuthorityMode and OBB:GetRendererAuthorityMode()
-        local managedMode = rendererMode == "MANAGED"
         lock:SetChecked(OBB.db.locked)
         syncBars:SetChecked(OBB.db.syncGroupBars)
         hideBlizzard:SetChecked(OBB.db.hideBlizzardFrames)
-        showLegacyBars:SetChecked(OBB.db.showLegacyBars ~= false)
-        legacyComparisonMode:SetChecked(OBB.db.legacyComparisonMode and true or false)
         Config:SetControlEnabled(lock, enabled)
         Config:SetControlEnabled(syncBars, enabled)
         Config:SetControlEnabled(hideBlizzard, enabled)
-        Config:SetControlEnabled(showLegacyBars, enabled)
-        Config:SetControlEnabled(legacyComparisonMode, enabled and not managedMode)
         Config:SetControlEnabled(refresh, enabled)
         Config:SetControlEnabled(anchors, enabled)
         Config:SetControlEnabled(resetPositions, enabled)

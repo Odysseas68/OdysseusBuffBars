@@ -6,7 +6,6 @@ OBB.Bars = Bars
 local LSM = LibStub and LibStub("LibSharedMedia-3.0", true)
 local ANCHOR_HEIGHT = 18
 local ANCHOR_GAP = 4
-local LEGACY_COMPARISON_GAP = 24
 local RETAIL_12_1_INTERFACE_VERSION = 120100
 local _, _, _, interfaceVersion = GetBuildInfo()
 local IS_RETAIL_12_1_OR_NEWER = interfaceVersion >= RETAIL_12_1_INTERFACE_VERSION
@@ -48,15 +47,8 @@ local function GetPlacementPoints(placement)
     return "TOPLEFT", "BOTTOMLEFT", 0, -8
 end
 
-local function GetLegacyComparisonShiftX(settings)
-    if OBB.db and OBB.db.legacyComparisonMode then
-        return (settings.width or 260) + LEGACY_COMPARISON_GAP
-    end
-    return 0
-end
-
 local function GetLegacyScreenPosition(settings)
-    return (settings.x or 420) + GetLegacyComparisonShiftX(settings), settings.y or -180
+    return settings.x or 420, settings.y or -180
 end
 
 local function SaveScreenPosition(group, settings)
@@ -66,7 +58,7 @@ local function SaveScreenPosition(group, settings)
     if not left or not top or not parentTop then
         return false
     end
-    settings.x = left - GetLegacyComparisonShiftX(settings)
+    settings.x = left
     settings.y = top - parentTop
     return true
 end
@@ -298,9 +290,7 @@ function Bars:Initialize()
 end
 
 function Bars:ApplyLegacyBarsVisibility()
-    local shown = not OBB.suspendLegacyPresentation
-        and OBB.db
-        and (OBB.db.legacyComparisonMode or OBB.db.showLegacyBars ~= false)
+    local shown = not OBB.suspendLegacyPresentation and OBB.db ~= nil
     for groupID, group in pairs(OBB.groups) do
         local groupShown = shown and (not OBB.IsLegacyRendererActive or OBB:IsLegacyRendererActive(groupID))
         group:SetShown(groupShown)

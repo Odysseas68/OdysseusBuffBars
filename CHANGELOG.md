@@ -20,6 +20,9 @@ This changelog records repository history beginning with the creation of the sta
 
 ### Changed
 
+- Completed post-cutover cleanup Phase 1 by removing the `Show Legacy BuffBars (Development)` and `Legacy Comparison Mode (Development)` Config controls, their UI handling, and the legacy SCREEN comparison offset/save compensation. The defaulted SavedVariables remain preserved but dormant; LEGACY/STAGED rollback, transaction suspension, and authority-aware presentation remain intact.
+- Preserved intentional DEBUFFS/ENCHANTMENTS SCREEN roots across startup by recording explicit raw placements without parents before recursive defaults and restoring the intentional nil parent during normalization. No schema field, generic `CopyDefaults` change, managed-preflight repair, or unsupported-topology remap was added.
+- Runtime-validated Phase 1 mode presentation and position synchronization plus D SCREEN, E SCREEN, both SCREEN, D BELOW B, E BELOW D, and Reset Positions across reload. Valid tested states remain/start MANAGED without the former unsupported-DEBUFFS fallback; no separate LEFT/RIGHT reload test is claimed.
 - Completed the production all-managed renderer cutover. Supported startup now enters runtime-only `MANAGED` authority for BUFFS, DEBUFFS, and ENCHANTMENTS through the validated preflight/transaction path; unsupported saved configuration remains safely `STAGED` without SavedVariables rewriting.
 - Added exactly three legal session modes: `STAGED` (legacy B, managed D, legacy E), `MANAGED` (managed B/D/E), and `LEGACY` (legacy B/D/E). Independent per-group mutation and unsafe B/E or D/E split states are rejected.
 - Made `/obb refresh` and Config `Refresh Auras` mode-aware through one managed semantic/native/lure recovery coordinator, while leaving Blizzard-owned managed aura lifecycle framework-driven.
