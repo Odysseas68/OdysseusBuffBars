@@ -1,6 +1,6 @@
 # OdysseusBuffBars TODO
 
-## PTR 12.1 Managed Player-BUFFS Milestones
+## Managed Renderer Milestones
 
 - [x] Implement and PTR validate the isolated managed player-BUFFS architecture prototype.
 - [x] PTR validate the managed AuraButton presentation: icon, spell name, application count, duration text, duration StatusBar, timeless clearing, tooltip, and right-click cancellation.
@@ -151,8 +151,8 @@
 - [x] Implement and runtime-validate RIGHT for DEBUFFS relative to BUFFS and ENCHANTMENTS relative to DEBUFFS using applied parent logical width, including empty/non-empty state, live parent-width changes, offsets, switching, growth/scale, parent dragging, reset, combat, and native enchant/lure behavior.
 - [x] Implement and runtime-validate LEFT for the same supported chain using applied child logical width, including empty state, live child-width changes, parent-width independence, offsets, switching, drag following/refusal, reset, comparison/header modes, combat, and native enchant/lure transitions.
 - [x] Complete ABOVE research and intentionally defer it for the managed prototype/migration period; do not add dynamic-height reads, polling, private hooks, duplicated row-height logic, or a second content-height authority.
-- [ ] During cleanup, decide how Config should explain/remove managed ABOVE while preserving the saved legacy value for rollback; do not silently remap or discard it.
-- [ ] Decide whether arbitrary `anchorTo` graphs, BUFFS as a child, BELOW/RIGHT/LEFT beyond the supported parent relationships, and broader cycle parity are still desired; do not generalize current validation.
+- [x] Remove ABOVE from managed Config choices, preserve historical raw values, show compatibility context, and use only the copied canonical runtime fallback until explicit correction.
+- [x] Constrain managed Config to B SCREEN, D SCREEN/B, and E SCREEN/D with parented BELOW/LEFT/RIGHT; do not offer arbitrary targets or cycle-producing graphs.
 - [ ] Optionally evaluate minor lateral visual-alignment polish without treating the runtime-validated logical geometry as defective.
 - [ ] Retain startup/reload-only status for unsupported geometry/layout properties until each live mutation path is explicitly implemented and runtime validated.
 - [x] Add and runtime-validate managed `anchorsShown` header visibility without moving hosts, reclaiming reserved header geometry, changing placement, or affecting aura rows; keep lock and development visibility controls independent.
@@ -161,7 +161,7 @@
 - [ ] Decide whether the managed empty-container `1 x 1` bound should remain an accepted parity difference from the legacy one-row minimum; do not fake a minimum or manually size the container without new research and validation.
 - [x] Centralize complete managed HELPFUL candidate composition across semantic routing, existing hidden/group overrides, BUFF destination filters, and supported BUFF duration state; apply/snapshot both descriptors together.
 - [x] Resolve ownership before filtering, preserve hidden/override restoration, and finalize destination whitelist/blacklist as BUFFS-only; every effective-E ID remains eligible for `HelpfulEnhancements`.
-- [x] Implement and runtime-validate BUFF ALL/TIMED_ONLY through Blizzard candidate filters; intentionally retain the last supported state for TIMELESS_ONLY/NONE while preserving SavedVariables and using ALL on fresh unsupported initialization.
+- [x] Implement and runtime-validate BUFF ALL/TIMED_ONLY through Blizzard candidate filters; expose only those choices in Config and interpret historical TIMELESS_ONLY/NONE as copied runtime-only ALL without rewriting booleans. Deliberate historical-state injection remains unperformed.
 - [x] Adopt managed DEBUFFS/ENCHANTMENTS ALL-duration policy, remove their duration controls, and make BUFF duration flags group-local rather than part of `Sync Group Bars` fan-out without schema migration.
 - [x] Complete the final managed-vs-legacy parity audit and all-managed B/D/E production authority cutover while preserving session rollback and historical SavedVariables.
 - [x] Make ENCHANTMENTS Sort/Maximum Bars truthful by showing fixed managed Sort and disabling both controls in MANAGED while preserving normal legacy semantics and stored values in STAGED/LEGACY.
@@ -176,20 +176,26 @@
 - [x] Close temporary-enchant effect naming at the Retail `12.1.0.69404` supported public boundary: `enchantID` has no public spell/item/name mapping, generic tooltip text is not production metadata, and equipped-item/slot presentation plus native tooltip context remains final unless Blizzard adds a documented resolver.
 - [ ] Optionally research safe profession-tool lure cancellation; do not claim slot-28 cancellation until runtime validated.
 - [x] Confirm Blizzard Edit Mode owns BuffFrame visibility and its Aura Frame `Hidden` setting is the supported user-facing mechanism; keep OBB's best-effort legacy toggle non-authoritative and schedule its cutover cleanup separately.
-- [x] Cut over BUFFS, DEBUFFS, and ENCHANTMENTS together to MANAGED production authority on supported startup, with safe STAGED fallback and no duplicate legacy display.
+- [x] Cut over BUFFS, DEBUFFS, and ENCHANTMENTS together to MANAGED production authority on normal startup, with copied compatibility interpretation for unsupported historical configuration, hard STAGED fallback for structural/capability failure, and no duplicate legacy display.
 - [x] Validate production configuration, combat behavior, mode-aware refresh, LEGACY/STAGED rollback, reload restoration, and SavedVariables preservation for the completed authority cutover.
 - [ ] Remove temporary scanner and tooltip containment only in a separate cleanup task after rollback support is deliberately retired.
 - [ ] Remove obsolete legacy scanner caches, events, ordinary bars, and cancellation overlays only after complete cutover.
 - [x] Remove the temporary legacy visibility/comparison controls and presentation-offset path while preserving the defaulted SavedVariables as dormant compatibility/history fields and keeping LEGACY/STAGED rollback intact.
 - [x] Preserve intentional D/E SCREEN roots during startup normalization without a new SavedVariables discriminator, generic `CopyDefaults` change, or managed-preflight repair; runtime-validate D SCREEN, E SCREEN, both SCREEN, D BELOW B, E BELOW D, and Reset Positions across reload.
-- [ ] Define the managed-only compatibility policy and prevent unsupported placement choices in Config without silently rewriting preserved legacy topology.
+- [x] Implement the runtime-only managed compatibility policy and prevent unsupported duration/topology choices in Config without silently rewriting preserved historical state.
+- [ ] Harden managed capability/readiness guards before authority retirement.
+- [ ] Contain partial managed initialization so incomplete infrastructure cannot leak presentation or corrupt a later mode transaction.
 - [ ] Retire LEGACY/STAGED authority deliberately, then remove legacy scanner/cache/event ownership and ordinary Bars only after rollback is no longer required.
+- [ ] Remove the authority tables and runtime setter/accessor surface only as part of the approved authority-retirement phase.
 - [ ] Move the Fishing Lure formatter out of Auras before removing legacy Auras; retire the secure cancel-overlay implementation with legacy Bars.
 - [ ] Audit and simplify event ownership after LEGACY/STAGED rollback support is retired.
+- [ ] Remove managed-drag to legacy-position synchronization when the rollback renderer is retired.
 - [ ] Evaluate removal of `OdysseusBuffBars_Auras.lua` and legacy-only portions of `OdysseusBuffBars_Bars.lua`; update TOC entries only after code is actually retired.
 - [ ] Rename `OdysseusBuffBars_ManagedPrototype.lua` to `OdysseusBuffBars_Managed.lua` in a separate reviewable task, then clean up `OBB.ManagedPrototype`, compatibility aliases, and remaining prototype/PTR terminology.
+- [ ] Perform final Config polish after authority retirement without reopening unsupported topology.
 - [ ] Add eventual bar-texture/font media options. Retain LibSharedMedia-3.0 for that work; evaluate any LSM update later as an isolated task.
 - [ ] Take targeted private-HARMFUL coverage and opportunistic OffHand/simultaneous weapon-enchant coverage without treating either as completed validation.
+- [ ] Review and add an appropriate repository license after OBB development is complete; do not choose or add one during active cleanup.
 - [ ] Perform version, build-date, release metadata, tag, and release work only after cleanup is complete.
 
-The all-managed production authority migration, post-cutover presentation cleanup Phase 1, and D/E SCREEN startup normalization are complete. Managed-only compatibility decisions, Config topology constraints, authority/backend retirement, file/TOC cleanup, managed production renaming, media options, remaining targeted/opportunistic runtime coverage, and release metadata remain separate work.
+The all-managed production authority migration, post-cutover presentation cleanup Phase 1, D/E SCREEN startup normalization, and Phase 2 runtime-only compatibility/Config constraints are complete. Capability/readiness hardening and partial-initialization containment are the next gate; authority/backend retirement, file/TOC cleanup, lure-formatter extraction, managed production renaming, media options, remaining targeted/opportunistic runtime coverage, licensing review, and release metadata remain separate work.

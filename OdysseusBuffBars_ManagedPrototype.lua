@@ -202,6 +202,8 @@ local MANAGED_PLACEMENTS_BY_KEY = {
 
 local activeManagedDragGroup
 local interruptedManagedDragGroup
+local MANAGED_BUFF_DURATION_MODE_ALL = "ALL"
+local MANAGED_BUFF_DURATION_MODE_TIMED_ONLY = "TIMED_ONLY"
 
 local CONFIG_MANAGED_AURA_GROUPS = {
     BUFFS = {
@@ -281,6 +283,45 @@ local function GetGroupSettings(groupID)
     return nil
 end
 
+local function CopyManagedCompatibilityValue(value, seen)
+    if type(value) ~= "table" then
+        return value
+    end
+
+    seen = seen or {}
+    if seen[value] then
+        return seen[value]
+    end
+
+    local copy = {}
+    seen[value] = copy
+    for key, nestedValue in pairs(value) do
+        copy[CopyManagedCompatibilityValue(key, seen)] = CopyManagedCompatibilityValue(nestedValue, seen)
+    end
+    return copy
+end
+
+local function ResolveManagedBuffDurationMode(settings)
+    if settings and settings.showTimed == true and settings.showTimeless == true then
+        return MANAGED_BUFF_DURATION_MODE_ALL
+    end
+    if settings and settings.showTimed == true and settings.showTimeless == false then
+        return MANAGED_BUFF_DURATION_MODE_TIMED_ONLY
+    end
+
+    return nil
+end
+
+local function GetRawManagedBuffDurationLabel(settings)
+    if settings and settings.showTimed == false and settings.showTimeless == true then
+        return "TIMELESS_ONLY"
+    end
+    if settings and settings.showTimed == false and settings.showTimeless == false then
+        return "NONE"
+    end
+    return "UNSUPPORTED"
+end
+
 local function IsManagedBuffsScreenRoot(settings)
     return settings
         and settings.anchorTo == nil
@@ -317,6 +358,173 @@ local function IsSupportedManagedLeftPlacement(settings, placement)
     return settings
         and settings.anchorTo == placement.parentGroupID
         and settings.placement == "LEFT"
+end
+
+local function IsSupportedManagedChildPlacement(settings, placement)
+    return IsSupportedManagedScreenPlacement(settings)
+        or IsSupportedManagedBelowPlacement(settings, placement)
+        or IsSupportedManagedRightPlacement(settings, placement)
+        or IsSupportedManagedLeftPlacement(settings, placement)
+end
+
+local function DescribeRawManagedPlacement(settings)
+    return "placement=" .. tostring(settings and settings.placement)
+        .. ", parent=" .. tostring(settings and settings.anchorTo)
+        .. ", offsetX=" .. tostring(settings and settings.offsetX)
+        .. ", offsetY=" .. tostring(settings and settings.offsetY)
+end
+
+local function AddManagedCompatibilityIssue(state, groupID, kind, rawValue, effectiveValue)
+    local group = MANAGED_GROUPS[groupID]
+    local groupState = state.groups[groupID]
+    if not groupState then
+        groupState = {
+            key = group and group.key or tostring(groupID),
+            issues = {},
+        }
+        state.groups[groupID] = groupState
+    end
+
+    groupState.issues[#groupState.issues + 1] = {
+        kind = kind,
+        raw = rawValue,
+        effective = effectiveValue,
+    }
+    state.active = true
+end
+
+-- Raw SavedVariables remain the Config/history source. This evaluator copies
+-- them and changes only the managed renderer's in-memory effective settings.
+local function EvaluateManagedCompatibility()
+    local effectiveSettingsByID = {}
+    local state = {
+        active = false,
+        groups = {},
+    }
+
+    for _, group in ipairs(MANAGED_GROUPS) do
+        local rawSettings = GetGroupSettings(group.id)
+        if rawSettings then
+            effectiveSettingsByID[group.id] = CopyManagedCompatibilityValue(rawSettings)
+        end
+    end
+
+    local rawBuffSettings = GetGroupSettings(1)
+    local effectiveBuffSettings = effectiveSettingsByID[1]
+    if rawBuffSettings and effectiveBuffSettings then
+        if not ResolveManagedBuffDurationMode(rawBuffSettings) then
+            effectiveBuffSettings.showTimed = true
+            effectiveBuffSettings.showTimeless = true
+            AddManagedCompatibilityIssue(
+                state,
+                1,
+                "DURATION",
+                GetRawManagedBuffDurationLabel(rawBuffSettings),
+                MANAGED_BUFF_DURATION_MODE_ALL
+            )
+        end
+
+        if not IsManagedBuffsScreenRoot(rawBuffSettings) then
+            effectiveBuffSettings.anchorTo = nil
+            effectiveBuffSettings.placement = "SCREEN"
+            effectiveBuffSettings.x = GetValidatedNumber(rawBuffSettings.x, 420)
+            effectiveBuffSettings.y = GetValidatedNumber(rawBuffSettings.y, -180)
+            AddManagedCompatibilityIssue(
+                state,
+                1,
+                "PLACEMENT",
+                DescribeRawManagedPlacement(rawBuffSettings),
+                "SCREEN using saved numeric x/y where valid"
+            )
+        end
+    end
+
+    local placementCompatibility = {
+        { placement = MANAGED_DEBUFF_PLACEMENT, effective = "BELOW BUFFS at 0,-8" },
+        { placement = MANAGED_ENCHANTMENT_PLACEMENT, effective = "BELOW DEBUFFS at 0,-8" },
+    }
+    for _, entry in ipairs(placementCompatibility) do
+        local placement = entry.placement
+        local rawSettings = GetGroupSettings(placement.id)
+        local effectiveSettings = effectiveSettingsByID[placement.id]
+        if rawSettings and effectiveSettings
+            and not IsSupportedManagedChildPlacement(rawSettings, placement)
+        then
+            effectiveSettings.anchorTo = placement.parentGroupID
+            effectiveSettings.placement = "BELOW"
+            effectiveSettings.offsetX = 0
+            effectiveSettings.offsetY = -MANAGED_GROUP_GAP
+            AddManagedCompatibilityIssue(
+                state,
+                placement.id,
+                "PLACEMENT",
+                DescribeRawManagedPlacement(rawSettings),
+                entry.effective
+            )
+        end
+    end
+
+    return effectiveSettingsByID, state
+end
+
+local function RefreshManagedCompatibilityState(prototype)
+    local effectiveSettingsByID, state = EvaluateManagedCompatibility()
+    prototype.effectiveGroupSettingsByID = effectiveSettingsByID
+    prototype.compatibilityState = state
+    return state
+end
+
+local function GetEffectiveGroupSettings(groupID)
+    local settingsByID = ManagedPrototype.effectiveGroupSettingsByID
+    return settingsByID and settingsByID[groupID] or nil
+end
+
+local function GetManagedCompatibilityIssue(groupID, kind)
+    local groupState = ManagedPrototype.compatibilityState
+        and ManagedPrototype.compatibilityState.groups[groupID]
+    for _, issue in ipairs(groupState and groupState.issues or {}) do
+        if issue.kind == kind then
+            return issue
+        end
+    end
+    return nil
+end
+
+local function BuildManagedCompatibilitySummary(state)
+    local parts = {}
+    for _, group in ipairs(MANAGED_GROUPS) do
+        local groupState = state and state.groups[group.id]
+        for _, issue in ipairs(groupState and groupState.issues or {}) do
+            parts[#parts + 1] = group.key .. " " .. issue.kind:lower()
+                .. " (" .. issue.raw .. " -> " .. issue.effective .. ")"
+        end
+    end
+    return table.concat(parts, "; ")
+end
+
+local function ReportManagedCompatibilityWarning(prototype)
+    local state = prototype.compatibilityState
+    if prototype.compatibilityWarningShown or not state or not state.active then
+        return
+    end
+
+    prototype.compatibilityWarningShown = true
+    OBB:Print(
+        "|cffff3333WARNING:|r historical unsupported settings are being interpreted temporarily;"
+            .. " SavedVariables were not changed. Open /obb config to choose supported settings. "
+            .. BuildManagedCompatibilitySummary(state)
+    )
+end
+
+function ManagedPrototype:GetCompatibilityState()
+    return CopyManagedCompatibilityValue(self.compatibilityState or {
+        active = false,
+        groups = {},
+    })
+end
+
+function ManagedPrototype:GetCompatibilitySummary()
+    return BuildManagedCompatibilitySummary(self.compatibilityState)
 end
 
 local function BuildManagedPlacementState(prototype, settings, placement)
@@ -361,13 +569,13 @@ local function BuildManagedPlacementState(prototype, settings, placement)
 end
 
 local function GetSupportedManagedPlacementState(prototype, placement)
-    if not IsManagedBuffsScreenRoot(GetGroupSettings(1)) then
+    if not IsManagedBuffsScreenRoot(GetEffectiveGroupSettings(1)) then
         return nil
     end
 
     local debuffState = BuildManagedPlacementState(
         prototype,
-        GetGroupSettings(MANAGED_DEBUFF_PLACEMENT.id),
+        GetEffectiveGroupSettings(MANAGED_DEBUFF_PLACEMENT.id),
         MANAGED_DEBUFF_PLACEMENT
     )
     if not debuffState then
@@ -379,7 +587,7 @@ local function GetSupportedManagedPlacementState(prototype, placement)
 
     return BuildManagedPlacementState(
         prototype,
-        GetGroupSettings(MANAGED_ENCHANTMENT_PLACEMENT.id),
+        GetEffectiveGroupSettings(MANAGED_ENCHANTMENT_PLACEMENT.id),
         MANAGED_ENCHANTMENT_PLACEMENT
     )
 end
@@ -572,7 +780,7 @@ local function BuildManagedGroupConfig(
     consumeAuraGroupBehavior,
     consumeGrowth
 )
-    local settings = GetGroupSettings(groupID)
+    local settings = GetEffectiveGroupSettings(groupID)
     local barStyle = BuildManagedBarStyle(settings, fallbackBarStyle)
     local savedSortMode = settings and SAVED_SORT_MODES[settings.sort] or nil
 
@@ -943,31 +1151,6 @@ end
 local currentHelpfulEnhancementSpellIDs = {}
 local currentReadableHelpfulAuraRows = {}
 local lastAppliedManagedCandidateFilterState
-local MANAGED_BUFF_DURATION_MODE_ALL = "ALL"
-local MANAGED_BUFF_DURATION_MODE_TIMED_ONLY = "TIMED_ONLY"
-
-local function ResolveManagedBuffDurationMode(settings)
-    if settings and settings.showTimed == true and settings.showTimeless == true then
-        return MANAGED_BUFF_DURATION_MODE_ALL
-    end
-    if settings and settings.showTimed == true and settings.showTimeless == false then
-        return MANAGED_BUFF_DURATION_MODE_TIMED_ONLY
-    end
-
-    return nil
-end
-
--- Unsupported legacy combinations retain the duration field from the last
--- complete applied descriptor. Before the first apply, ALL is the safe baseline.
-local function GetRetainedManagedBuffDurationMode()
-    local appliedBuffFilters = lastAppliedManagedCandidateFilterState
-        and lastAppliedManagedCandidateFilterState.buffCandidateFilters
-    if appliedBuffFilters and appliedBuffFilters.maxDuration == math.huge then
-        return MANAGED_BUFF_DURATION_MODE_TIMED_ONLY
-    end
-
-    return MANAGED_BUFF_DURATION_MODE_ALL
-end
 
 local function GetManagedBuffMaxDuration(mode)
     if mode == MANAGED_BUFF_DURATION_MODE_TIMED_ONLY then
@@ -978,9 +1161,11 @@ local function GetManagedBuffMaxDuration(mode)
 end
 
 local function CompileCurrentManagedCandidateFilterState()
-    local buffSettings = GetGroupSettings(1)
+    local buffSettings = GetEffectiveGroupSettings(1)
     local buffDurationMode = ResolveManagedBuffDurationMode(buffSettings)
-        or GetRetainedManagedBuffDurationMode()
+    if not buffDurationMode then
+        error("effective BUFF duration state unavailable", 0)
+    end
     return CompileManagedCandidateFilterState(
         buffSettings and buffSettings.filters,
         currentHelpfulEnhancementSpellIDs,
@@ -1748,13 +1933,6 @@ function ManagedPrototype:RefreshManagedState(reason)
     return true
 end
 
-local function IsSupportedManagedChildPlacement(settings, placement)
-    return IsSupportedManagedScreenPlacement(settings)
-        or IsSupportedManagedBelowPlacement(settings, placement)
-        or IsSupportedManagedRightPlacement(settings, placement)
-        or IsSupportedManagedLeftPlacement(settings, placement)
-end
-
 function ManagedPrototype:PreflightManagedAuthorityMode()
     if _G.InCombatLockdown and _G.InCombatLockdown() then
         return false, "combat lockdown"
@@ -1780,16 +1958,24 @@ function ManagedPrototype:PreflightManagedAuthorityMode()
     if not buffSettings or not debuffSettings or not enhancementSettings then
         return false, "managed group settings unavailable"
     end
-    if not IsManagedBuffsScreenRoot(buffSettings) then
+
+    RefreshManagedCompatibilityState(self)
+    local effectiveBuffSettings = GetEffectiveGroupSettings(1)
+    local effectiveDebuffSettings = GetEffectiveGroupSettings(2)
+    local effectiveEnhancementSettings = GetEffectiveGroupSettings(3)
+    if not effectiveBuffSettings or not effectiveDebuffSettings or not effectiveEnhancementSettings then
+        return false, "managed effective group settings unavailable"
+    end
+    if not IsManagedBuffsScreenRoot(effectiveBuffSettings) then
         return false, "BUFFS must use SCREEN placement with no parent"
     end
-    if not ResolveManagedBuffDurationMode(buffSettings) then
+    if not ResolveManagedBuffDurationMode(effectiveBuffSettings) then
         return false, "BUFFS duration must be ALL or TIMED_ONLY"
     end
-    if not IsSupportedManagedChildPlacement(debuffSettings, MANAGED_DEBUFF_PLACEMENT) then
+    if not IsSupportedManagedChildPlacement(effectiveDebuffSettings, MANAGED_DEBUFF_PLACEMENT) then
         return false, "DEBUFFS placement is unsupported for managed mode"
     end
-    if not IsSupportedManagedChildPlacement(enhancementSettings, MANAGED_ENCHANTMENT_PLACEMENT) then
+    if not IsSupportedManagedChildPlacement(effectiveEnhancementSettings, MANAGED_ENCHANTMENT_PLACEMENT) then
         return false, "ENCHANTMENTS placement is unsupported for managed mode"
     end
 
@@ -1805,6 +1991,7 @@ function ManagedPrototype:PreflightManagedAuthorityMode()
     if not refreshSuccess then
         return false, refreshReason or "managed runtime refresh failed"
     end
+    ReportManagedCompatibilityWarning(self)
     return true
 end
 
@@ -2184,7 +2371,7 @@ local function ApplyManagedGroupGrowUp(prototype, groupKey, growUp)
 end
 
 local function ApplyManagedBuffsScreenPosition(prototype)
-    local settings = GetGroupSettings(1)
+    local settings = GetEffectiveGroupSettings(1)
     if not IsManagedBuffsScreenRoot(settings) then
         return false
     end
@@ -2311,13 +2498,15 @@ function ManagedPrototype:ApplyConfiguration(_reason)
         return false, "database unavailable"
     end
 
+    RefreshManagedCompatibilityState(self)
+
     for _, group in ipairs(MANAGED_GROUPS) do
         local currentStyle = self.currentBarStyles[group.key]
         local currentAlpha = self.currentGroupAlphas[group.key]
         local currentScale = self.currentGroupScales[group.key]
         local currentGrowUp = self.currentGroupGrowUp[group.key]
         local startupGroup = self.startupConfig[group.key]
-        local settings = GetGroupSettings(group.id)
+        local settings = GetEffectiveGroupSettings(group.id)
         local liveStyle = BuildLivePresentationStyle(
             settings,
             startupGroup.barStyle,
@@ -2410,6 +2599,7 @@ function ManagedPrototype:ApplyConfiguration(_reason)
         return false, "renderer authority visibility not applied"
     end
 
+    ReportManagedCompatibilityWarning(self)
     return true
 end
 
@@ -2711,6 +2901,12 @@ local function CanBeginManagedScreenDrag(prototype, group)
     end
 
     local settings = GetGroupSettings(group.id)
+    if GetManagedCompatibilityIssue(group.id, "PLACEMENT") then
+        if OBB.Config and OBB.Config.WarnCompatibilityDrag then
+            OBB.Config:WarnCompatibilityDrag()
+        end
+        return false
+    end
     if not IsSupportedManagedScreenPlacement(settings) then
         if settings and settings.anchorTo and OBB.Config then
             OBB.Config:WarnAnchoredDrag()
@@ -2828,7 +3024,7 @@ end
 
 local function CreateManagedAuraPrototype()
     local groupConfig = ManagedPrototype.startupConfig.BUFFS
-    local settings = GetGroupSettings(1)
+    local settings = GetEffectiveGroupSettings(1)
     local barStyle = groupConfig.barStyle
     local headerStyle = groupConfig.headerStyle
     local savedX, savedY, hostX, hostY = GetManagedScreenPosition(settings, headerStyle, 420, -180)
@@ -3216,6 +3412,7 @@ function ManagedPrototype:Initialize()
         return self.initialized == true
     end
 
+    RefreshManagedCompatibilityState(self)
     local startupConfig = BuildManagedStartupConfig()
     if not startupConfig then
         return false

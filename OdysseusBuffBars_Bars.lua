@@ -389,12 +389,8 @@ function Bars:SetGroupPosition(group, settings)
         return
     end
     group:ClearAllPoints()
-    if settings.anchorTo and WouldCreateAnchorCycle(settings, settings.anchorTo) then
-        settings.anchorTo = nil
-        settings.placement = "SCREEN"
-    end
-
-    if settings.anchorTo then
+    local hasAnchorCycle = settings.anchorTo and WouldCreateAnchorCycle(settings, settings.anchorTo)
+    if settings.anchorTo and not hasAnchorCycle then
         local parent = OBB.groups[settings.anchorTo]
         if parent then
             local point, relativePoint, defaultX, defaultY = GetPlacementPoints(settings.placement)

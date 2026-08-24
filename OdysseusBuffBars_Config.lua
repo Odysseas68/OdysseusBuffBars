@@ -200,6 +200,54 @@ local function GetGroupByID(id)
     return nil
 end
 
+local function GetManagedCompatibilityState()
+    local managedPrototype = OBB.ManagedPrototype
+    if managedPrototype and managedPrototype.GetCompatibilityState then
+        return managedPrototype:GetCompatibilityState()
+    end
+    return {
+        active = false,
+        groups = {},
+    }
+end
+
+local function GetManagedCompatibilityIssue(groupID, kind)
+    local state = GetManagedCompatibilityState()
+    local groupState = state.groups and state.groups[groupID]
+    for _, issue in ipairs(groupState and groupState.issues or {}) do
+        if issue.kind == kind then
+            return issue
+        end
+    end
+    return nil
+end
+
+local function GetSupportedManagedParentID(groupID)
+    if groupID == 2 then
+        return 1
+    end
+    if groupID == 3 then
+        return 2
+    end
+    return nil
+end
+
+local function GetRawManagedBuffDurationLabel(settings)
+    if settings.showTimed == true and settings.showTimeless == true then
+        return "ALL"
+    end
+    if settings.showTimed == true and settings.showTimeless == false then
+        return "TIMED_ONLY"
+    end
+    if settings.showTimed == false and settings.showTimeless == true then
+        return "TIMELESS_ONLY"
+    end
+    if settings.showTimed == false and settings.showTimeless == false then
+        return "NONE"
+    end
+    return "UNSUPPORTED"
+end
+
 local function GetAnchorLabel(id)
     if not id then
         return "Screen"
@@ -478,6 +526,13 @@ end
 
 function Config:WarnAnchoredDrag()
     print("|cff66ccffOdysseusBuffBars:|r move the parent anchor or set this group anchor to Screen first.")
+end
+
+function Config:WarnCompatibilityDrag()
+    print(
+        "|cff66ccffOdysseusBuffBars:|r historical placement is being interpreted temporarily;"
+            .. " choose a supported placement in /obb config before dragging."
+    )
 end
 
 function Config:WouldCreateAnchorCycle(settings, targetID)
@@ -1233,11 +1288,34 @@ function Config:BuildGeneralPage(page)
     hint:SetPoint("TOPLEFT", overrides, "BOTTOMLEFT", 0, -18)
     hint:SetText("/obb config opens this frame. /obb anchors toggles anchors.")
 
+    local compatibilityStatus = page:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    compatibilityStatus:SetJustifyH("LEFT")
+    compatibilityStatus:SetJustifyV("TOP")
+    compatibilityStatus:SetWordWrap(true)
+    compatibilityStatus:SetWidth(440)
+    compatibilityStatus:SetPoint("TOPLEFT", hint, "BOTTOMLEFT", 0, -16)
+    compatibilityStatus:SetTextColor(1, 0.65, 0.2)
+    compatibilityStatus:Hide()
+
     function page:Refresh()
         local enabled = not Config:IsCombatLocked()
+        local compatibilityState = GetManagedCompatibilityState()
         lock:SetChecked(OBB.db.locked)
         syncBars:SetChecked(OBB.db.syncGroupBars)
         hideBlizzard:SetChecked(OBB.db.hideBlizzardFrames)
+        if compatibilityState.active then
+            local summary = OBB.ManagedPrototype
+                and OBB.ManagedPrototype.GetCompatibilitySummary
+                and OBB.ManagedPrototype:GetCompatibilitySummary()
+                or ""
+            compatibilityStatus:SetText(
+                "Compatibility action required: historical settings are being interpreted temporarily."
+                    .. " Saved settings have not been changed. " .. summary
+            )
+            compatibilityStatus:Show()
+        else
+            compatibilityStatus:Hide()
+        end
         Config:SetControlEnabled(lock, enabled)
         Config:SetControlEnabled(syncBars, enabled)
         Config:SetControlEnabled(hideBlizzard, enabled)
@@ -1347,17 +1425,17 @@ function Config:BuildGroupPage(page, settings)
             {
                 text = "Screen",
                 value = nil,
-                checked = settings.anchorTo == nil,
+                checked = settings.anchorTo == nil and settings.placement == "SCREEN",
             },
         }
-        for _, groupSettings in ipairs(OBB.db.groups) do
-            if groupSettings.id ~= settings.id then
-                table.insert(items, {
-                    text = GetGroupName(groupSettings),
-                    value = groupSettings.id,
-                    checked = settings.anchorTo == groupSettings.id,
-                })
-            end
+        local parentID = GetSupportedManagedParentID(settings.id)
+        local parentSettings = parentID and GetGroupByID(parentID)
+        if parentSettings then
+            items[#items + 1] = {
+                text = GetGroupName(parentSettings),
+                value = parentID,
+                checked = settings.anchorTo == parentID and settings.placement ~= "SCREEN",
+            }
         end
         return items
     end, function(value)
@@ -1368,8 +1446,12 @@ function Config:BuildGroupPage(page, settings)
         end
         settings.anchorTo = value
         if settings.anchorTo then
-            self:BreakAnchorCycleForTarget(settings, settings.anchorTo)
-            settings.placement = settings.placement == "SCREEN" and "BELOW" or (settings.placement or "BELOW")
+            if settings.placement ~= "BELOW"
+                and settings.placement ~= "LEFT"
+                and settings.placement ~= "RIGHT"
+            then
+                settings.placement = "BELOW"
+            end
         else
             settings.placement = "SCREEN"
         end
@@ -1379,10 +1461,10 @@ function Config:BuildGroupPage(page, settings)
     page.controls.anchorDropdown = anchorDropdown
 
     local placementDropdown = CreateDropdown(page, 170, function()
-        local disabled = settings.anchorTo == nil
+        local parentID = GetSupportedManagedParentID(settings.id)
+        local disabled = not parentID or settings.anchorTo ~= parentID
         return {
             { text = "Below", value = "BELOW", checked = settings.placement == "BELOW", disabled = disabled },
-            { text = "Above", value = "ABOVE", checked = settings.placement == "ABOVE", disabled = disabled },
             { text = "Left", value = "LEFT", checked = settings.placement == "LEFT", disabled = disabled },
             { text = "Right", value = "RIGHT", checked = settings.placement == "RIGHT", disabled = disabled },
         }
@@ -1416,6 +1498,16 @@ function Config:BuildGroupPage(page, settings)
     offsetY:SetWidth(200)
     page.controls.offsetY = offsetY
 
+    local placementWarning = page:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    placementWarning:SetJustifyH("LEFT")
+    placementWarning:SetJustifyV("TOP")
+    placementWarning:SetWordWrap(true)
+    placementWarning:SetWidth(210)
+    placementWarning:SetPoint("TOPLEFT", offsetY, "BOTTOMLEFT", 0, -4)
+    placementWarning:SetTextColor(1, 0.65, 0.2)
+    placementWarning:Hide()
+    page.controls.placementWarning = placementWarning
+
     local behaviorAnchor = maxBars
     local behaviorOffsetX = -4
     local behaviorOffsetY = -14
@@ -1431,21 +1523,39 @@ function Config:BuildGroupPage(page, settings)
         end)
         page.controls.filterButton = filterButton
 
-        local showTimed = CreateCheck(page, "Show timed auras", function(value)
-            settings.showTimed = value
-            self:Apply()
+        local durationDropdown = CreateDropdown(page, 170, function()
+            local durationMode = GetRawManagedBuffDurationLabel(settings)
+            return {
+                { text = "All", value = "ALL", checked = durationMode == "ALL" },
+                { text = "Timed only", value = "TIMED_ONLY", checked = durationMode == "TIMED_ONLY" },
+            }
+        end, function(value)
+            if self:IsCombatLocked() then
+                self:WarnCombat()
+                self:RefreshActivePage()
+                return
+            end
+            if value == "ALL" or value == "TIMED_ONLY" then
+                settings.showTimed = true
+                settings.showTimeless = value == "ALL"
+                self:Apply()
+            end
         end)
-        showTimed:SetPoint("TOPLEFT", filterButton, "BOTTOMLEFT", -4, -8)
-        page.controls.showTimed = showTimed
+        durationDropdown:SetPoint("TOPLEFT", filterButton, "BOTTOMLEFT", -16, -8)
+        page.controls.durationDropdown = durationDropdown
 
-        local showTimeless = CreateCheck(page, "Show timeless auras", function(value)
-            settings.showTimeless = value
-            self:Apply()
-        end)
-        showTimeless:SetPoint("TOPLEFT", showTimed, "BOTTOMLEFT", 0, -4)
-        page.controls.showTimeless = showTimeless
-        behaviorAnchor = showTimeless
-        behaviorOffsetX = 0
+        local durationWarning = page:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        durationWarning:SetJustifyH("LEFT")
+        durationWarning:SetJustifyV("TOP")
+        durationWarning:SetWordWrap(true)
+        durationWarning:SetWidth(210)
+        durationWarning:SetPoint("LEFT", durationDropdown, "RIGHT", 8, 0)
+        durationWarning:SetTextColor(1, 0.65, 0.2)
+        durationWarning:Hide()
+        page.controls.durationWarning = durationWarning
+
+        behaviorAnchor = durationDropdown
+        behaviorOffsetX = 16
         behaviorOffsetY = -4
     end
 
@@ -1520,9 +1630,20 @@ function Config:BuildGroupPage(page, settings)
         SetSliderValue(page.controls.bgAlpha, settings.barBgColor and settings.barBgColor[4] or 0.1)
         SetSliderValue(page.controls.offsetX, settings.offsetX or 0)
         SetSliderValue(page.controls.offsetY, settings.offsetY or 0)
-        if page.controls.showTimed then
-            page.controls.showTimed:SetChecked(settings.showTimed)
-            page.controls.showTimeless:SetChecked(settings.showTimeless)
+        if page.controls.durationDropdown then
+            local durationMode = GetRawManagedBuffDurationLabel(settings)
+            local durationIssue = GetManagedCompatibilityIssue(settings.id, "DURATION")
+            if durationIssue then
+                page.controls.durationDropdown:RefreshText("Duration: Unsupported (" .. durationIssue.raw .. ")")
+                page.controls.durationWarning:SetText(
+                    "Saved " .. durationIssue.raw .. "; temporarily using " .. durationIssue.effective
+                        .. ". Choose a supported value to save."
+                )
+                page.controls.durationWarning:Show()
+            else
+                page.controls.durationDropdown:RefreshText("Duration: " .. durationMode)
+                page.controls.durationWarning:Hide()
+            end
         end
         page.controls.growUp:SetChecked(settings.growUp)
         if managedEnchantments then
@@ -1531,8 +1652,27 @@ function Config:BuildGroupPage(page, settings)
             page.controls.sortDropdown:RefreshText("Sort: " .. (settings.sort or "default"))
         end
         page.controls.iconDropdown:RefreshText("Icon: " .. (settings.iconSide or "LEFT"))
-        page.controls.anchorDropdown:RefreshText("Anchor: " .. GetAnchorLabel(settings.anchorTo))
-        page.controls.placementDropdown:RefreshText("Place: " .. (settings.anchorTo and (settings.placement or "BELOW") or "SCREEN"))
+        local placementIssue = GetManagedCompatibilityIssue(settings.id, "PLACEMENT")
+        local parentID = GetSupportedManagedParentID(settings.id)
+        local anchorSupported = settings.anchorTo == nil or settings.anchorTo == parentID
+        local anchorText = GetAnchorLabel(settings.anchorTo)
+        if placementIssue and not anchorSupported then
+            anchorText = "Unsupported (" .. anchorText .. ")"
+        end
+        page.controls.anchorDropdown:RefreshText("Anchor: " .. anchorText)
+        if placementIssue then
+            page.controls.placementDropdown:RefreshText("Place: Unsupported (" .. tostring(settings.placement) .. ")")
+            page.controls.placementWarning:SetText(
+                "Saved " .. placementIssue.raw .. "; temporarily using " .. placementIssue.effective
+                    .. ". Choose a supported placement to save."
+            )
+            page.controls.placementWarning:Show()
+        else
+            page.controls.placementDropdown:RefreshText(
+                "Place: " .. (settings.anchorTo and (settings.placement or "BELOW") or "SCREEN")
+            )
+            page.controls.placementWarning:Hide()
+        end
         Config:SetControlEnabled(page.controls.width.slider, enabled)
         Config:SetControlEnabled(page.controls.width.valueBox, enabled)
         Config:SetControlEnabled(page.controls.height.slider, enabled)
@@ -1553,9 +1693,8 @@ function Config:BuildGroupPage(page, settings)
         Config:SetControlEnabled(page.controls.offsetX.valueBox, enabled)
         Config:SetControlEnabled(page.controls.offsetY.slider, enabled)
         Config:SetControlEnabled(page.controls.offsetY.valueBox, enabled)
-        if page.controls.showTimed then
-            Config:SetControlEnabled(page.controls.showTimed, enabled)
-            Config:SetControlEnabled(page.controls.showTimeless, enabled)
+        if page.controls.durationDropdown then
+            Config:SetControlEnabled(page.controls.durationDropdown, enabled)
         end
         Config:SetControlEnabled(page.controls.growUp, enabled)
         if page.controls.filterButton then
@@ -1564,6 +1703,11 @@ function Config:BuildGroupPage(page, settings)
         Config:SetControlEnabled(page.controls.sortDropdown, enabled and not managedEnchantments)
         Config:SetControlEnabled(page.controls.iconDropdown, enabled)
         Config:SetControlEnabled(page.controls.anchorDropdown, enabled)
-        Config:SetControlEnabled(page.controls.placementDropdown, enabled and settings.anchorTo ~= nil)
+        Config:SetControlEnabled(
+            page.controls.placementDropdown,
+            enabled
+                and GetSupportedManagedParentID(settings.id) ~= nil
+                and settings.anchorTo == GetSupportedManagedParentID(settings.id)
+        )
     end
 end
