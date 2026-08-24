@@ -4,12 +4,13 @@ A standalone World of Warcraft Retail addon implementing a modern managed AuraCo
 
 ## Project Status
 
-- 🚧 Player BUFFS production authority
+- ✅ Managed Player BUFFS production authority
 - ✅ Managed Player DEBUFFS production authority
-- 🚧 ENCHANTMENTS production authority
+- ✅ Managed ENCHANTMENTS production authority
 - ✅ Managed visual parity
 - ✅ Managed behavior/filter parity audit
-- 🚧 Final production migration
+- ✅ All-managed production cutover
+- 🚧 Legacy rollback/development cleanup
 
 The managed Player BUFFS implementation has been validated on the PTR for the AuraContainer lifecycle, dynamic self-sizing, native sorting, native whitelist/blacklist filtering, automatic configuration synchronization, native tooltips, native right-click cancellation, and combat operation.
 
@@ -21,7 +22,7 @@ Managed filtering is intentionally group-specific. BUFFS alone exposes destinati
 
 A historical transient observation in which ordinary `classification=nil` HELPFUL auras briefly appeared in ENCHANTMENTS could not be reproduced during focused current-architecture validation. Semantic state, effective ownership, desired descriptors, and applied descriptors remained consistent through ordinary/semantic aura churn, overrides and filters, combat deferral, empty-set reconstruction, and a portal/loading transition. The original cause remains unknown, so the observation is preserved as historical evidence rather than described as definitively fixed; it is no longer a known managed-routing implementation blocker.
 
-Renderer authority is runtime-only and group-specific: BUFFS defaults to `LEGACY`, DEBUFFS defaults to `MANAGED`, and ENCHANTMENTS defaults to `LEGACY`. Managed DEBUFFS is now the validated production renderer; its legacy scan and render path is skipped and stale legacy DEBUFFS bars are cleared. Managed BUFFS remains enabled and layout-active as the geometry source for chained managed DEBUFFS even while legacy BUFFS remains production-authoritative. Development comparison still applies to legacy-authoritative groups, but it cannot resurrect legacy DEBUFFS while DEBUFFS authority is managed. The authority can be rolled back out of combat without changing SavedVariables, and `/reload` restores the default table.
+Renderer authority is runtime-only and mode-level. Supported startup initializes the safe `STAGED` topology, then the existing non-destructive preflight enters `MANAGED`, making BUFFS, DEBUFFS, and ENCHANTMENTS managed-authoritative together. Unsupported BUFF duration or managed topology leaves startup safely in `STAGED` without rewriting SavedVariables. Session-only, out-of-combat `MANAGED`, `LEGACY`, and `STAGED` switches remain available for rollback/development; unsafe split states and per-group transitions are rejected. While `MANAGED` is authoritative, dormant legacy rows and secure overlays are cleared and comparison cannot resurrect any legacy production group. A normal `/reload` attempts `MANAGED` again.
 
 ## Repository Structure
 
@@ -37,9 +38,9 @@ Renderer authority is runtime-only and group-specific: BUFFS defaults to `LEGACY
 
 ## Current Development Roadmap
 
-- Parallel managed Player BUFFS — Core validated; production cutover pending
-- Player DEBUFFS — Managed production authority implemented and runtime validated with rollback
-- Managed ENCHANTMENTS — MainHand runtime validated; OffHand structurally covered with opportunistic direct validation remaining
+- Managed Player BUFFS — Production authority implemented and runtime validated
+- Managed Player DEBUFFS — Production authority implemented and runtime validated with rollback
+- Managed ENCHANTMENTS — Production authority implemented; MainHand runtime validated, with OffHand/dual-slot direct coverage still opportunistic
 - Visual parity — Validated across the three managed areas
 - Configuration integration — Managed BUFF destination filtering and the intentional broad/unfiltered D/E policies are runtime validated; the final parity audit and focused HELPFUL-routing investigation found no current routing implementation blocker
-- Production migration — DEBUFFS complete; BUFFS and ENCHANTMENTS cutovers remain planned
+- Production migration — All three groups are managed-authoritative on supported startup; legacy rollback/development retirement is the next phase

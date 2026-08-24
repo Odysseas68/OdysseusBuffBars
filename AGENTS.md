@@ -6,7 +6,7 @@
 - Language: Lua 5.1 in the WoW addon sandbox.
 - Purpose: standalone aura-bar research and development addon, separate from the production Odysseus Utility Suite.
 - Keep this addon small and focused on aura scanning, sorting, bar rendering, timer text, icons, and saved frame position.
-- The mature legacy direct-scanning implementation is the working baseline. Migration to Blizzard-managed 12.1 aura containers is planned architecture work, not completed behavior.
+- Blizzard-managed containers are the normal production authority for BUFFS, DEBUFFS, and ENCHANTMENTS. The mature direct-scanning implementation remains temporary rollback/development infrastructure pending a separate cleanup phase.
 
 ## Active Files
 - `OdysseusBuffBars.toc`
@@ -19,6 +19,8 @@
   - Bar frames, pooling, layout, title anchors, rendering, tooltips, and secure right-click cancel overlays.
 - `OdysseusBuffBars_Config.lua`
   - Native configuration frame, combat-locked controls, group settings, filters UI, and research/debug commands.
+- `OdysseusBuffBars_ManagedPrototype.lua`
+  - Production managed BUFFS, DEBUFFS, and ENCHANTMENTS architecture, paired HELPFUL ownership/compiler state, native weapon-enchantment integration, lure exception, hosts, layout, and managed recovery. Its historical filename may be reconsidered only in a separate cleanup task.
 
 The TOC must load only this addon's active files and bundled libraries. The old local `Reference\ElkBuffBars\` directory is no longer present in this repository; use historical notes and committed research instead of assuming that local reference tree exists.
 
@@ -50,10 +52,11 @@ The TOC must load only this addon's active files and bundled libraries. The old 
   - player buffs: `HELPFUL`
   - player debuffs: `HARMFUL`
   - player enchantments/consumables: `ENCHANTMENTS`
-- Renderer authority is runtime-only and group-specific. The default table is BUFFS `LEGACY`, DEBUFFS `MANAGED`, and ENCHANTMENTS `LEGACY`; do not persist authority or add a SavedVariables migration.
-- Managed DEBUFFS is the validated production authority. While active, skip legacy DEBUFFS scanning/rendering, clear stale legacy bars and secure-overlay state, and prevent development comparison from making legacy DEBUFFS visible.
-- `SetGroupRendererAuthority(2, "LEGACY")` is the out-of-combat rollback path. It hides/disables managed DEBUFFS and immediately refreshes legacy DEBUFFS. Switching back to `MANAGED` clears legacy DEBUFFS before showing/enabling the existing managed host/container. Do not recreate the managed structures, queue combat mutation, or persist the choice; `/reload` restores `MANAGED`.
-- Managed BUFFS must remain enabled, shown, and layout-active while DEBUFFS is managed because supported non-SCREEN DEBUFFS placement follows the managed BUFFS container geometry. This does not make BUFFS production-authoritative; legacy BUFFS semantics remain unchanged.
+- Renderer authority is runtime-only and mode-level. Supported startup begins safely in `STAGED`, then attempts the existing MANAGED preflight/transaction; successful normal startup makes BUFFS, DEBUFFS, and ENCHANTMENTS managed-authoritative together.
+- Legal modes are `STAGED` (B legacy, D managed, E legacy), `MANAGED` (B/D/E managed), and `LEGACY` (B/D/E legacy). Unsafe split combinations and independent per-group transitions are rejected.
+- `SetRendererAuthorityMode("LEGACY")`, `SetRendererAuthorityMode("STAGED")`, and `SetRendererAuthorityMode("MANAGED")` are the out-of-combat, session-only rollback/development paths. Do not queue combat mutation or persist authority; `/reload` attempts MANAGED again.
+- MANAGED startup preflight requires BUFFS as the SCREEN root, BUFF duration ALL or TIMED_ONLY, supported D/E SCREEN/BELOW/RIGHT/LEFT topology, initialized managed B/D/E infrastructure, and a successful coupled B/E descriptor application. Reject unsupported state without remapping or rewriting SavedVariables; remain in STAGED.
+- While MANAGED is authoritative, skip legacy B/D/E scanning/rendering, clear stale rows and secure-overlay state, and prevent comparison from resurrecting any legacy group. LEGACY and STAGED transitions prepare fresh legacy data before exposure.
 - Default vertical anchor chain:
   - BUFFS anchors to the screen.
   - DEBUFFS anchors below BUFFS.
@@ -70,7 +73,7 @@ The TOC must load only this addon's active files and bundled libraries. The old 
 - Plain `/obb` or `/buffbars` opens the native configuration frame out of combat only.
 - `/obb config`, `/obb options`, or plain `/obb` opens the native configuration frame out of combat only.
 - `/obb anchors` toggles anchors out of combat only.
-- `/obb refresh` forces a scan/update and is allowed in combat.
+- `/obb refresh` is mode-aware: it refreshes authoritative legacy groups where applicable and coordinates supported managed semantic/native/lure recovery out of combat; Blizzard-owned managed lifecycle remains framework-driven in combat.
 - `/obbtest` remains a compatibility alias with the same subcommands.
 - The native configuration frame has General, BUFFS, DEBUFFS, and ENCHANTMENTS pages, is draggable/resizable, and closes with `Esc`.
 - Group pages include Position controls for Anchor target, Placement, Offset X, and Offset Y.
@@ -119,9 +122,9 @@ The TOC must load only this addon's active files and bundled libraries. The old 
 - During combat, group anchor points are not cleared/rebuilt; existing anchors are left intact so chained groups can follow parent height changes without protected `ClearAllPoints()` calls.
 
 ## Phase Notes
-- The migration is staged per group. DEBUFFS has completed its first production renderer-authority cutover and runtime validation; BUFFS and ENCHANTMENTS remain legacy-authoritative while their managed containers stay available for migration and topology needs.
-- Current phase: preserve the validated DEBUFFS authority and rollback boundary while completing the remaining BUFFS/ENCHANTMENTS production decisions and broader optional runtime coverage.
-- The mature direct-scanning implementation remains the rollback/compatibility backend for legacy-authoritative groups; do not treat it as the active DEBUFFS production path while DEBUFFS authority is managed.
+- The production authority cutover is complete for BUFFS, DEBUFFS, and ENCHANTMENTS on supported startup. Runtime validation covers MANAGED startup, mode transitions/rollback, refresh behavior, Config truthfulness, combat, and unsupported-state STAGED fallback.
+- Current phase: checkpoint the validated all-managed architecture, then handle legacy scanner/bar/comparison/secure-overlay retirement and any ManagedPrototype rename/split as separate reviewable cleanup work.
+- The mature direct-scanning implementation remains a rollback/compatibility backend. Do not treat it as the normal production path while MANAGED is authoritative, and do not delete it until rollback retirement is explicitly approved.
 - Override Settings shape:
   - Store global aura overrides in `OdysseusBuffBarsDB`, not profiles.
   - Prefer `spellID` keys for overrides.
@@ -179,7 +182,7 @@ The TOC must load only this addon's active files and bundled libraries. The old 
   - Consume only explicitly supported saved placement graphs. Leave unsupported roots, directions, and dependency shapes unchanged rather than approximating them or mutating SavedVariables. Placement mutation is out-of-combat only and has no retry queue.
   - Managed dragging moves only ordinary addon-owned hosts. Persist the real shared SCREEN coordinates through the inverse host translation; temporary legacy comparison offsets must never contaminate SavedVariables placement.
   - OBB SavedVariables are the sole persistent position authority for managed ordinary hosts. Do not allow WoW user-placed frame persistence to compete with them: make a host movable/resizable before calling `SetUserPlaced(false)`, and clear user-placed ownership again after drag persistence or safe post-combat restoration. Do not repair ownership conflicts with polling or managed-container geometry inspection.
-  - `Show Legacy BuffBars (Development)` and `Legacy Comparison Mode (Development)` control only eligible legacy presentation for migration testing. They are not renderer authority and must never resurrect a managed-authoritative DEBUFFS group.
+  - `Show Legacy BuffBars (Development)` and `Legacy Comparison Mode (Development)` control only eligible legacy presentation for migration testing. They are not renderer authority and must never resurrect any managed-authoritative group.
   - If background or chrome must follow the managed bounds, use a separate ordinary chrome frame and apply `DisableUntrustedLayoutScriptsTemplate` where required by the verified secure-layout design.
   - Do not resize the managed container from a custom `OnSizeChanged`, reparent managed AuraButtons, or mirror managed auras into ordinary bars.
   - Blizzard's secure managed pipeline performs layout during combat, but source inspection did not prove arbitrary addon `SetHeight` calls from a callback combat-safe. Combat-time anchoring, protection state, and chrome propagation require PTR validation; call behavior combat-safe only when supported by verified Blizzard source or completed PTR testing.

@@ -1229,7 +1229,7 @@ function Config:BuildGeneralPage(page)
             self:WarnCombat()
             return
         end
-        OBB:RefreshAll()
+        OBB:RefreshAuras("config Refresh Auras")
     end)
 
     local anchors = CreateButton(page, "Toggle Anchors")
@@ -1266,6 +1266,8 @@ function Config:BuildGeneralPage(page)
 
     function page:Refresh()
         local enabled = not Config:IsCombatLocked()
+        local rendererMode = OBB.GetRendererAuthorityMode and OBB:GetRendererAuthorityMode()
+        local managedMode = rendererMode == "MANAGED"
         lock:SetChecked(OBB.db.locked)
         syncBars:SetChecked(OBB.db.syncGroupBars)
         hideBlizzard:SetChecked(OBB.db.hideBlizzardFrames)
@@ -1275,7 +1277,7 @@ function Config:BuildGeneralPage(page)
         Config:SetControlEnabled(syncBars, enabled)
         Config:SetControlEnabled(hideBlizzard, enabled)
         Config:SetControlEnabled(showLegacyBars, enabled)
-        Config:SetControlEnabled(legacyComparisonMode, enabled)
+        Config:SetControlEnabled(legacyComparisonMode, enabled and not managedMode)
         Config:SetControlEnabled(refresh, enabled)
         Config:SetControlEnabled(anchors, enabled)
         Config:SetControlEnabled(resetPositions, enabled)
@@ -1543,6 +1545,8 @@ function Config:BuildGroupPage(page, settings)
 
     function page:Refresh()
         local enabled = not Config:IsCombatLocked()
+        local rendererMode = OBB.GetRendererAuthorityMode and OBB:GetRendererAuthorityMode()
+        local managedEnchantments = settings.id == 3 and rendererMode == "MANAGED"
         SetSliderValue(page.controls.width, settings.width or 260)
         SetSliderValue(page.controls.height, settings.height or 18)
         SetSliderValue(page.controls.spacing, settings.spacing or 3)
@@ -1558,7 +1562,11 @@ function Config:BuildGroupPage(page, settings)
             page.controls.showTimeless:SetChecked(settings.showTimeless)
         end
         page.controls.growUp:SetChecked(settings.growUp)
-        page.controls.sortDropdown:RefreshText("Sort: " .. (settings.sort or "default"))
+        if managedEnchantments then
+            page.controls.sortDropdown:RefreshText("Sort: Fixed (Managed)")
+        else
+            page.controls.sortDropdown:RefreshText("Sort: " .. (settings.sort or "default"))
+        end
         page.controls.iconDropdown:RefreshText("Icon: " .. (settings.iconSide or "LEFT"))
         page.controls.anchorDropdown:RefreshText("Anchor: " .. GetAnchorLabel(settings.anchorTo))
         page.controls.placementDropdown:RefreshText("Place: " .. (settings.anchorTo and (settings.placement or "BELOW") or "SCREEN"))
@@ -1572,8 +1580,8 @@ function Config:BuildGroupPage(page, settings)
         Config:SetControlEnabled(page.controls.fontSize.valueBox, enabled)
         Config:SetControlEnabled(page.controls.scale.slider, enabled)
         Config:SetControlEnabled(page.controls.scale.valueBox, enabled)
-        Config:SetControlEnabled(page.controls.maxBars.slider, enabled)
-        Config:SetControlEnabled(page.controls.maxBars.valueBox, enabled)
+        Config:SetControlEnabled(page.controls.maxBars.slider, enabled and not managedEnchantments)
+        Config:SetControlEnabled(page.controls.maxBars.valueBox, enabled and not managedEnchantments)
         Config:SetControlEnabled(page.controls.barAlpha.slider, enabled)
         Config:SetControlEnabled(page.controls.barAlpha.valueBox, enabled)
         Config:SetControlEnabled(page.controls.bgAlpha.slider, enabled)
@@ -1590,7 +1598,7 @@ function Config:BuildGroupPage(page, settings)
         if page.controls.filterButton then
             Config:SetControlEnabled(page.controls.filterButton, enabled)
         end
-        Config:SetControlEnabled(page.controls.sortDropdown, enabled)
+        Config:SetControlEnabled(page.controls.sortDropdown, enabled and not managedEnchantments)
         Config:SetControlEnabled(page.controls.iconDropdown, enabled)
         Config:SetControlEnabled(page.controls.anchorDropdown, enabled)
         Config:SetControlEnabled(page.controls.placementDropdown, enabled and settings.anchorTo ~= nil)

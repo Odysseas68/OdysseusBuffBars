@@ -12,6 +12,29 @@ OBB.RENDERER_AUTHORITY = {
     LEGACY = "LEGACY",
     MANAGED = "MANAGED",
 }
+OBB.RENDERER_AUTHORITY_MODE = {
+    STAGED = "STAGED",
+    MANAGED = "MANAGED",
+    LEGACY = "LEGACY",
+}
+local rendererAuthoritiesByMode = {
+    STAGED = {
+        [1] = OBB.RENDERER_AUTHORITY.LEGACY,
+        [2] = OBB.RENDERER_AUTHORITY.MANAGED,
+        [3] = OBB.RENDERER_AUTHORITY.LEGACY,
+    },
+    MANAGED = {
+        [1] = OBB.RENDERER_AUTHORITY.MANAGED,
+        [2] = OBB.RENDERER_AUTHORITY.MANAGED,
+        [3] = OBB.RENDERER_AUTHORITY.MANAGED,
+    },
+    LEGACY = {
+        [1] = OBB.RENDERER_AUTHORITY.LEGACY,
+        [2] = OBB.RENDERER_AUTHORITY.LEGACY,
+        [3] = OBB.RENDERER_AUTHORITY.LEGACY,
+    },
+}
+OBB.rendererAuthorityMode = OBB.RENDERER_AUTHORITY_MODE.STAGED
 OBB.groupRendererAuthority = {
     [1] = OBB.RENDERER_AUTHORITY.LEGACY,
     [2] = OBB.RENDERER_AUTHORITY.MANAGED,
@@ -155,6 +178,69 @@ function OBB:IsManagedRendererActive(groupID)
     return self:GetGroupRendererAuthority(groupID) == self.RENDERER_AUTHORITY.MANAGED
 end
 
+function OBB:GetRendererAuthorityMode()
+    return self.rendererAuthorityMode
+end
+
+local function SetRuntimeRendererAuthorityMode(mode)
+    local authorities = rendererAuthoritiesByMode[mode]
+    if not authorities then
+        return false
+    end
+
+    OBB.rendererAuthorityMode = mode
+    for groupID = 1, 3 do
+        OBB.groupRendererAuthority[groupID] = authorities[groupID]
+    end
+    return true
+end
+
+local function GetGroupSettingsByID(groupID)
+    for _, settings in ipairs(OBB.db and OBB.db.groups or {}) do
+        if settings.id == groupID then
+            return settings
+        end
+    end
+    return nil
+end
+
+local function CollectFreshLegacyAuraData(groupIDs)
+    local auraData = {}
+    for _, groupID in ipairs(groupIDs) do
+        local settings = GetGroupSettingsByID(groupID)
+        if not settings then
+            return nil, "group settings unavailable for " .. tostring(groupID)
+        end
+
+        local success, data = pcall(
+            OBB.Engine.Scan,
+            OBB.Engine,
+            settings.unit,
+            settings.filter,
+            settings.sort,
+            settings
+        )
+        if not success then
+            return nil, "legacy scan failed for " .. tostring(settings.name or groupID)
+        end
+        auraData[groupID] = data
+    end
+    return auraData
+end
+
+local function ApplyPreparedLegacyModeData(mode, preparedAuraData)
+    local authorities = rendererAuthoritiesByMode[mode]
+    for _, settings in ipairs(OBB.db.groups) do
+        if authorities[settings.id] == OBB.RENDERER_AUTHORITY.LEGACY then
+            OBB.auraData[settings.id] = preparedAuraData[settings.id] or {}
+            OBB.Bars:UpdateGroup(settings, OBB.auraData[settings.id])
+        else
+            OBB.Bars:ClearGroup(settings)
+        end
+    end
+    OBB.Bars:UpdateAllGroupPositions()
+end
+
 local defaultBlizzardFrameNames = {
     "BuffFrame",
     "DebuffFrame",
@@ -237,6 +323,23 @@ function OBB:RefreshAll()
     self.Bars:UpdateAllGroupPositions()
 end
 
+function OBB:RefreshAuras(reason)
+    self:RefreshAll()
+
+    if self:GetRendererAuthorityMode() == self.RENDERER_AUTHORITY_MODE.LEGACY then
+        return true
+    end
+    if _G.InCombatLockdown and _G.InCombatLockdown() then
+        return true, "managed lifecycle remains framework-owned in combat"
+    end
+
+    local managedPrototype = self.ManagedPrototype
+    if managedPrototype and managedPrototype.RefreshManagedState then
+        return managedPrototype:RefreshManagedState(reason or "explicit refresh")
+    end
+    return false, "managed refresh unavailable"
+end
+
 function OBB:SetGroupRendererAuthority(groupID, authority)
     if self.groupRendererAuthority[groupID] == nil then
         return false, "invalid group"
@@ -246,8 +349,22 @@ function OBB:SetGroupRendererAuthority(groupID, authority)
     then
         return false, "invalid authority"
     end
-    if groupID ~= 2 and authority ~= self.groupRendererAuthority[groupID] then
-        return false, "renderer authority switch unsupported for group"
+    if authority == self.groupRendererAuthority[groupID] then
+        return true
+    end
+    local reason = "per-group authority mutation unsupported; use SetRendererAuthorityMode"
+    self:Print(reason)
+    return false, reason
+end
+
+local function RejectRendererAuthorityMode(reason)
+    OBB:Print("renderer mode unchanged:", reason)
+    return false, reason
+end
+
+function OBB:SetRendererAuthorityMode(mode)
+    if not rendererAuthoritiesByMode[mode] then
+        return RejectRendererAuthorityMode("invalid renderer authority mode")
     end
     if _G.InCombatLockdown and _G.InCombatLockdown() then
         if self.Config and self.Config.WarnCombat then
@@ -255,38 +372,92 @@ function OBB:SetGroupRendererAuthority(groupID, authority)
         end
         return false, "combat lockdown"
     end
-    if authority == self.groupRendererAuthority[groupID] then
+    if not self.db or not self.Bars then
+        return RejectRendererAuthorityMode("addon runtime unavailable")
+    end
+    if mode == self:GetRendererAuthorityMode() then
         return true
     end
-    if not self.db then
-        return false, "database unavailable"
+
+    local managedPrototype = self.ManagedPrototype
+    if not managedPrototype or not managedPrototype.ApplyRendererAuthorityVisibility then
+        return RejectRendererAuthorityMode("managed authority infrastructure unavailable")
     end
 
-    local groupSettings
-    for _, settings in ipairs(self.db.groups) do
-        if settings.id == groupID then
-            groupSettings = settings
-            break
+    if mode == self.RENDERER_AUTHORITY_MODE.MANAGED then
+        if not managedPrototype.PreflightManagedAuthorityMode then
+            return RejectRendererAuthorityMode("managed preflight unavailable")
         end
-    end
-    if not groupSettings then
-        return false, "group settings unavailable"
+        local preflightSuccess, preflightReason = managedPrototype:PreflightManagedAuthorityMode()
+        if not preflightSuccess then
+            return RejectRendererAuthorityMode(preflightReason or "managed preflight failed")
+        end
     end
 
-    self.groupRendererAuthority[groupID] = authority
-    if authority == self.RENDERER_AUTHORITY.MANAGED then
-        self.Bars:ClearGroup(groupSettings)
-        self.Bars:UpdateAllGroupPositions()
-        if self.ManagedPrototype and self.ManagedPrototype.ApplyDebuffAuthorityVisibility then
-            self.ManagedPrototype:ApplyDebuffAuthorityVisibility()
+    local legacyGroupIDs = mode == self.RENDERER_AUTHORITY_MODE.LEGACY
+        and { 1, 2, 3 }
+        or mode == self.RENDERER_AUTHORITY_MODE.STAGED and { 1, 3 }
+        or nil
+    local preparedAuraData = {}
+    if legacyGroupIDs then
+        local scanReason
+        preparedAuraData, scanReason = CollectFreshLegacyAuraData(legacyGroupIDs)
+        if not preparedAuraData then
+            return RejectRendererAuthorityMode(scanReason or "legacy refresh preparation failed")
         end
-    else
-        if self.ManagedPrototype and self.ManagedPrototype.ApplyDebuffAuthorityVisibility then
-            self.ManagedPrototype:ApplyDebuffAuthorityVisibility()
+    end
+
+    local previousMode = self:GetRendererAuthorityMode()
+    self.suspendLegacyPresentation = true
+    self.Bars:ApplyLegacyBarsVisibility()
+
+    local transitionSuccess, transitionReason = pcall(function()
+        if mode == self.RENDERER_AUTHORITY_MODE.LEGACY then
+            local visibilitySuccess, visibilityReason = managedPrototype:ApplyRendererAuthorityVisibility(mode)
+            if not visibilitySuccess then
+                error(visibilityReason or "managed visibility transition failed", 0)
+            end
         end
-        self:RefreshLegacyGroup(groupSettings)
-        self.Bars:UpdateAllGroupPositions()
+
+        SetRuntimeRendererAuthorityMode(mode)
+        ApplyPreparedLegacyModeData(mode, preparedAuraData)
+
+        if mode ~= self.RENDERER_AUTHORITY_MODE.LEGACY then
+            local visibilitySuccess, visibilityReason = managedPrototype:ApplyRendererAuthorityVisibility(mode)
+            if not visibilitySuccess then
+                error(visibilityReason or "managed visibility transition failed", 0)
+            end
+            if managedPrototype.RefreshManagedState then
+                local refreshSuccess, refreshReason = managedPrototype:RefreshManagedState(
+                    "renderer authority mode " .. mode
+                )
+                if not refreshSuccess then
+                    error(refreshReason or "managed runtime recovery failed", 0)
+                end
+            end
+        end
+    end)
+
+    self.suspendLegacyPresentation = nil
+    if not transitionSuccess then
+        SetRuntimeRendererAuthorityMode(previousMode)
+        pcall(managedPrototype.ApplyRendererAuthorityVisibility, managedPrototype, previousMode)
+        if previousMode ~= self.RENDERER_AUTHORITY_MODE.LEGACY
+            and managedPrototype.RefreshManagedState
+        then
+            pcall(managedPrototype.RefreshManagedState, managedPrototype, "renderer mode rollback")
+        end
+        pcall(self.RefreshAll, self)
         self.Bars:ApplyLegacyBarsVisibility()
+        return RejectRendererAuthorityMode(
+            "renderer mode transition failed: " .. tostring(transitionReason)
+        )
+    end
+
+    self.Bars:ApplyLegacyBarsVisibility()
+    managedPrototype:ApplyHeaderVisibility()
+    if self.Config and self.Config.RefreshActivePage then
+        self.Config:RefreshActivePage()
     end
     return true
 end
@@ -352,7 +523,10 @@ function OBB:OnAddonLoaded(name)
     end
     self:HookEditModeVisibilityRefresh()
     self.Bars:Initialize()
-    self:RefreshAll()
+    local managedStartupSuccess = self:SetRendererAuthorityMode(self.RENDERER_AUTHORITY_MODE.MANAGED)
+    if not managedStartupSuccess then
+        self:RefreshAll()
+    end
     self:ApplyDefaultBlizzardFrameVisibility()
     self:Print("loaded. /obb config opens settings, /obb anchors toggles anchors.")
 end
@@ -440,7 +614,7 @@ SLASH_ODYSSEUSBUFFBARS3 = "/obbtest"
 SlashCmdList.ODYSSEUSBUFFBARS = function(msg)
     msg = msg and msg:lower() or ""
     if msg == "refresh" then
-        OBB:RefreshAll()
+        OBB:RefreshAuras("slash command")
     elseif msg == "config" or msg == "options" or msg == "open" then
         OBB.Config:Toggle()
     elseif msg == "anchors" then

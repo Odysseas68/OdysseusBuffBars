@@ -145,13 +145,13 @@
 - [x] Keep native weapon-enchant right-click cancellation distinct from the fishing-lure row, which currently performs no cancellation action.
 - [ ] Evaluate Ranged registration only in a Retail context that can exercise inventory slot 18.
 
-## Remaining Migration Work
+## Post-Cutover Cleanup and Remaining Coverage
 
 - [x] Implement and runtime-validate ENCHANTMENTS `growUp` while keeping Fishing Lure as a fixed footer outside FlowLayout in both directions.
 - [x] Implement and runtime-validate RIGHT for DEBUFFS relative to BUFFS and ENCHANTMENTS relative to DEBUFFS using applied parent logical width, including empty/non-empty state, live parent-width changes, offsets, switching, growth/scale, parent dragging, reset, combat, and native enchant/lure behavior.
 - [x] Implement and runtime-validate LEFT for the same supported chain using applied child logical width, including empty state, live child-width changes, parent-width independence, offsets, switching, drag following/refusal, reset, comparison/header modes, combat, and native enchant/lure transitions.
 - [x] Complete ABOVE research and intentionally defer it for the managed prototype/migration period; do not add dynamic-height reads, polling, private hooks, duplicated row-height logic, or a second content-height authority.
-- [ ] At production cutover, remove ABOVE from managed placement choices and require an explicit supported replacement for existing ABOVE users without silently remapping or prematurely discarding the saved legacy value.
+- [ ] During cleanup, decide how Config should explain/remove managed ABOVE while preserving the saved legacy value for rollback; do not silently remap or discard it.
 - [ ] Decide whether arbitrary `anchorTo` graphs, BUFFS as a child, BELOW/RIGHT/LEFT beyond the supported parent relationships, and broader cycle parity are still desired; do not generalize current validation.
 - [ ] Optionally evaluate minor lateral visual-alignment polish without treating the runtime-validated logical geometry as defective.
 - [ ] Retain startup/reload-only status for unsupported geometry/layout properties until each live mutation path is explicitly implemented and runtime validated.
@@ -163,23 +163,27 @@
 - [x] Resolve ownership before filtering, preserve hidden/override restoration, and finalize destination whitelist/blacklist as BUFFS-only; every effective-E ID remains eligible for `HelpfulEnhancements`.
 - [x] Implement and runtime-validate BUFF ALL/TIMED_ONLY through Blizzard candidate filters; intentionally retain the last supported state for TIMELESS_ONLY/NONE while preserving SavedVariables and using ALL on fresh unsupported initialization.
 - [x] Adopt managed DEBUFFS/ENCHANTMENTS ALL-duration policy, remove their duration controls, and make BUFF duration flags group-local rather than part of `Sync Group Bars` fan-out without schema migration.
-- [x] Complete the final managed-vs-legacy parity audit after the now-final group-specific filtering policy; DEBUFFS renderer authority is now cut over, while B/E authority and final legacy cleanup remain separate work.
-- [ ] Clean up or relabel legacy-only ENCHANTMENTS sort/maximum controls so the UI reflects the intentional managed 7+2+1 and Slot/Normal policy.
+- [x] Complete the final managed-vs-legacy parity audit and all-managed B/D/E production authority cutover while preserving session rollback and historical SavedVariables.
+- [x] Make ENCHANTMENTS Sort/Maximum Bars truthful by showing fixed managed Sort and disabling both controls in MANAGED while preserving normal legacy semantics and stored values in STAGED/LEGACY.
 - [x] Finalize managed ENCHANTMENTS as broad/source-owned with no destination per-ID filtering across `HelpfulEnhancements`, MainHand, OffHand, or Fishing Lure; preserve historical filter tables for legacy/rollback.
 - [x] Build current active readable B/E HELPFUL ownership projection through the shared resolver and use it for BUFFS `Current group auras`; E no longer exposes a destination-filter editor under the final broad policy.
 - [x] Finalize managed DEBUFFS as intentionally broad/unfiltered, remove its Whitelist/Blacklist control, and preserve historical filter tables for legacy/rollback.
 - [x] Remove D/E Whitelist/Blacklist controls and place Grow Up directly below Max Bars without changing defaults or SavedVariables schema.
 - [x] Correct the shared Config group-page layout so D/E place Icon below Sort with a four-pixel gap and no Offset Y overlap while BUFFS retains its existing side-by-side Sort/Icon layout.
-- [ ] Complete broader Live validation of native MainHand lifecycle and interaction, take opportunistic OffHand/dual-slot coverage when a practical test case is available, then integrate the validated native and semantic HELPFUL sources into production ENCHANTMENTS.
+- [ ] Continue broader Live validation of native MainHand lifecycle and interaction and take opportunistic OffHand/dual-slot coverage when practical; production integration is complete and this remains coverage, not a known implementation gap.
 - [ ] Broaden runtime testing across classes, effects, bobbers, profession tools, and lure variants without converting observed IDs into compatibility tables.
 - [x] Close the historical transient `classification=nil` ENCHANTMENTS observation as unreproduced on the current architecture after focused validation. Preserve that it genuinely occurred and its cause remains unknown, but do not treat it as a current routing implementation blocker or claim a specific fix.
 - [x] Close temporary-enchant effect naming at the Retail `12.1.0.69404` supported public boundary: `enchantID` has no public spell/item/name mapping, generic tooltip text is not production metadata, and equipped-item/slot presentation plus native tooltip context remains final unless Blizzard adds a documented resolver.
 - [ ] Optionally research safe profession-tool lure cancellation; do not claim slot-28 cancellation until runtime validated.
 - [x] Confirm Blizzard Edit Mode owns BuffFrame visibility and its Aura Frame `Hidden` setting is the supported user-facing mechanism; keep OBB's best-effort legacy toggle non-authoritative and schedule its cutover cleanup separately.
-- [ ] Cut over player BUFFS to exactly one production backend and remove its duplicate legacy display.
-- [ ] Validate final production configuration, combat behavior, rollback, and SavedVariables compatibility.
-- [ ] Remove temporary scanner and tooltip containment only after all required groups complete production migration.
+- [x] Cut over BUFFS, DEBUFFS, and ENCHANTMENTS together to MANAGED production authority on supported startup, with safe STAGED fallback and no duplicate legacy display.
+- [x] Validate production configuration, combat behavior, mode-aware refresh, LEGACY/STAGED rollback, reload restoration, and SavedVariables preservation for the completed authority cutover.
+- [ ] Remove temporary scanner and tooltip containment only in a separate cleanup task after rollback support is deliberately retired.
 - [ ] Remove obsolete legacy scanner caches, events, ordinary bars, and cancellation overlays only after complete cutover.
 - [ ] Remove the temporary legacy visibility/comparison controls and presentation-offset path when the legacy renderer is retired.
+- [ ] Audit and simplify event ownership after LEGACY/STAGED rollback support is retired.
+- [ ] Evaluate removal of `OdysseusBuffBars_Auras.lua` and legacy-only portions of `OdysseusBuffBars_Bars.lua`; update TOC entries only after code is actually retired.
+- [ ] Evaluate renaming and/or splitting the roughly 112.5 KB production-critical `OdysseusBuffBars_ManagedPrototype.lua` in a separate reviewable task; do not create immediate post-cutover churn in this checkpoint.
+- [ ] Perform version, build-date, release metadata, tag, and release work only after cleanup is complete.
 
-The overall Retail 12.1 migration remains incomplete.
+The all-managed production authority migration is complete. Legacy rollback/development retirement, file/TOC cleanup, optional ManagedPrototype rename/split, remaining opportunistic runtime coverage, and release metadata remain separate work.

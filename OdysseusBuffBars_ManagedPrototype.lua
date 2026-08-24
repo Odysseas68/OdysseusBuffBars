@@ -1032,19 +1032,54 @@ function ManagedPrototype:RefreshCandidateFilters()
         return false
     end
 
-    local candidateFilterState = CompileCurrentManagedCandidateFilterState()
+    local compileSuccess, candidateFilterState = pcall(CompileCurrentManagedCandidateFilterState)
+    if not compileSuccess or type(candidateFilterState) ~= "table" then
+        return false, "candidate descriptor compilation failed"
+    end
     if AreManagedCandidateFilterStatesEqual(lastAppliedManagedCandidateFilterState, candidateFilterState) then
         return true, false
     end
 
-    self.container:SetAuraGroupCandidateFilters(
+    local previousState = lastAppliedManagedCandidateFilterState
+        and CopyManagedCandidateFilterState(lastAppliedManagedCandidateFilterState)
+        or nil
+    local buffApplySuccess = pcall(
+        self.container.SetAuraGroupCandidateFilters,
+        self.container,
         AURA_GROUP_KEY,
         candidateFilterState.buffCandidateFilters
     )
-    self.enchantmentContainer:SetAuraGroupCandidateFilters(
+    if not buffApplySuccess then
+        return false, "BUFF candidate descriptor application failed"
+    end
+
+    local enhancementApplySuccess = pcall(
+        self.enchantmentContainer.SetAuraGroupCandidateFilters,
+        self.enchantmentContainer,
         ENHANCEMENT_AURA_GROUP_KEY,
         candidateFilterState.enhancementCandidateFilters
     )
+    if not enhancementApplySuccess then
+        if previousState then
+            local buffRollbackSuccess = pcall(
+                self.container.SetAuraGroupCandidateFilters,
+                self.container,
+                AURA_GROUP_KEY,
+                previousState.buffCandidateFilters
+            )
+            local enhancementRollbackSuccess = pcall(
+                self.enchantmentContainer.SetAuraGroupCandidateFilters,
+                self.enchantmentContainer,
+                ENHANCEMENT_AURA_GROUP_KEY,
+                previousState.enhancementCandidateFilters
+            )
+            if not buffRollbackSuccess or not enhancementRollbackSuccess then
+                return false, "paired candidate descriptor application and rollback failed"
+            end
+        end
+        return false, "ENCHANTMENTS candidate descriptor application failed"
+    end
+
     lastAppliedManagedCandidateFilterState = CopyManagedCandidateFilterState(candidateFilterState)
     return true, true
 end
@@ -1684,6 +1719,95 @@ RefreshFishingLureRow = function(_reason)
     return shown
 end
 
+function ManagedPrototype:RefreshManagedState(reason)
+    if _G.InCombatLockdown and _G.InCombatLockdown() then
+        return false, "combat lockdown"
+    end
+    if not self.initialized or not self.container or not self.enchantmentContainer then
+        return false, "managed prototype not initialized"
+    end
+
+    local discoverySuccess, _, discoveryReason = RunHelpfulEnhancementDiscovery(false)
+    if not discoverySuccess then
+        return false, discoveryReason or "HELPFUL semantic refresh failed"
+    end
+
+    if type(self.enchantmentContainer.UpdateAllAuras) == "function" then
+        local nativeRefreshSuccess = pcall(
+            self.enchantmentContainer.UpdateAllAuras,
+            self.enchantmentContainer
+        )
+        if not nativeRefreshSuccess then
+            return false, "native enchantment refresh failed"
+        end
+    end
+
+    if not RefreshFishingLureRow(reason or "managed refresh") then
+        return false, "Fishing Lure refresh failed"
+    end
+    return true
+end
+
+local function IsSupportedManagedChildPlacement(settings, placement)
+    return IsSupportedManagedScreenPlacement(settings)
+        or IsSupportedManagedBelowPlacement(settings, placement)
+        or IsSupportedManagedRightPlacement(settings, placement)
+        or IsSupportedManagedLeftPlacement(settings, placement)
+end
+
+function ManagedPrototype:PreflightManagedAuthorityMode()
+    if _G.InCombatLockdown and _G.InCombatLockdown() then
+        return false, "combat lockdown"
+    end
+    if not self.initialized then
+        return false, "managed prototype not initialized"
+    end
+    if not self.host or not self.container
+        or not self.debuffHost or not self.debuffContainer
+        or not self.enchantmentHost or not self.enchantmentContainer
+    then
+        return false, "managed B/D/E infrastructure incomplete"
+    end
+    if type(self.container.SetAuraGroupCandidateFilters) ~= "function"
+        or type(self.enchantmentContainer.SetAuraGroupCandidateFilters) ~= "function"
+    then
+        return false, "paired candidate-filter setters unavailable"
+    end
+
+    local buffSettings = GetGroupSettings(1)
+    local debuffSettings = GetGroupSettings(2)
+    local enhancementSettings = GetGroupSettings(3)
+    if not buffSettings or not debuffSettings or not enhancementSettings then
+        return false, "managed group settings unavailable"
+    end
+    if not IsManagedBuffsScreenRoot(buffSettings) then
+        return false, "BUFFS must use SCREEN placement with no parent"
+    end
+    if not ResolveManagedBuffDurationMode(buffSettings) then
+        return false, "BUFFS duration must be ALL or TIMED_ONLY"
+    end
+    if not IsSupportedManagedChildPlacement(debuffSettings, MANAGED_DEBUFF_PLACEMENT) then
+        return false, "DEBUFFS placement is unsupported for managed mode"
+    end
+    if not IsSupportedManagedChildPlacement(enhancementSettings, MANAGED_ENCHANTMENT_PLACEMENT) then
+        return false, "ENCHANTMENTS placement is unsupported for managed mode"
+    end
+
+    local compileSuccess, candidateFilterState = pcall(CompileCurrentManagedCandidateFilterState)
+    if not compileSuccess or type(candidateFilterState) ~= "table" then
+        return false, "paired candidate descriptors are unavailable"
+    end
+    if not lastAppliedManagedCandidateFilterState then
+        return false, "paired candidate descriptor snapshot unavailable"
+    end
+
+    local refreshSuccess, refreshReason = self:RefreshManagedState("managed authority preflight")
+    if not refreshSuccess then
+        return false, refreshReason or "managed runtime refresh failed"
+    end
+    return true
+end
+
 function ManagedPrototype.DumpFishingLureState()
     local refreshState
     if _G.InCombatLockdown and _G.InCombatLockdown() then
@@ -2106,49 +2230,65 @@ local function ApplyManagedPlacement(prototype, placement)
     return true
 end
 
-function ManagedPrototype:ApplyHeaderVisibility()
+function ManagedPrototype:ApplyHeaderVisibility(mode)
     if not OBB.db or not self.groupHeaders then
         return false
     end
 
+    mode = mode or (OBB.GetRendererAuthorityMode and OBB:GetRendererAuthorityMode())
     local shown = OBB.db.anchorsShown == true
     for _, group in ipairs(MANAGED_GROUPS) do
         local header = self.groupHeaders[group.key]
         if header then
-            local groupShown = shown
-            if group.id == 2 and OBB.IsManagedRendererActive then
-                groupShown = groupShown and OBB:IsManagedRendererActive(group.id)
-            end
-            header:SetShown(groupShown)
+            header:SetShown(shown and mode ~= "LEGACY")
         end
     end
     return true
 end
 
-function ManagedPrototype:ApplyDebuffAuthorityVisibility()
+function ManagedPrototype:ApplyRendererAuthorityVisibility(mode)
     if _G.InCombatLockdown and _G.InCombatLockdown() then
         return false, "combat lockdown"
     end
-    if not self.debuffHost or not self.debuffContainer then
+    if not self.host or not self.container
+        or not self.debuffHost or not self.debuffContainer
+        or not self.enchantmentHost or not self.enchantmentContainer
+    then
         return false, "not initialized"
     end
 
-    local active = not OBB.IsManagedRendererActive or OBB:IsManagedRendererActive(2)
-    if active then
-        self.debuffHost:Show()
-        self.debuffContainer:Show()
-        self.debuffContainer:SetEnabled(true)
-    else
-        local header = self.groupHeaders and self.groupHeaders.DEBUFFS
-        if header then
-            header:Hide()
-        end
-        self.debuffContainer:SetEnabled(false)
-        self.debuffContainer:Hide()
-        self.debuffHost:Hide()
+    mode = mode or (OBB.GetRendererAuthorityMode and OBB:GetRendererAuthorityMode())
+    if mode ~= "STAGED" and mode ~= "MANAGED" and mode ~= "LEGACY" then
+        return false, "invalid renderer authority mode"
     end
-    self:ApplyHeaderVisibility()
+
+    local active = mode ~= "LEGACY"
+    local managedPresentations = {
+        { host = self.host, container = self.container },
+        { host = self.debuffHost, container = self.debuffContainer },
+        { host = self.enchantmentHost, container = self.enchantmentContainer },
+    }
+    for _, presentation in ipairs(managedPresentations) do
+        if active then
+            presentation.host:Show()
+            presentation.container:Show()
+            presentation.container:SetEnabled(true)
+        else
+            presentation.container:SetEnabled(false)
+            presentation.container:Hide()
+            presentation.host:Hide()
+        end
+    end
+
+    if not active and self.fishingLureRow then
+        HideFishingLureRow(self.fishingLureRow)
+    end
+    self:ApplyHeaderVisibility(mode)
     return true
+end
+
+function ManagedPrototype:ApplyDebuffAuthorityVisibility()
+    return self:ApplyRendererAuthorityVisibility()
 end
 
 function ManagedPrototype:ApplyConfiguration(_reason)
@@ -2266,8 +2406,8 @@ function ManagedPrototype:ApplyConfiguration(_reason)
         return false, "candidate filters not applied"
     end
 
-    if not self:ApplyDebuffAuthorityVisibility() then
-        return false, "debuff authority visibility not applied"
+    if not self:ApplyRendererAuthorityVisibility() then
+        return false, "renderer authority visibility not applied"
     end
 
     return true
@@ -3101,7 +3241,7 @@ function ManagedPrototype:Initialize()
     CreateManagedEnchantmentPrototype()
     CreateManagedDragEventFrame()
     self:RefreshCandidateFilters()
-    self:ApplyDebuffAuthorityVisibility()
+    self:ApplyRendererAuthorityVisibility()
     self:ApplyHeaderVisibility()
     self.initializing = nil
     self.initialized = true

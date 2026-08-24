@@ -298,7 +298,9 @@ function Bars:Initialize()
 end
 
 function Bars:ApplyLegacyBarsVisibility()
-    local shown = OBB.db and (OBB.db.legacyComparisonMode or OBB.db.showLegacyBars ~= false)
+    local shown = not OBB.suspendLegacyPresentation
+        and OBB.db
+        and (OBB.db.legacyComparisonMode or OBB.db.showLegacyBars ~= false)
     for groupID, group in pairs(OBB.groups) do
         local groupShown = shown and (not OBB.IsLegacyRendererActive or OBB:IsLegacyRendererActive(groupID))
         group:SetShown(groupShown)
