@@ -1,6 +1,6 @@
 # Managed AuraContainer Migration
 
-Phase A, managed AuraButton presentation, Phase B.2 dynamic self-sizing, and native managed behavior are validated. Retail Live now also validates the final group-specific filtering policy: BUFFS retains destination filtering, while managed DEBUFFS and ENCHANTMENTS are intentionally broad/unfiltered. HELPFUL routing and hidden/group overrides remain ownership policy. The final parity audit and focused HELPFUL-routing investigation found no current routing implementation blocker; these remain parallel prototypes because renderer authority, cutover integration, cleanup, and final production validation are not complete.
+Phase A, managed AuraButton presentation, Phase B.2 dynamic self-sizing, and native managed behavior are validated. Retail Live also validates the final group-specific filtering policy: BUFFS retains destination filtering, while managed DEBUFFS and ENCHANTMENTS are intentionally broad/unfiltered. HELPFUL routing and hidden/group overrides remain ownership policy. DEBUFFS has now completed the first staged production renderer-authority cutover and runtime validation. BUFFS and ENCHANTMENTS remain legacy-authoritative for production, so the overall migration and final legacy cleanup are not complete.
 
 Evidence labels used below:
 
@@ -16,31 +16,55 @@ Current milestone status:
 | Retail 12.1 AuraContainer architecture research | Complete for the audited Live source snapshot; recheck on API/source changes. |
 | Parallel managed player-BUFFS implementation | Implemented and PTR validated for core lifecycle, presentation, sorting, filtering, and existing-editor synchronization. |
 | Phase B.2 dynamic self-sizing | PTR validated. |
-| Isolated managed player-DEBUFFS implementation | Core runtime behavior validated on Retail Live with a broad `HARMFUL` group, all three sort mappings, native combat tooltips, and dynamic BUFFS-to-DEBUFFS anchoring; targeted private-aura validation and integration pending. |
+| Managed player-DEBUFFS production authority | Cut over and runtime validated with a broad `HARMFUL` group, all three sort mappings, native combat tooltips, supported placement/chaining, comparison isolation, two-way rollback, and reload restoration. Optional targeted private-aura validation remains unclaimed. |
 | Isolated managed ENCHANTMENTS implementation | Implements the 7+2+1 policy: seven `HelpfulEnhancements`, MainHand/OffHand native providers, and one ordinary lure footer. MainHand lifecycle and transition recovery, semantic routing, lure behavior, visual parity, and live growth direction are Live validated. OffHand is source-validated and structurally symmetric; direct OffHand/both-slot testing remains opportunistic coverage because no suitable active OffHand enchant was available. |
 | Managed visual parity | Runtime validated for BUFFS, DEBUFFS, and ENCHANTMENTS from the accepted `260 x 18`, three-pixel-spacing baseline, with live OOC font, color, width, height, and spacing synchronization. |
 | Phase A.1 startup configuration consumption | Runtime validated. Initialization occurs after SavedVariables adoption/defaults/migrations/normalization and consumes a copied configuration snapshot. |
 | Live configuration synchronization | Runtime validated out of combat for font/color/geometry, `iconSide`, host scale/alpha, BUFFS/DEBUFFS sort and `maxBars`, BUFFS/ENCHANTMENTS growth direction, BUFFS SCREEN, DEBUFFS SCREEN/BELOW/RIGHT/LEFT relative to BUFFS, and ENCHANTMENTS SCREEN/BELOW/RIGHT/LEFT relative to DEBUFFS. DEBUFFS growth is implemented through the same supported path without equivalent direct real-HARMFUL coverage. |
-| Persistent position and full configuration integration | Partial. Supported placement and final B/D/E filtering/control policy are runtime validated. ABOVE retires with legacy. The final parity audit is complete; arbitrary graph/cycle retirement decisions, cleanup, and production integration remain pending. |
-| Development comparison workflow | Runtime validated for legacy presentation hiding, comparison precedence, per-SCREEN-root temporary offset, mixed topologies, dragging without saved-coordinate drift, reset, configuration, and combat. Both backends remain active; this is not production selection. |
-| DEBUFFS/ENCHANTMENTS production integration and production cutover | Pending; the validated enhancement-routing policy remains prototype-only but has no known routing implementation blocker from the historical transient observation. |
+| Persistent position and full configuration integration | Partial. Supported placement and final B/D/E filtering/control policy are runtime validated, and DEBUFFS production authority preserves the mixed managed-B geometry chain. ABOVE retires with legacy. Arbitrary graph/cycle retirement decisions and remaining group cutovers/cleanup are pending. |
+| Development comparison workflow | Runtime validated for legacy presentation hiding, comparison precedence, per-SCREEN-root temporary offset, mixed topologies, dragging without saved-coordinate drift, reset, configuration, and combat. B/E retain comparison behavior; managed-authoritative D is excluded. |
+| Runtime renderer authority | Defaults: BUFFS `LEGACY`, DEBUFFS `MANAGED`, ENCHANTMENTS `LEGACY`. Session-only, out-of-combat switch for D; no SavedVariables field or migration. |
+| Remaining production cutover | BUFFS and ENCHANTMENTS remain legacy-authoritative. The validated enhancement-routing policy remains managed migration behavior with no known routing implementation blocker from the historical transient observation. |
 | Blizzard BuffFrame visibility during combat | Blizzard Edit Mode owns BuffFrame visibility; the supported user-facing solution is the Aura Frame visibility setting `Hidden`, while OBB's best-effort legacy toggle is not authoritative. |
 
 ## 1. Current Architecture
 
-The production/legacy path is a standalone custom aura-bar implementation built around direct aura scanning. Parallel managed player-BUFFS, player-DEBUFFS, and ENCHANTMENTS prototypes validate the intended replacement architecture without taking ownership from that legacy path. Managed ENCHANTMENTS contains native item-enchantment sources and a separate managed HELPFUL aura group; HELPFUL entries are not converted into Blizzard item enchantments. A small ordinary fishing-lure row is anchored with ENCHANTMENTS as an explicit exception and is not a managed AuraButton.
+The addon now selects production authority per group at runtime. BUFFS and ENCHANTMENTS use the standalone direct-scanning custom-bar implementation; DEBUFFS uses its managed `CustomAuraContainer`. Managed BUFFS and ENCHANTMENTS remain active migration implementations. Managed ENCHANTMENTS contains native item-enchantment sources and a separate managed HELPFUL aura group; HELPFUL entries are not converted into Blizzard item enchantments. A small ordinary fishing-lure row is anchored with ENCHANTMENTS as an explicit exception and is not a managed AuraButton.
 
 Runtime flow:
 
 ```text
 WoW events
   > OBB:RefreshAll()
-  > Engine:Scan()
-  > addon-owned Lua aura records
-  > Bars:UpdateGroup()
-  > ordinary custom bar frames
-  > separate secure cancellation overlays
+  > RefreshLegacyGroup(group)
+      > LEGACY: Engine:Scan() > aura records > Bars:UpdateGroup()
+      > MANAGED: Bars:ClearGroup(); Blizzard container owns aura lifecycle
 ```
+
+Player `UNIT_AURA` uses the same `RefreshLegacyGroup()` boundary for matching configured groups. B/E therefore retain their established scan/render behavior. Managed-authoritative D performs no legacy `Engine:Scan()` and no real-data `Bars:UpdateGroup()`; its existing legacy aura/cache rows are not refreshed.
+
+The runtime authority table is deliberately outside SavedVariables:
+
+```text
+BUFFS         LEGACY
+DEBUFFS       MANAGED
+ENCHANTMENTS  LEGACY
+```
+
+`Bars:ClearGroup()` retains legacy D frames for rollback while hiding pooled rows, removing timer `OnUpdate`, clearing the owned tooltip and out-of-combat cancel state, clearing row data/elapsed state, resetting/hiding status bars, and clearing timer text. Authority-aware visibility keeps the legacy D group/header hidden regardless of `showLegacyBars`, comparison, or `anchorsShown` while D is managed.
+
+Managed authority visibility is the inverse boundary: D `MANAGED` shows its retained host/container, enables the container, and lets the header follow `anchorsShown`; D `LEGACY` hides the header, disables/hides the container out of combat, and hides but does not destroy the host. Initialization and normal configuration reassert container authority; header visibility separately checks authority and `anchorsShown`.
+
+Session rollback is out-of-combat only:
+
+```lua
+/run OdysseusBuffBars:SetGroupRendererAuthority(2, "LEGACY")
+/run OdysseusBuffBars:SetGroupRendererAuthority(2, "MANAGED")
+```
+
+The first command hides managed D and produces a fresh legacy D scan/render. The second clears legacy D and re-enables the existing managed structures. Neither command changes SavedVariables or reloads the UI; `/reload` restores D to the default `MANAGED` authority.
+
+The staged mixed topology has one non-negotiable dependency: managed D BELOW/RIGHT/LEFT anchors to the managed BUFFS container. Managed BUFFS must therefore stay shown, enabled, and layout-active even though legacy BUFFS is the production authority. It must not be replaced by legacy BUFFS as the geometry source or hidden merely because its renderer is non-authoritative.
 
 Key components:
 
@@ -313,18 +337,18 @@ Managed ABOVE is intentionally unsupported for the rest of the prototype/migrati
 
 ### Development-only legacy presentation and comparison
 
-Two defaulted SavedVariables keys support temporary migration work without a schema-version change:
+Two defaulted SavedVariables keys support temporary migration work without a schema-version change. They remain presentation controls and are separate from runtime renderer authority:
 
-- `showLegacyBars` defaults to `true`. `Show Legacy BuffBars (Development)` gates only addon-owned legacy presentation. The legacy scanner/backend, aura events, caches, configuration, SavedVariables, and managed prototype continue operating. The gate owns legacy group frames/anchors and also clears externally parented secure cancel overlays and legacy tooltip state when hidden, so normal refresh/aura churn cannot re-show hidden presentation. `anchorsShown` remains independent.
-- `legacyComparisonMode` defaults to `false`. `Legacy Comparison Mode (Development)` forces legacy presentation visible for parity comparison regardless of `showLegacyBars`; switching comparison does not mutate the visibility setting.
+- `showLegacyBars` defaults to `true`. `Show Legacy BuffBars (Development)` gates only eligible addon-owned legacy presentation. Legacy-authoritative B/E retain their existing backend, events, caches, configuration, and SavedVariables; managed-authoritative D stays excluded. The gate owns legacy group frames/anchors and also clears externally parented secure cancel overlays and legacy tooltip state when hidden. `anchorsShown` remains independent.
+- `legacyComparisonMode` defaults to `false`. `Legacy Comparison Mode (Development)` forces eligible legacy presentation visible for parity comparison regardless of `showLegacyBars`; switching comparison does not mutate the visibility setting and cannot resurrect managed-authoritative D.
 
 Comparison positioning is presentation-only. Each effective legacy SCREEN root displays at `savedX + settings.width + 24` while retaining its real saved `y`. Chained legacy children keep their normal relative anchors and receive no second shift; multiple independent SCREEN roots each receive their own shift. Managed groups remain at the real authoritative saved coordinates. Legacy drag persistence subtracts the current comparison shift before saving, and managed drag persistence writes the real coordinates before refreshing legacy positioning, so comparison coordinates never become real `x`/`y`, `anchorTo`, `placement`, or offsets. Reset retains the real shared topology: managed uses the reset coordinates while legacy shows at the comparison offset until comparison is disabled.
 
 The effective workflow is:
 
-- `showLegacyBars=false`, comparison off: managed-only presentation while the legacy backend stays active.
-- `showLegacyBars=true`, comparison off: managed and legacy presentation at synchronized real positions, potentially overlapping.
-- Comparison on, regardless of `showLegacyBars`: managed and legacy side by side for parity work.
+- `showLegacyBars=false`, comparison off: managed presentation plus no eligible legacy presentation.
+- `showLegacyBars=true`, comparison off: eligible B/E legacy presentation at real positions; D remains managed-only.
+- Comparison on, regardless of `showLegacyBars`: eligible B/E legacy presentation receives the comparison offset; D remains managed-only unless its authority is explicitly rolled back to `LEGACY`.
 
 `hideBlizzardFrames` remains independent. These controls are temporary development infrastructure and are not production renderer selection.
 
@@ -340,7 +364,7 @@ Configuration status is therefore deliberately split:
 - **Intentionally unsupported/retiring:** managed ABOVE. Preserve existing values; remove the managed choice and require an explicit supported replacement at cutover rather than silently remapping.
 - **Runtime-validated behavior/filter policy:** effective HELPFUL ownership remains hidden -> explicit B/E override -> semantic E route -> default BUFFS. BUFFS alone then applies destination whitelist/blacklist and supports current rows/manual IDs plus ALL/TIMED_ONLY. Managed D/E are intentionally broad and expose neither destination filters nor duration controls.
 - **SavedVariables/legacy boundary:** historical D/E whitelist/blacklist tables remain untouched for legacy comparison, rollback, and compatibility; managed D/E do not expose or consume them.
-- **Pending/research:** BUFFS as a child, arbitrary `anchorTo` graphs, broader cycle policy, full ENCHANTMENTS/lure bounds, the empty-container parity decision, remaining native lifecycle validation, final parity audit, production cutover, and removal of comparison infrastructure and the legacy renderer.
+- **Pending/research:** BUFFS as a child, arbitrary `anchorTo` graphs, broader cycle policy, full ENCHANTMENTS/lure bounds, the empty-container parity decision, remaining native lifecycle validation, BUFFS/ENCHANTMENTS production cutover, and eventual removal of comparison infrastructure and the legacy renderer.
 
 This synchronization does not change ownership. Blizzard continues to own managed AuraButton assignment, aura identity, SpellName/DurationText content, DurationBar timing, native tooltips, native BUFF and weapon-enchantment cancellation, and managed container sizing/layout. OBB owns only its permitted presentation/configuration layer and the existing ordinary fishing-lure row. The lure's detection, slot resolution, timer, tooltip ownership/anchor, and unsupported cancellation behavior are unchanged.
 
@@ -482,15 +506,15 @@ Managed group-specific behavior/filter composition:
 - Managed DEBUFFS is intentionally broad across eligible player HARMFUL auras. Managed ENCHANTMENTS is intentionally broad/source-owned across `HelpfulEnhancements`, MainHand, OffHand, and Fishing Lure. Neither exposes or consumes destination whitelist/blacklist or duration controls.
 - BUFF ALL (`true/true`) and TIMED_ONLY (`true/false`) remain unchanged. D/E continue to include timed and timeless eligible state. Duration flags remain outside `Sync Group Bars` fan-out.
 - The BUFFS page contains Whitelist/Blacklist, Timed, and Timeless. D/E contain none of those controls; Grow Up is placed directly below Max Bars. This is a minimal control-policy cleanup, not a broad UI redesign.
-- Historical D/E whitelist/blacklist tables, override data, defaults, and schema remain untouched. Legacy D/E may still consume those stored filters during comparison; managed D/E intentionally do not. No scanner or legacy renderer behavior changed.
+- Historical D/E whitelist/blacklist tables, override data, defaults, and schema remain untouched. Legacy D during session rollback and legacy E during normal production may still consume those stored filters; managed D/E intentionally do not. The later DEBUFFS authority cutover suppresses legacy D scanning/rendering while managed, without changing this stored-data boundary.
 
 Retail Live validation passed for unchanged BUFF controls/filtering; D/E filter/duration control removal and remaining-control alignment; broad managed DEBUFFS; stored E filters no longer restricting `HelpfulEnhancements`; continued semantic routing, both group-override directions, deletion restoration, hidden overrides, native rows, Fishing Lure, reload behavior, and preserved D/E SavedVariables. No runtime regression was reported in the tested scope.
 
-Rollback: existing bars remain authoritative.
+Rollback for the earlier filter-policy slice preserved the existing renderer state. The later per-group renderer rollback is documented below.
 
-### Isolated managed player-DEBUFFS prototype
+### Managed player-DEBUFFS production renderer
 
-Status: Core managed player-DEBUFFS runtime behavior validated on Retail Live. Targeted private-aura and optional restriction-focused validation remain pending. This is not a production DEBUFFS backend.
+Status: Completed first staged production renderer-authority cutover and supplied tests 1-10 passed. Targeted private-aura and optional restriction-focused validation remain pending and are not claimed.
 
 - The DEBUFFS slice retains its own ordinary header/root and `CustomAuraContainerTemplate`, with independent frame names, local sort state, and managed lifecycle. Its restricted ordinary host supports an independent SCREEN root or BELOW/RIGHT/LEFT relative to the BUFFS container.
 - The DEBUFFS host is created with `DisableUntrustedLayoutScriptsTemplate` and anchored one-way from its `TOPLEFT` to the BUFFS container's `BOTTOMLEFT`. Its saved BELOW offset is live-applied with the four-pixel horizontal host correction and unchanged vertical value; the default is `(-4, -8)` at the host. No BUFFS frame is anchored back to DEBUFFS, so the dependency remains strictly BUFFS root -> BUFFS container -> DEBUFFS host -> DEBUFFS container.
@@ -503,7 +527,7 @@ Status: Core managed player-DEBUFFS runtime behavior validated on Retail Live. T
 - The DEBUFFS initializer intentionally omits `SetCancelAuraButtons`; no secure cancellation overlay is created.
 - Default, Name, and Time Left use the validated native sort mappings through a DEBUFFS-local selector. Sort mutation is blocked during combat, while the configured managed sort continues to govern updates.
 - Dynamic sizing, pooling, public/private updates, and combat refreshes remain framework-owned. The addon does not count or enumerate buttons, poll, scan `UNIT_AURA`, read aura identity, or call private managed/layout methods.
-- The legacy DEBUFFS scanner, renderer, configuration, SavedVariables, and Blizzard-frame handling remain present. The managed prototype live-consumes supported presentation, sort, maximum count, scale/alpha, growth, SCREEN, BELOW, RIGHT, and LEFT placement settings. Its `growUp` implementation shares the BUFFS FlowLayout path but does not claim equivalent direct DEBUFFS runtime coverage; arbitrary graph shapes and ABOVE remain unsupported.
+- The legacy DEBUFFS scanner, renderer, configuration, SavedVariables, and Blizzard-frame handling remain present for session rollback, but the shared refresh path does not scan/render D while its authority is `MANAGED`. The managed renderer live-consumes supported presentation, sort, maximum count, scale/alpha, growth, SCREEN, BELOW, RIGHT, and LEFT placement settings. Its `growUp` implementation shares the BUFFS FlowLayout path; arbitrary graph shapes and ABOVE remain unsupported.
 - Retail Live validation on `12.1.0.69273`, interface `120100`, confirmed broad player/HARMFUL display, multiple simultaneous debuffs, combat additions/refreshes/removals, icons, names, application counts, duration text and StatusBars, dynamic grow/shrink, and simultaneous managed BUFFS/DEBUFFS operation.
 - All three DEBUFFS sort mappings are runtime validated: Default uses `AuraContainerSortMethod.Default` with `AuraContainerSortDirection.Normal`, Name uses `AuraContainerSortMethod.NameOnly` with `AuraContainerSortDirection.Normal`, and Time Left uses `AuraContainerSortMethod.ExpirationOnly` with `AuraContainerSortDirection.Reverse`. Blizzard's Default semantic ordering is not reinterpreted beyond that verified mapping, and combat additions/removals/refreshes continued working in all tested modes.
 - The native managed DEBUFF tooltip is runtime validated in combat. No custom indexed-aura lookup or fallback is required.
@@ -512,7 +536,7 @@ Status: Core managed player-DEBUFFS runtime behavior validated on Retail Live. T
 - Targeted validation remains pending for a known real private harmful aura, explicit secrecy/restriction classification if still useful, and focused `NeverSecret` filtering behavior if a later product decision requires it. Source research supports private harmful auras entering the same default public-plus-private group pipeline, but OBB Live runtime validation of that path has not occurred.
 - The layout is runtime validated for BUFFS movement, grow/shrink propagation, DEBUFFS SCREEN/BELOW/RIGHT/LEFT switching, logical-width lateral placement, SCREEN-root dragging, mixed topology/comparison behavior, and combat-driven changes. No anchor-loop errors, OBB-attributable Lua errors, taint, or blocked actions were observed. It uses managed bounds for BELOW and prototype-owned logical widths for RIGHT/LEFT; no aura counting, polling, size callback, or manual height calculation is introduced.
 
-Rollback: remove or disable only the isolated DEBUFFS prototype; the validated managed BUFFS prototype and legacy DEBUFFS backend remain intact.
+Rollback: out of combat, run `/run OdysseusBuffBars:SetGroupRendererAuthority(2, "LEGACY")`; managed D is hidden/disabled and retained while a fresh legacy D scan/render becomes authoritative. Run the corresponding `"MANAGED"` command to clear legacy D and restore managed D. SavedVariables are unchanged, and `/reload` restores managed authority. Managed BUFFS remains active as D's supported chain geometry source.
 
 ### Isolated managed ENCHANTMENTS prototype
 
@@ -607,6 +631,8 @@ Rollback: remove or disable only the isolated ENCHANTMENTS prototype; the existi
 - When managed mode is active, disable the direct scanner and ordinary bars for that group.
 - Do not carry the current development comparison display into production selection; final managed mode must display exactly one production renderer per group.
 
+Status: still pending for BUFFS. The runtime-only per-group authority architecture is proven first on DEBUFFS but intentionally does not switch BUFFS.
+
 Rollback: return that group to the contained direct scanner.
 
 ### Phase D — Filtering and sorting parity
@@ -620,9 +646,9 @@ Rollback: preserve existing SavedVariables fields and switch the group backend b
 
 ### Phase E — Multiple groups and units
 
-- Complete targeted validation of the isolated player-DEBUFFS prototype with a known real private harmful aura and any still-useful explicit restriction cases.
-- Migrate Debuffs only after remaining runtime evidence and production integration criteria are accepted; broad/unfiltered behavior is already the final managed product policy.
-- Carry the runtime-validated SCREEN/BELOW/RIGHT/LEFT modes into production integration without broadening the supported graph implicitly.
+- DEBUFFS completed its first staged production renderer-authority cutover with the accepted broad/unfiltered product policy. The supplied 1-10 matrix validates login/reload, real population, combat churn, two-way rollback, comparison isolation, supported placement, presentation/configuration, reset/loading, and reload restoration.
+- Keep targeted testing with a known real private harmful aura as optional unclaimed coverage; it is not a retroactive prerequisite for the completed cutover and this checkpoint does not claim it occurred.
+- Preserve the runtime-validated SCREEN/BELOW/RIGHT/LEFT modes without broadening the supported graph implicitly. Managed BUFFS remains active as the D chain geometry source while BUFFS is legacy-authoritative.
 - Exercise target, focus, and pet tokens before treating existing internal support as retained compatibility.
 - Preserve chaining through ordinary host frames.
 
@@ -676,7 +702,7 @@ After all groups pass validation:
 |---|---|
 | A | Login, reload, combat entry/exit, container enable/disable, no Lua errors, no taint reports. |
 | B | Timed and permanent aura application/removal, duration refresh, stack changes, frame retention, layout resizing. |
-| C | Buff updates in and out of combat, no duplicate displays, clean backend rollback, reload persistence. |
+| C | Per-group cutover updates in and out of combat, no duplicate displays, clean backend rollback, and runtime-default restoration on reload. DEBUFFS passed this boundary; BUFFS remains pending. |
 | D | Name/default/expiration sorting, direction, maximum count, include/exclude IDs, readable and secret auras. |
 | E | Buffs, debuffs, enhancements, fishing bobber routing, fishing-lure apply/expire/reapply, independent positioning, chaining, and growth. |
 | F | Tooltip behavior, right-click cancellation, non-cancellable debuffs, enchant cancellation, combat interaction. |
@@ -689,7 +715,7 @@ Every phase should also include LuaCheck, load/reload testing, Lua error capture
 
 1. Which additional container and group setters, if any, should be exposed through final configuration, and which must remain out-of-combat only?
 2. Where must `DisableUntrustedLayoutScriptsTemplate` be applied if future stack-wide chrome depends on managed bounds?
-3. What remaining private/restricted HARMFUL runtime evidence is required before the broad managed DEBUFFS backend can cut over?
+3. Is optional targeted private/restricted HARMFUL coverage still useful after the broad managed DEBUFFS production cutover, and what exact real aura can exercise it without overstating coverage?
 4. Should final UI prevent or explain unsupported BUFF TIMELESS_ONLY/NONE combinations while preserving rollback-compatible SavedVariables?
 5. Does combined native item-enchantment and `HelpfulEnhancements` layout remain correct under simultaneous MainHand, OffHand, and routed-aura churn?
 6. Does the validated semantic spell-metadata classifier remain sufficiently precise across a broader Retail aura population and any future categories?
@@ -701,4 +727,4 @@ Every phase should also include LuaCheck, load/reload testing, Lua error capture
 12. Which public names and semantics survive the final PTR-to-Live transition?
 13. Can profession-tool lure cancellation be supported safely through a documented public path, and does slot 28 accept `C_PaperDollInfo.CancelTemporaryEnchantment` at runtime?
 
-The permanent direction is clear: the direct scanner should become a temporary compatibility backend, while Blizzard-managed containers and AuraButtons become the authoritative aura lifecycle and presentation model. The unresolved items above should be answered experimentally before implementation is committed to production behavior.
+The permanent direction is clear: the direct scanner is now a per-group compatibility/rollback backend, while Blizzard-managed containers and AuraButtons become authoritative one group at a time. DEBUFFS has crossed that boundary; unresolved questions must still be answered before extending production authority or removing rollback infrastructure.

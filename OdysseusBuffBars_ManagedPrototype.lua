@@ -2115,9 +2115,39 @@ function ManagedPrototype:ApplyHeaderVisibility()
     for _, group in ipairs(MANAGED_GROUPS) do
         local header = self.groupHeaders[group.key]
         if header then
-            header:SetShown(shown)
+            local groupShown = shown
+            if group.id == 2 and OBB.IsManagedRendererActive then
+                groupShown = groupShown and OBB:IsManagedRendererActive(group.id)
+            end
+            header:SetShown(groupShown)
         end
     end
+    return true
+end
+
+function ManagedPrototype:ApplyDebuffAuthorityVisibility()
+    if _G.InCombatLockdown and _G.InCombatLockdown() then
+        return false, "combat lockdown"
+    end
+    if not self.debuffHost or not self.debuffContainer then
+        return false, "not initialized"
+    end
+
+    local active = not OBB.IsManagedRendererActive or OBB:IsManagedRendererActive(2)
+    if active then
+        self.debuffHost:Show()
+        self.debuffContainer:Show()
+        self.debuffContainer:SetEnabled(true)
+    else
+        local header = self.groupHeaders and self.groupHeaders.DEBUFFS
+        if header then
+            header:Hide()
+        end
+        self.debuffContainer:SetEnabled(false)
+        self.debuffContainer:Hide()
+        self.debuffHost:Hide()
+    end
+    self:ApplyHeaderVisibility()
     return true
 end
 
@@ -2234,6 +2264,10 @@ function ManagedPrototype:ApplyConfiguration(_reason)
 
     if not self:RefreshCandidateFilters() then
         return false, "candidate filters not applied"
+    end
+
+    if not self:ApplyDebuffAuthorityVisibility() then
+        return false, "debuff authority visibility not applied"
     end
 
     return true
@@ -3067,6 +3101,7 @@ function ManagedPrototype:Initialize()
     CreateManagedEnchantmentPrototype()
     CreateManagedDragEventFrame()
     self:RefreshCandidateFilters()
+    self:ApplyDebuffAuthorityVisibility()
     self:ApplyHeaderVisibility()
     self.initializing = nil
     self.initialized = true

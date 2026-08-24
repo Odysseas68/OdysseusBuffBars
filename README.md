@@ -4,9 +4,9 @@ A standalone World of Warcraft Retail addon implementing a modern managed AuraCo
 
 ## Project Status
 
-- ✅ Parallel managed Player BUFFS core
-- 🚧 Player DEBUFFS
-- 🚧 Managed ENCHANTMENTS parity
+- 🚧 Player BUFFS production authority
+- ✅ Managed Player DEBUFFS production authority
+- 🚧 ENCHANTMENTS production authority
 - ✅ Managed visual parity
 - ✅ Managed behavior/filter parity audit
 - 🚧 Final production migration
@@ -21,7 +21,7 @@ Managed filtering is intentionally group-specific. BUFFS alone exposes destinati
 
 A historical transient observation in which ordinary `classification=nil` HELPFUL auras briefly appeared in ENCHANTMENTS could not be reproduced during focused current-architecture validation. Semantic state, effective ownership, desired descriptors, and applied descriptors remained consistent through ordinary/semantic aura churn, overrides and filters, combat deferral, empty-set reconstruction, and a portal/loading transition. The original cause remains unknown, so the observation is preserved as historical evidence rather than described as definitively fixed; it is no longer a known managed-routing implementation blocker.
 
-The legacy backend remains active during migration. `Show Legacy BuffBars (Development)` can hide only its addon-owned presentation, while `Legacy Comparison Mode (Development)` temporarily forces that presentation visible and shifts each effective legacy SCREEN root by its width plus 24 UI units for side-by-side parity work. Comparison never changes real saved placement; disabling it returns legacy bars to the managed-authoritative shared coordinates. Blizzard default-frame visibility remains independent. This temporary workflow is not production renderer selection.
+Renderer authority is runtime-only and group-specific: BUFFS defaults to `LEGACY`, DEBUFFS defaults to `MANAGED`, and ENCHANTMENTS defaults to `LEGACY`. Managed DEBUFFS is now the validated production renderer; its legacy scan and render path is skipped and stale legacy DEBUFFS bars are cleared. Managed BUFFS remains enabled and layout-active as the geometry source for chained managed DEBUFFS even while legacy BUFFS remains production-authoritative. Development comparison still applies to legacy-authoritative groups, but it cannot resurrect legacy DEBUFFS while DEBUFFS authority is managed. The authority can be rolled back out of combat without changing SavedVariables, and `/reload` restores the default table.
 
 ## Repository Structure
 
@@ -38,8 +38,8 @@ The legacy backend remains active during migration. `Show Legacy BuffBars (Devel
 ## Current Development Roadmap
 
 - Parallel managed Player BUFFS — Core validated; production cutover pending
-- Player DEBUFFS — Core managed behavior validated; integration pending
+- Player DEBUFFS — Managed production authority implemented and runtime validated with rollback
 - Managed ENCHANTMENTS — MainHand runtime validated; OffHand structurally covered with opportunistic direct validation remaining
 - Visual parity — Validated across the three managed areas
 - Configuration integration — Managed BUFF destination filtering and the intentional broad/unfiltered D/E policies are runtime validated; the final parity audit and focused HELPFUL-routing investigation found no current routing implementation blocker
-- Production migration — Planned
+- Production migration — DEBUFFS complete; BUFFS and ENCHANTMENTS cutovers remain planned

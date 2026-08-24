@@ -20,6 +20,12 @@ This changelog records repository history beginning with the creation of the sta
 
 ### Changed
 
+- Cut over player DEBUFFS to a runtime-only group renderer-authority model. Defaults are BUFFS `LEGACY`, DEBUFFS `MANAGED`, and ENCHANTMENTS `LEGACY`; no SavedVariables field or migration was added.
+- Skipped the legacy DEBUFFS scan/render path while managed authority is active, cleared stale legacy bars and cancel-overlay state, and made comparison unable to re-show legacy DEBUFFS.
+- Added an out-of-combat authority switch lifecycle that hides/disables managed DEBUFFS on rollback, refreshes legacy DEBUFFS immediately, clears legacy DEBUFFS before returning to managed authority, and reuses the existing managed host/container rather than recreating it.
+- Kept managed BUFFS enabled and layout-active as the geometry source for chained managed DEBUFFS while legacy BUFFS remains production-authoritative; BUFFS and ENCHANTMENTS legacy semantics are unchanged.
+- Runtime-validated the DEBUFFS cutover across login/reload, combat aura churn, sorting and maximum count, managed presentation settings, SCREEN dragging and persistence, BELOW/RIGHT/LEFT chaining, anchor visibility, reset, loading transitions, rollback in both directions, comparison, and reload-after-rollback without reported Lua, taint, or blocked-action errors. Targeted private-HARMFUL coverage remains a separate optional test.
+- Corrected the shared group-page layout so the DEBUFFS and ENCHANTMENTS Icon dropdown sits below Sort with normal spacing instead of overlapping Offset Y; the already-correct BUFFS side-by-side Sort/Icon layout and all control behavior remain unchanged.
 - Added runtime-validated live out-of-combat managed synchronization for font size, complete bar/background colors, width, height, and row spacing through the existing configuration apply path.
 - Preserved managed self-sizing while synchronizing AuraGroup and native item-enchantment layouts, row/icon geometry, headers, future/reused rows, and fishing-lure spacing.
 - Silenced routine automatic managed-routing diagnostics by default while retaining manual diagnostic helpers and unexpected failure output.

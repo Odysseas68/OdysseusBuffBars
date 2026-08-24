@@ -1534,7 +1534,11 @@ function Config:BuildGroupPage(page, settings)
         end)
         self:Apply()
     end)
-    iconDropdown:SetPoint("LEFT", sortDropdown, "RIGHT", 8, 0)
+    if settings.id == 1 then
+        iconDropdown:SetPoint("LEFT", sortDropdown, "RIGHT", 8, 0)
+    else
+        iconDropdown:SetPoint("TOPLEFT", sortDropdown, "BOTTOMRIGHT", 8, -4)
+    end
     page.controls.iconDropdown = iconDropdown
 
     function page:Refresh()

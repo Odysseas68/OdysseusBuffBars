@@ -8,6 +8,16 @@ OBB.groups = {}
 OBB.bars = {}
 OBB.auraData = {}
 
+OBB.RENDERER_AUTHORITY = {
+    LEGACY = "LEGACY",
+    MANAGED = "MANAGED",
+}
+OBB.groupRendererAuthority = {
+    [1] = OBB.RENDERER_AUTHORITY.LEGACY,
+    [2] = OBB.RENDERER_AUTHORITY.MANAGED,
+    [3] = OBB.RENDERER_AUTHORITY.LEGACY,
+}
+
 local defaults = {
     locked = false,
     anchorsShown = true,
@@ -133,6 +143,18 @@ function OBB:GetSettings()
     return self.db
 end
 
+function OBB:GetGroupRendererAuthority(groupID)
+    return self.groupRendererAuthority[groupID]
+end
+
+function OBB:IsLegacyRendererActive(groupID)
+    return self:GetGroupRendererAuthority(groupID) == self.RENDERER_AUTHORITY.LEGACY
+end
+
+function OBB:IsManagedRendererActive(groupID)
+    return self:GetGroupRendererAuthority(groupID) == self.RENDERER_AUTHORITY.MANAGED
+end
+
 local defaultBlizzardFrameNames = {
     "BuffFrame",
     "DebuffFrame",
@@ -190,12 +212,8 @@ function OBB:HookEditModeVisibilityRefresh()
     self.editModeVisibilityHooked = true
 end
 
-function OBB:RefreshAll()
-    if not self.db then
-        return
-    end
-
-    for _, groupSettings in ipairs(self.db.groups) do
+function OBB:RefreshLegacyGroup(groupSettings)
+    if self:IsLegacyRendererActive(groupSettings.id) then
         self.auraData[groupSettings.id] = self.Engine:Scan(
             groupSettings.unit,
             groupSettings.filter,
@@ -203,8 +221,74 @@ function OBB:RefreshAll()
             groupSettings
         )
         self.Bars:UpdateGroup(groupSettings, self.auraData[groupSettings.id])
+    else
+        self.Bars:ClearGroup(groupSettings)
+    end
+end
+
+function OBB:RefreshAll()
+    if not self.db then
+        return
+    end
+
+    for _, groupSettings in ipairs(self.db.groups) do
+        self:RefreshLegacyGroup(groupSettings)
     end
     self.Bars:UpdateAllGroupPositions()
+end
+
+function OBB:SetGroupRendererAuthority(groupID, authority)
+    if self.groupRendererAuthority[groupID] == nil then
+        return false, "invalid group"
+    end
+    if authority ~= self.RENDERER_AUTHORITY.LEGACY
+        and authority ~= self.RENDERER_AUTHORITY.MANAGED
+    then
+        return false, "invalid authority"
+    end
+    if groupID ~= 2 and authority ~= self.groupRendererAuthority[groupID] then
+        return false, "renderer authority switch unsupported for group"
+    end
+    if _G.InCombatLockdown and _G.InCombatLockdown() then
+        if self.Config and self.Config.WarnCombat then
+            self.Config:WarnCombat()
+        end
+        return false, "combat lockdown"
+    end
+    if authority == self.groupRendererAuthority[groupID] then
+        return true
+    end
+    if not self.db then
+        return false, "database unavailable"
+    end
+
+    local groupSettings
+    for _, settings in ipairs(self.db.groups) do
+        if settings.id == groupID then
+            groupSettings = settings
+            break
+        end
+    end
+    if not groupSettings then
+        return false, "group settings unavailable"
+    end
+
+    self.groupRendererAuthority[groupID] = authority
+    if authority == self.RENDERER_AUTHORITY.MANAGED then
+        self.Bars:ClearGroup(groupSettings)
+        self.Bars:UpdateAllGroupPositions()
+        if self.ManagedPrototype and self.ManagedPrototype.ApplyDebuffAuthorityVisibility then
+            self.ManagedPrototype:ApplyDebuffAuthorityVisibility()
+        end
+    else
+        if self.ManagedPrototype and self.ManagedPrototype.ApplyDebuffAuthorityVisibility then
+            self.ManagedPrototype:ApplyDebuffAuthorityVisibility()
+        end
+        self:RefreshLegacyGroup(groupSettings)
+        self.Bars:UpdateAllGroupPositions()
+        self.Bars:ApplyLegacyBarsVisibility()
+    end
+    return true
 end
 
 function OBB:OnAddonLoaded(name)
@@ -343,8 +427,7 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
 
         for _, groupSettings in ipairs(OBB.db.groups) do
             if groupSettings.unit == unit then
-                OBB.auraData[groupSettings.id] = OBB.Engine:Scan(groupSettings.unit, groupSettings.filter, groupSettings.sort, groupSettings)
-                OBB.Bars:UpdateGroup(groupSettings, OBB.auraData[groupSettings.id])
+                OBB:RefreshLegacyGroup(groupSettings)
             end
         end
         OBB.Bars:UpdateAllGroupPositions()

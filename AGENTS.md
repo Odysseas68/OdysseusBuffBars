@@ -50,6 +50,10 @@ The TOC must load only this addon's active files and bundled libraries. The old 
   - player buffs: `HELPFUL`
   - player debuffs: `HARMFUL`
   - player enchantments/consumables: `ENCHANTMENTS`
+- Renderer authority is runtime-only and group-specific. The default table is BUFFS `LEGACY`, DEBUFFS `MANAGED`, and ENCHANTMENTS `LEGACY`; do not persist authority or add a SavedVariables migration.
+- Managed DEBUFFS is the validated production authority. While active, skip legacy DEBUFFS scanning/rendering, clear stale legacy bars and secure-overlay state, and prevent development comparison from making legacy DEBUFFS visible.
+- `SetGroupRendererAuthority(2, "LEGACY")` is the out-of-combat rollback path. It hides/disables managed DEBUFFS and immediately refreshes legacy DEBUFFS. Switching back to `MANAGED` clears legacy DEBUFFS before showing/enabling the existing managed host/container. Do not recreate the managed structures, queue combat mutation, or persist the choice; `/reload` restores `MANAGED`.
+- Managed BUFFS must remain enabled, shown, and layout-active while DEBUFFS is managed because supported non-SCREEN DEBUFFS placement follows the managed BUFFS container geometry. This does not make BUFFS production-authoritative; legacy BUFFS semantics remain unchanged.
 - Default vertical anchor chain:
   - BUFFS anchors to the screen.
   - DEBUFFS anchors below BUFFS.
@@ -71,6 +75,7 @@ The TOC must load only this addon's active files and bundled libraries. The old 
 - The native configuration frame has General, BUFFS, DEBUFFS, and ENCHANTMENTS pages, is draggable/resizable, and closes with `Esc`.
 - Group pages include Position controls for Anchor target, Placement, Offset X, and Offset Y.
 - Anchor target, Placement, Sort, and Icon side use Blizzard dropdown controls, not cycle buttons.
+- On the shared group-page construction path, BUFFS keeps Sort and Icon side-by-side. D/E omit the BUFF-only filter controls, so their Icon dropdown is anchored below Sort with the normal vertical gap; do not restore the former Offset Y overlap or globally shift the correct BUFFS layout.
 - General includes `Lock anchors`, which keeps title bars visible but prevents dragging them.
 - General includes `Toggle Anchors`, which shows/hides the legacy and managed draggable title bars without moving their hosts or changing reserved header geometry.
 - General includes `Reset Positions`, which restores BUFFS to screen placement near center and restores the default BUFFS -> DEBUFFS -> ENCHANTMENTS vertical anchor chain.
@@ -114,9 +119,9 @@ The TOC must load only this addon's active files and bundled libraries. The old 
 - During combat, group anchor points are not cleared/rebuilt; existing anchors are left intact so chained groups can follow parent height changes without protected `ClearAllPoints()` calls.
 
 ## Phase Notes
-- The current phase describes the mature direct-scanning implementation. It does not represent a completed migration to the planned Retail 12.1 aura-container architecture.
-- Current phase: aura engine, bars, combat safety, config basics, right-click cancel, Blizzard-frame hiding, bar-wide tooltips, per-group spellID whitelist/blacklist filters, and first-pass spellID Override Settings are in place for broader raid testing.
-- Next phase: harden Override Settings after in-game testing, then decide whether cross-filter routing is worth a central aura router.
+- The migration is staged per group. DEBUFFS has completed its first production renderer-authority cutover and runtime validation; BUFFS and ENCHANTMENTS remain legacy-authoritative while their managed containers stay available for migration and topology needs.
+- Current phase: preserve the validated DEBUFFS authority and rollback boundary while completing the remaining BUFFS/ENCHANTMENTS production decisions and broader optional runtime coverage.
+- The mature direct-scanning implementation remains the rollback/compatibility backend for legacy-authoritative groups; do not treat it as the active DEBUFFS production path while DEBUFFS authority is managed.
 - Override Settings shape:
   - Store global aura overrides in `OdysseusBuffBarsDB`, not profiles.
   - Prefer `spellID` keys for overrides.
@@ -165,7 +170,7 @@ The TOC must load only this addon's active files and bundled libraries. The old 
   - Combat transitions trigger `PLAYER_IN_COMBAT_CHANGED` -> `UpdateShownState()` -> `SetShown(policy)`, so direct addon `BuffFrame:Hide()` calls can be overwritten by Blizzard on combat transitions.
   - The supported user-facing solution is the Edit Mode Aura Frame visibility setting `Hidden`.
   - Do not invent or recommend an addon API for changing another Edit Mode system's visibility.
-- Phase B.2 architectural direction, not completed behavior:
+- Phase B.2 architectural direction and validated managed-placement constraints:
   - Retain an independent position/root frame and anchor the self-sizing managed container below or within it without circular size dependencies. Let the managed container own its calculated size.
   - Apply managed placement only by reanchoring ordinary addon-owned hosts; never externally reanchor or reparent the self-sizing `AuraContainer`.
   - Supported managed placement keeps BUFFS as a SCREEN root; DEBUFFS may be SCREEN, BELOW, RIGHT, or LEFT of BUFFS, and ENCHANTMENTS may be SCREEN, BELOW, RIGHT, or LEFT of DEBUFFS. Anchor each supported child host only to the preceding managed container.
@@ -174,7 +179,7 @@ The TOC must load only this addon's active files and bundled libraries. The old 
   - Consume only explicitly supported saved placement graphs. Leave unsupported roots, directions, and dependency shapes unchanged rather than approximating them or mutating SavedVariables. Placement mutation is out-of-combat only and has no retry queue.
   - Managed dragging moves only ordinary addon-owned hosts. Persist the real shared SCREEN coordinates through the inverse host translation; temporary legacy comparison offsets must never contaminate SavedVariables placement.
   - OBB SavedVariables are the sole persistent position authority for managed ordinary hosts. Do not allow WoW user-placed frame persistence to compete with them: make a host movable/resizable before calling `SetUserPlaced(false)`, and clear user-placed ownership again after drag persistence or safe post-combat restoration. Do not repair ownership conflicts with polling or managed-container geometry inspection.
-  - `Show Legacy BuffBars (Development)` and `Legacy Comparison Mode (Development)` control only legacy presentation for migration testing. They do not disable the legacy scanner/backend and are not a production renderer-selection or cutover mechanism.
+  - `Show Legacy BuffBars (Development)` and `Legacy Comparison Mode (Development)` control only eligible legacy presentation for migration testing. They are not renderer authority and must never resurrect a managed-authoritative DEBUFFS group.
   - If background or chrome must follow the managed bounds, use a separate ordinary chrome frame and apply `DisableUntrustedLayoutScriptsTemplate` where required by the verified secure-layout design.
   - Do not resize the managed container from a custom `OnSizeChanged`, reparent managed AuraButtons, or mirror managed auras into ordinary bars.
   - Blizzard's secure managed pipeline performs layout during combat, but source inspection did not prove arbitrary addon `SetHeight` calls from a callback combat-safe. Combat-time anchoring, protection state, and chrome propagation require PTR validation; call behavior combat-safe only when supported by verified Blizzard source or completed PTR testing.

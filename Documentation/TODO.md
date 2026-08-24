@@ -73,7 +73,7 @@
 - [x] Add and runtime-validate the development-only `showLegacyBars` presentation gate while keeping the legacy backend, scanning/events/caches/configuration/SavedVariables, managed prototype, `anchorsShown`, and Blizzard-frame visibility independent.
 - [x] Add and runtime-validate `legacyComparisonMode` precedence and side-by-side presentation: shift each effective legacy SCREEN root by its width plus 24 UI units without mutating real placement, double-shifting children, or introducing drag drift.
 
-## Live 12.1 Isolated Managed Player-DEBUFFS Prototype
+## Live 12.1 Managed Player-DEBUFFS
 
 - [x] Implement a second independent ordinary root and `CustomAuraContainerTemplate` for player DEBUFFS without changing the validated managed BUFFS group.
 - [x] Use one broad `HARMFUL` group with Blizzard's default public-plus-private managed source path.
@@ -90,6 +90,7 @@
 - [x] Validate the native managed DEBUFF tooltip in combat without a custom indexed-aura lookup or fallback.
 - [x] Live-validate the BUFFS-to-DEBUFFS anchor chain across BUFFS movement and grow/shrink, independent DEBUFFS grow/shrink, combat layout propagation, anchor-loop detection, taint, and blocked actions.
 - [x] Confirm no Lua errors, taint, or blocked actions attributable to OdysseusBuffBars were observed during Live validation.
+- [x] Complete and runtime-validate the first staged production renderer-authority cutover with runtime defaults B=`LEGACY`, D=`MANAGED`, E=`LEGACY`; suppress and clean legacy D, preserve B/E semantics, prevent comparison resurrection, and provide session-only two-way rollback without SavedVariables changes.
 - [ ] Validate a real private player harmful aura, including presentation, ordering, native tooltip, and add/remove transitions.
 - [ ] Run explicit secrecy/restriction classification tests without inferring classifications from observed aura names.
 - [ ] Run focused `NeverSecret` behavior/filtering tests if a later product decision requires them.
@@ -162,12 +163,13 @@
 - [x] Resolve ownership before filtering, preserve hidden/override restoration, and finalize destination whitelist/blacklist as BUFFS-only; every effective-E ID remains eligible for `HelpfulEnhancements`.
 - [x] Implement and runtime-validate BUFF ALL/TIMED_ONLY through Blizzard candidate filters; intentionally retain the last supported state for TIMELESS_ONLY/NONE while preserving SavedVariables and using ALL on fresh unsupported initialization.
 - [x] Adopt managed DEBUFFS/ENCHANTMENTS ALL-duration policy, remove their duration controls, and make BUFF duration flags group-local rather than part of `Sync Group Bars` fan-out without schema migration.
-- [x] Complete the final managed-vs-legacy parity audit after the now-final group-specific filtering policy; renderer-authority and production-cutover cleanup remain separate work.
+- [x] Complete the final managed-vs-legacy parity audit after the now-final group-specific filtering policy; DEBUFFS renderer authority is now cut over, while B/E authority and final legacy cleanup remain separate work.
 - [ ] Clean up or relabel legacy-only ENCHANTMENTS sort/maximum controls so the UI reflects the intentional managed 7+2+1 and Slot/Normal policy.
 - [x] Finalize managed ENCHANTMENTS as broad/source-owned with no destination per-ID filtering across `HelpfulEnhancements`, MainHand, OffHand, or Fishing Lure; preserve historical filter tables for legacy/rollback.
 - [x] Build current active readable B/E HELPFUL ownership projection through the shared resolver and use it for BUFFS `Current group auras`; E no longer exposes a destination-filter editor under the final broad policy.
 - [x] Finalize managed DEBUFFS as intentionally broad/unfiltered, remove its Whitelist/Blacklist control, and preserve historical filter tables for legacy/rollback.
 - [x] Remove D/E Whitelist/Blacklist controls and place Grow Up directly below Max Bars without changing defaults or SavedVariables schema.
+- [x] Correct the shared Config group-page layout so D/E place Icon below Sort with a four-pixel gap and no Offset Y overlap while BUFFS retains its existing side-by-side Sort/Icon layout.
 - [ ] Complete broader Live validation of native MainHand lifecycle and interaction, take opportunistic OffHand/dual-slot coverage when a practical test case is available, then integrate the validated native and semantic HELPFUL sources into production ENCHANTMENTS.
 - [ ] Broaden runtime testing across classes, effects, bobbers, profession tools, and lure variants without converting observed IDs into compatibility tables.
 - [x] Close the historical transient `classification=nil` ENCHANTMENTS observation as unreproduced on the current architecture after focused validation. Preserve that it genuinely occurred and its cause remains unknown, but do not treat it as a current routing implementation blocker or claim a specific fix.

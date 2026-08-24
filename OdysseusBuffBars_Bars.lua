@@ -278,12 +278,14 @@ function Bars:RefreshCancelButtons()
     if self:IsCombatLocked() then
         return
     end
-    for _, group in pairs(OBB.groups) do
-        for _, bar in ipairs(group.bars or {}) do
-            if bar:IsShown() then
-                self:UpdateCancelButton(bar, bar.data)
-            else
-                self:ClearCancelButton(bar)
+    for groupID, group in pairs(OBB.groups) do
+        if not OBB.IsLegacyRendererActive or OBB:IsLegacyRendererActive(groupID) then
+            for _, bar in ipairs(group.bars or {}) do
+                if bar:IsShown() then
+                    self:UpdateCancelButton(bar, bar.data)
+                else
+                    self:ClearCancelButton(bar)
+                end
             end
         end
     end
@@ -297,13 +299,14 @@ end
 
 function Bars:ApplyLegacyBarsVisibility()
     local shown = OBB.db and (OBB.db.legacyComparisonMode or OBB.db.showLegacyBars ~= false)
-    for _, group in pairs(OBB.groups) do
-        group:SetShown(shown)
+    for groupID, group in pairs(OBB.groups) do
+        local groupShown = shown and (not OBB.IsLegacyRendererActive or OBB:IsLegacyRendererActive(groupID))
+        group:SetShown(groupShown)
         if group.anchor then
-            group.anchor:SetShown(shown and OBB.db.anchorsShown)
+            group.anchor:SetShown(groupShown and OBB.db.anchorsShown)
         end
         for _, bar in ipairs(group.bars or {}) do
-            if shown and bar:IsShown() then
+            if groupShown and bar:IsShown() then
                 self:UpdateCancelButton(bar, bar.data)
             else
                 self:HideTooltip(bar, bar)
@@ -545,6 +548,30 @@ function Bars:ApplyData(bar, data, settings)
     end
 
     self:UpdateCancelButton(bar, data)
+end
+
+function Bars:ClearGroup(settings)
+    local group = self:CreateGroup(settings)
+    for _, bar in ipairs(group.bars or {}) do
+        bar:SetScript("OnUpdate", nil)
+        self:HideTooltip(bar, bar)
+        self:ClearCancelButton(bar)
+        bar.data = nil
+        bar.elapsed = nil
+        bar.status:SetMinMaxValues(0, 1)
+        bar.status:SetValue(0)
+        bar.status:Hide()
+        bar.timeText:SetText("")
+        bar:Hide()
+    end
+
+    group:SetSize(settings.width, settings.height)
+    group.anchor:SetWidth(settings.width)
+    group.anchor.text:SetText(settings.name)
+    if not group.isDraggingAnchor then
+        self:SetGroupPosition(group, settings)
+    end
+    self:ApplyLegacyBarsVisibility()
 end
 
 function Bars:UpdateGroup(settings, auraData)
