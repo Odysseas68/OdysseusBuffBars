@@ -1905,13 +1905,24 @@ local function ResolveFishingToolSlot()
     return nil, "fishing tool slot not found"
 end
 
-local function FormatFishingLureRemainingTime(remainingSeconds)
-    local engine = OBB.Engine
-    if not engine or type(engine.FormatWeaponEnchantTime) ~= "function" then
+local function FormatFishingLureTime(seconds)
+    if type(seconds) ~= "number" or seconds <= 0 then
         return ""
     end
+    if seconds >= _G.SECONDS_PER_DAY * 1.5 then
+        return string.format("%d d", math.ceil(seconds / _G.SECONDS_PER_DAY))
+    end
+    if seconds >= _G.SECONDS_PER_HOUR * 1.5 then
+        return string.format("%d h", math.ceil(seconds / _G.SECONDS_PER_HOUR))
+    end
+    if seconds >= _G.SECONDS_PER_MIN * 1.5 then
+        return string.format("%d m", math.ceil(seconds / _G.SECONDS_PER_MIN))
+    end
+    return string.format("%d s", math.ceil(seconds))
+end
 
-    local success, text = pcall(engine.FormatWeaponEnchantTime, engine, remainingSeconds)
+local function FormatFishingLureRemainingTime(remainingSeconds)
+    local success, text = pcall(FormatFishingLureTime, remainingSeconds)
     if success and IsReadableDiagnosticValue(text) and type(text) == "string" then
         return text
     end

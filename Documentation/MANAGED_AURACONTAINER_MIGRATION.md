@@ -44,7 +44,7 @@ Config or explicit refresh
   > managed ApplyConfiguration()/RefreshManagedState() out of combat
 ```
 
-Core no longer registers player `UNIT_AURA`, `WEAPON_ENCHANT_CHANGED`, or `WEAPON_SLOT_CHANGED` for legacy rendering. It never initializes Bars, invokes `Engine:Scan()`, or calls `OBB.Bars`. Bars therefore constructs no legacy groups, headers, rows, timers, tooltips, positioning, or secure overlays. Auras has no production scanner caller and remains loaded only because managed Fishing Lure presentation still uses its existing time formatter.
+Core no longer registers player `UNIT_AURA`, `WEAPON_ENCHANT_CHANGED`, or `WEAPON_SLOT_CHANGED` for legacy rendering. It never initializes Bars, invokes `Engine:Scan()`, or calls `OBB.Bars`. Bars therefore constructs no legacy groups, headers, rows, timers, tooltips, positioning, or secure overlays. Managed Fishing Lure formatting is now private to ManagedPrototype, so production MANAGED runtime no longer depends on `OBB.Engine`; Auras remains loaded only while the dormant Bars dependency awaits its dedicated retirement review.
 
 The immutable production authority is deliberately outside SavedVariables:
 
@@ -711,7 +711,9 @@ Authority retirement is complete:
 - Compatible SavedVariables fields remain preserved until a separate deliberate schema cleanup.
 - ABOVE remains absent from managed placement choices; historical raw values use only the copied runtime fallback until explicit user correction.
 
-Backend/file cleanup remains deliberately separate: move the Fishing Lure formatter, remove dormant Auras scanner/cache code and its TOC entry, remove dormant Bars/secure-overlay code and its TOC entry, then clean temporary Config façades and historical names in their own reviewed tasks.
+The managed Fishing Lure formatter extraction is complete. It preserved the previous threshold/rounding/output and protected fallback semantics without changing discovery, events, timer, expiration, combat, or readiness behavior. Runtime validation passed fresh login, normal managed presentation, an approximately 10-minute lure countdown, fishing-pole removal, and restoration without duplicate/stale presentation or an observed Lua error; exact 90-second, 5400-second, and 129600-second boundaries were verified statically.
+
+Backend/file cleanup remains deliberately separate and dependency-ordered: first perform a read-only Bars/secure-overlay retirement audit, then remove Bars only after its dormant external-callability and secure-overlay paths are explicitly reviewed. Once Bars no longer depends on Engine, audit/remove the dormant Auras scanner/cache/filter/classification backend and its TOC entry as an isolated deletion. Temporary Config façades and historical names remain separate later tasks.
 
 ## 6. Risk Register
 
@@ -766,4 +768,4 @@ Every phase should also include LuaCheck, load/reload testing, Lua error capture
 12. Which historical/internal `ManagedPrototype` names require a compatibility alias during the dedicated production rename?
 13. Can profession-tool lure cancellation be supported safely through a documented public path, and does slot 28 accept `C_PaperDollInfo.CancelTemporaryEnchantment` at runtime?
 
-The MANAGED-only authority migration is complete. Blizzard-managed containers and AuraButtons are the sole B/D/E production renderer after normal READY startup; terminal failure is fail closed, and the dormant direct scanner/Bars backend has no production caller. Scanner/file removal, lure-formatter extraction, Config façade cleanup, historical `ManagedPrototype` production rename, terminology cleanup, final Config polish, library/licensing review, and release preparation remain separate later phases.
+The MANAGED-only authority migration and managed Fishing Lure formatter extraction are complete. Blizzard-managed containers and AuraButtons are the sole B/D/E production renderer after normal READY startup; terminal failure is fail closed, and production Core/Config/ManagedPrototype have no Engine or Bars dependency. Bars/secure-overlay retirement audit and removal now precede isolated Auras/file/TOC deletion. Config façade cleanup, historical `ManagedPrototype` production rename, terminology cleanup, final Config polish, library/licensing review, and release preparation remain separate later phases.
