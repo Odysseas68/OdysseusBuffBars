@@ -241,6 +241,52 @@ local function ApplyPreparedLegacyModeData(mode, preparedAuraData)
     OBB.Bars:UpdateAllGroupPositions()
 end
 
+function OBB:ReportManagedRendererFailure(reason, legacyActive)
+    if self.managedRendererFailureReported then
+        return
+    end
+    self.managedRendererFailureReported = true
+
+    local fallbackMessage = legacyActive
+        and "Temporary LEGACY rollback is active for this session."
+        or "Managed presentation was contained, but temporary LEGACY rollback could not be activated."
+    self:Print(
+        "|cffff3333ERROR:|r managed renderer unavailable: " .. tostring(reason) .. ". "
+            .. fallbackMessage
+            .. " Update the addon/client and /reload. SavedVariables were not changed."
+    )
+end
+
+function OBB:ActivateLegacyRendererFallback(_reason)
+    if _G.InCombatLockdown and _G.InCombatLockdown() then
+        return false, "combat lockdown"
+    end
+    if not self.db or not self.Bars or not self.Engine then
+        return false, "addon runtime unavailable"
+    end
+
+    local preparedAuraData, scanReason = CollectFreshLegacyAuraData({ 1, 2, 3 })
+    if not preparedAuraData then
+        return false, scanReason or "legacy refresh preparation failed"
+    end
+
+    self.suspendLegacyPresentation = true
+    self.Bars:ApplyLegacyBarsVisibility()
+    local applySuccess, applyReason = pcall(function()
+        SetRuntimeRendererAuthorityMode(self.RENDERER_AUTHORITY_MODE.LEGACY)
+        ApplyPreparedLegacyModeData(self.RENDERER_AUTHORITY_MODE.LEGACY, preparedAuraData)
+    end)
+    self.suspendLegacyPresentation = nil
+    self.Bars:ApplyLegacyBarsVisibility()
+    if not applySuccess then
+        return false, "legacy fallback application failed: " .. tostring(applyReason)
+    end
+    if self.Config and self.Config.RefreshActivePage then
+        self.Config:RefreshActivePage()
+    end
+    return true
+end
+
 local defaultBlizzardFrameNames = {
     "BuffFrame",
     "DebuffFrame",
@@ -375,13 +421,20 @@ function OBB:SetRendererAuthorityMode(mode)
     if not self.db or not self.Bars then
         return RejectRendererAuthorityMode("addon runtime unavailable")
     end
+    local managedPrototype = self.ManagedPrototype
+    local managedReady = false
+    local managedReadinessReason = "managed authority infrastructure unavailable"
+    if managedPrototype and managedPrototype.IsReady then
+        managedReady, managedReadinessReason = managedPrototype:IsReady()
+    end
+    if mode ~= self.RENDERER_AUTHORITY_MODE.LEGACY and not managedReady then
+        return RejectRendererAuthorityMode(managedReadinessReason or "managed renderer unavailable")
+    end
     if mode == self:GetRendererAuthorityMode() then
         return true
     end
-
-    local managedPrototype = self.ManagedPrototype
-    if not managedPrototype or not managedPrototype.ApplyRendererAuthorityVisibility then
-        return RejectRendererAuthorityMode("managed authority infrastructure unavailable")
+    if managedReady and not managedPrototype.ApplyRendererAuthorityVisibility then
+        return RejectRendererAuthorityMode("managed authority visibility unavailable")
     end
 
     if mode == self.RENDERER_AUTHORITY_MODE.MANAGED then
@@ -390,6 +443,10 @@ function OBB:SetRendererAuthorityMode(mode)
         end
         local preflightSuccess, preflightReason = managedPrototype:PreflightManagedAuthorityMode()
         if not preflightSuccess then
+            local backendStillReady = managedPrototype:IsReady()
+            if not backendStillReady then
+                return false, preflightReason or "managed preflight failed"
+            end
             return RejectRendererAuthorityMode(preflightReason or "managed preflight failed")
         end
     end
@@ -413,9 +470,11 @@ function OBB:SetRendererAuthorityMode(mode)
 
     local transitionSuccess, transitionReason = pcall(function()
         if mode == self.RENDERER_AUTHORITY_MODE.LEGACY then
-            local visibilitySuccess, visibilityReason = managedPrototype:ApplyRendererAuthorityVisibility(mode)
-            if not visibilitySuccess then
-                error(visibilityReason or "managed visibility transition failed", 0)
+            if managedReady then
+                local visibilitySuccess, visibilityReason = managedPrototype:ApplyRendererAuthorityVisibility(mode)
+                if not visibilitySuccess then
+                    error(visibilityReason or "managed visibility transition failed", 0)
+                end
             end
         end
 
@@ -440,6 +499,20 @@ function OBB:SetRendererAuthorityMode(mode)
 
     self.suspendLegacyPresentation = nil
     if not transitionSuccess then
+        local backendStillReady = managedReady
+        if managedPrototype and managedPrototype.IsReady then
+            backendStillReady = managedPrototype:IsReady()
+        end
+        if not backendStillReady then
+            local fallbackSuccess = self:GetRendererAuthorityMode() == self.RENDERER_AUTHORITY_MODE.LEGACY
+            if not fallbackSuccess then
+                fallbackSuccess = self:ActivateLegacyRendererFallback(transitionReason)
+            end
+            self:ReportManagedRendererFailure(transitionReason, fallbackSuccess)
+            self.Bars:ApplyLegacyBarsVisibility()
+            return false, "renderer mode transition failed: " .. tostring(transitionReason)
+        end
+
         SetRuntimeRendererAuthorityMode(previousMode)
         pcall(managedPrototype.ApplyRendererAuthorityVisibility, managedPrototype, previousMode)
         if previousMode ~= self.RENDERER_AUTHORITY_MODE.LEGACY
@@ -455,7 +528,12 @@ function OBB:SetRendererAuthorityMode(mode)
     end
 
     self.Bars:ApplyLegacyBarsVisibility()
-    managedPrototype:ApplyHeaderVisibility()
+    if managedReady then
+        local headerSuccess, headerReason = managedPrototype:ApplyHeaderVisibility()
+        if not headerSuccess then
+            return false, headerReason or "managed header visibility failed"
+        end
+    end
     if self.Config and self.Config.RefreshActivePage then
         self.Config:RefreshActivePage()
     end
@@ -538,8 +616,29 @@ function OBB:OnAddonLoaded(name)
         end
     end
 
-    if self.ManagedPrototype and self.ManagedPrototype.Initialize then
-        self.ManagedPrototype:Initialize()
+    local managedStartupReady = false
+    local managedStartupReason = "managed renderer module unavailable"
+    local managedPrototype = self.ManagedPrototype
+    if managedPrototype and managedPrototype.Initialize and managedPrototype.IsReady then
+        local initializeCallSuccess, initializeSuccess, initializeReason = pcall(
+            managedPrototype.Initialize,
+            managedPrototype
+        )
+        if initializeCallSuccess and initializeSuccess then
+            local readinessCallSuccess, ready, readinessReason = pcall(
+                managedPrototype.IsReady,
+                managedPrototype
+            )
+            managedStartupReady = readinessCallSuccess and ready == true
+            managedStartupReason = readinessCallSuccess
+                and (readinessReason or managedStartupReason)
+                or ready
+        else
+            managedStartupReason = initializeCallSuccess and initializeReason or initializeSuccess
+        end
+    end
+    if not managedStartupReady then
+        SetRuntimeRendererAuthorityMode(self.RENDERER_AUTHORITY_MODE.LEGACY)
     end
 
     if self.Config then
@@ -547,9 +646,17 @@ function OBB:OnAddonLoaded(name)
     end
     self:HookEditModeVisibilityRefresh()
     self.Bars:Initialize()
-    local managedStartupSuccess = self:SetRendererAuthorityMode(self.RENDERER_AUTHORITY_MODE.MANAGED)
-    if not managedStartupSuccess then
-        self:RefreshAll()
+    if managedStartupReady then
+        local managedStartupSuccess = self:SetRendererAuthorityMode(self.RENDERER_AUTHORITY_MODE.MANAGED)
+        if not managedStartupSuccess then
+            self:RefreshAll()
+        end
+    else
+        local fallbackSuccess, fallbackReason = self:ActivateLegacyRendererFallback(managedStartupReason)
+        self:ReportManagedRendererFailure(
+            managedStartupReason or fallbackReason or "unknown managed initialization failure",
+            fallbackSuccess
+        )
     end
     self:ApplyDefaultBlizzardFrameVisibility()
     self:Print("loaded. /obb config opens settings, /obb anchors toggles anchors.")

@@ -183,8 +183,9 @@
 - [x] Remove the temporary legacy visibility/comparison controls and presentation-offset path while preserving the defaulted SavedVariables as dormant compatibility/history fields and keeping LEGACY/STAGED rollback intact.
 - [x] Preserve intentional D/E SCREEN roots during startup normalization without a new SavedVariables discriminator, generic `CopyDefaults` change, or managed-preflight repair; runtime-validate D SCREEN, E SCREEN, both SCREEN, D BELOW B, E BELOW D, and Reset Positions across reload.
 - [x] Implement the runtime-only managed compatibility policy and prevent unsupported duration/topology choices in Config without silently rewriting preserved historical state.
-- [ ] Harden managed capability/readiness guards before authority retirement.
-- [ ] Contain partial managed initialization so incomplete infrastructure cannot leak presentation or corrupt a later mode transaction.
+- [x] Harden managed capability/readiness guards with an always-present module object, explicit `IsReady()` lifecycle, static capability validation, constructed-method checks, and terminal FAILED state before authority retirement.
+- [x] Contain partial managed initialization through one protected hidden transaction, readiness-gated callbacks/events/mutators, initial paired B/E descriptor commit, retained partial references, and best-effort inert-frame cleanup.
+- [x] Runtime-validate normal MANAGED startup plus temporary CAPABILITY, AFTER_DEBUFF_CONSTRUCTION, and INITIAL_E_DESCRIPTOR fatal injections; remove all diagnostic injection infrastructure and restore the exact production blobs before checkpointing.
 - [ ] Retire LEGACY/STAGED authority deliberately, then remove legacy scanner/cache/event ownership and ordinary Bars only after rollback is no longer required.
 - [ ] Remove the authority tables and runtime setter/accessor surface only as part of the approved authority-retirement phase.
 - [ ] Move the Fishing Lure formatter out of Auras before removing legacy Auras; retire the secure cancel-overlay implementation with legacy Bars.
@@ -198,4 +199,4 @@
 - [ ] Review and add an appropriate repository license after OBB development is complete; do not choose or add one during active cleanup.
 - [ ] Perform version, build-date, release metadata, tag, and release work only after cleanup is complete.
 
-The all-managed production authority migration, post-cutover presentation cleanup Phase 1, D/E SCREEN startup normalization, and Phase 2 runtime-only compatibility/Config constraints are complete. Capability/readiness hardening and partial-initialization containment are the next gate; authority/backend retirement, file/TOC cleanup, lure-formatter extraction, managed production renaming, media options, remaining targeted/opportunistic runtime coverage, licensing review, and release metadata remain separate work.
+The all-managed production authority migration, post-cutover presentation cleanup Phase 1, D/E SCREEN startup normalization, Phase 2 runtime-only compatibility/Config constraints, and capability/readiness plus partial-initialization hardening are complete. The next gate is deliberate STAGED/LEGACY retirement and final fail-closed failure policy; authority/backend retirement, file/TOC cleanup, lure-formatter extraction, managed-to-legacy position synchronization removal, managed production renaming, media options, remaining targeted/opportunistic runtime coverage, licensing review, and release metadata remain separate work.
