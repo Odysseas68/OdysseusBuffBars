@@ -636,6 +636,28 @@ local function GetEffectiveGroupSettings(groupID)
     return settingsByID and settingsByID[groupID] or nil
 end
 
+local function ValidateManagedEffectiveSettings()
+    local buffSettings = GetEffectiveGroupSettings(1)
+    local debuffSettings = GetEffectiveGroupSettings(2)
+    local enhancementSettings = GetEffectiveGroupSettings(3)
+    if not buffSettings or not debuffSettings or not enhancementSettings then
+        return false, "managed effective group settings unavailable"
+    end
+    if not IsManagedBuffsScreenRoot(buffSettings) then
+        return false, "BUFFS must use SCREEN placement with no parent"
+    end
+    if not ResolveManagedBuffDurationMode(buffSettings) then
+        return false, "BUFFS duration must be ALL or TIMED_ONLY"
+    end
+    if not IsSupportedManagedChildPlacement(debuffSettings, MANAGED_DEBUFF_PLACEMENT) then
+        return false, "DEBUFFS placement is unsupported for managed renderer"
+    end
+    if not IsSupportedManagedChildPlacement(enhancementSettings, MANAGED_ENCHANTMENT_PLACEMENT) then
+        return false, "ENCHANTMENTS placement is unsupported for managed renderer"
+    end
+    return true
+end
+
 local function GetManagedCompatibilityIssue(groupID, kind)
     local groupState = ManagedPrototype.compatibilityState
         and ManagedPrototype.compatibilityState.groups[groupID]
@@ -1968,19 +1990,8 @@ ContainManagedFatalFailure = function(prototype, reason)
     end
 
     if not failedDuringInitialization then
-        local legacyActive = false
-        if not (_G.InCombatLockdown and _G.InCombatLockdown())
-            and type(OBB.ActivateLegacyRendererFallback) == "function"
-        then
-            local fallbackCallSuccess, fallbackSuccess = pcall(
-                OBB.ActivateLegacyRendererFallback,
-                OBB,
-                prototype.failureReason
-            )
-            legacyActive = fallbackCallSuccess and fallbackSuccess == true
-        end
         if type(OBB.ReportManagedRendererFailure) == "function" then
-            OBB:ReportManagedRendererFailure(prototype.failureReason, legacyActive)
+            OBB:ReportManagedRendererFailure(prototype.failureReason)
         end
     end
     return false, prototype.failureReason
@@ -2188,69 +2199,6 @@ function ManagedPrototype:RefreshManagedState(reason)
     if not RefreshFishingLureRow(reason or "managed refresh") then
         return false, "Fishing Lure refresh failed"
     end
-    return true
-end
-
-function ManagedPrototype:PreflightManagedAuthorityMode()
-    local ready, readinessReason = self:IsReady()
-    if not ready then
-        return false, readinessReason
-    end
-    if _G.InCombatLockdown and _G.InCombatLockdown() then
-        return false, "combat lockdown"
-    end
-    if not self.host or not self.container
-        or not self.debuffHost or not self.debuffContainer
-        or not self.enchantmentHost or not self.enchantmentContainer
-    then
-        return false, "managed B/D/E infrastructure incomplete"
-    end
-    if type(self.container.SetAuraGroupCandidateFilters) ~= "function"
-        or type(self.enchantmentContainer.SetAuraGroupCandidateFilters) ~= "function"
-    then
-        return false, "paired candidate-filter setters unavailable"
-    end
-
-    local buffSettings = GetGroupSettings(1)
-    local debuffSettings = GetGroupSettings(2)
-    local enhancementSettings = GetGroupSettings(3)
-    if not buffSettings or not debuffSettings or not enhancementSettings then
-        return false, "managed group settings unavailable"
-    end
-
-    RefreshManagedCompatibilityState(self)
-    local effectiveBuffSettings = GetEffectiveGroupSettings(1)
-    local effectiveDebuffSettings = GetEffectiveGroupSettings(2)
-    local effectiveEnhancementSettings = GetEffectiveGroupSettings(3)
-    if not effectiveBuffSettings or not effectiveDebuffSettings or not effectiveEnhancementSettings then
-        return false, "managed effective group settings unavailable"
-    end
-    if not IsManagedBuffsScreenRoot(effectiveBuffSettings) then
-        return false, "BUFFS must use SCREEN placement with no parent"
-    end
-    if not ResolveManagedBuffDurationMode(effectiveBuffSettings) then
-        return false, "BUFFS duration must be ALL or TIMED_ONLY"
-    end
-    if not IsSupportedManagedChildPlacement(effectiveDebuffSettings, MANAGED_DEBUFF_PLACEMENT) then
-        return false, "DEBUFFS placement is unsupported for managed mode"
-    end
-    if not IsSupportedManagedChildPlacement(effectiveEnhancementSettings, MANAGED_ENCHANTMENT_PLACEMENT) then
-        return false, "ENCHANTMENTS placement is unsupported for managed mode"
-    end
-
-    local compileSuccess, candidateFilterState = pcall(CompileCurrentManagedCandidateFilterState)
-    if not compileSuccess or type(candidateFilterState) ~= "table" then
-        return false, "paired candidate descriptors are unavailable"
-    end
-    if not lastAppliedManagedCandidateFilterState then
-        return false, "paired candidate descriptor snapshot unavailable"
-    end
-
-    local refreshSuccess, refreshReason = self:RefreshManagedState("managed authority preflight")
-    if not refreshSuccess then
-        return false, refreshReason or "managed runtime refresh failed"
-    end
-    ReportManagedCompatibilityWarning(self)
     return true
 end
 
@@ -2681,7 +2629,7 @@ local function ApplyManagedPlacement(prototype, placement)
     return true
 end
 
-function ManagedPrototype:ApplyHeaderVisibility(mode, allowInitializing)
+function ManagedPrototype:ApplyHeaderVisibility(allowInitializing)
     local canMutate, readinessReason = CanMutateManagedPrototype(self, allowInitializing)
     if not canMutate then
         return false, readinessReason
@@ -2690,13 +2638,12 @@ function ManagedPrototype:ApplyHeaderVisibility(mode, allowInitializing)
         return false, "managed header state unavailable"
     end
 
-    mode = mode or (OBB.GetRendererAuthorityMode and OBB:GetRendererAuthorityMode())
     local shown = OBB.db.anchorsShown == true
     local applySuccess, applyReason = pcall(function()
         for _, group in ipairs(MANAGED_GROUPS) do
             local header = self.groupHeaders[group.key]
             if header then
-                header:SetShown(shown and mode ~= "LEGACY")
+                header:SetShown(shown)
             end
         end
     end)
@@ -2708,7 +2655,7 @@ function ManagedPrototype:ApplyHeaderVisibility(mode, allowInitializing)
     return true
 end
 
-function ManagedPrototype:ApplyRendererAuthorityVisibility(mode, allowInitializing)
+function ManagedPrototype:CommitManagedPresentation(allowInitializing)
     local canMutate, readinessReason = CanMutateManagedPrototype(self, allowInitializing)
     if not canMutate then
         return false, readinessReason
@@ -2723,12 +2670,6 @@ function ManagedPrototype:ApplyRendererAuthorityVisibility(mode, allowInitializi
         return false, "not initialized"
     end
 
-    mode = mode or (OBB.GetRendererAuthorityMode and OBB:GetRendererAuthorityMode())
-    if mode ~= "STAGED" and mode ~= "MANAGED" and mode ~= "LEGACY" then
-        return false, "invalid renderer authority mode"
-    end
-
-    local active = mode ~= "LEGACY"
     local managedPresentations = {
         { host = self.host, container = self.container },
         { host = self.debuffHost, container = self.debuffContainer },
@@ -2736,15 +2677,9 @@ function ManagedPrototype:ApplyRendererAuthorityVisibility(mode, allowInitializi
     }
     local applySuccess, applyReason = pcall(function()
         for _, presentation in ipairs(managedPresentations) do
-            if active then
-                presentation.host:Show()
-                presentation.container:Show()
-                presentation.container:SetEnabled(true)
-            else
-                presentation.container:SetEnabled(false)
-                presentation.container:Hide()
-                presentation.host:Hide()
-            end
+            presentation.host:Show()
+            presentation.container:Show()
+            presentation.container:SetEnabled(true)
         end
     end)
     if not applySuccess then
@@ -2753,18 +2688,11 @@ function ManagedPrototype:ApplyRendererAuthorityVisibility(mode, allowInitializi
         return false, failureReason
     end
 
-    if not active and self.fishingLureRow then
-        HideFishingLureRow(self.fishingLureRow)
-    end
-    local headerSuccess, headerReason = self:ApplyHeaderVisibility(mode, allowInitializing)
+    local headerSuccess, headerReason = self:ApplyHeaderVisibility(allowInitializing)
     if not headerSuccess then
         return false, headerReason
     end
     return true
-end
-
-function ManagedPrototype:ApplyDebuffAuthorityVisibility()
-    return self:ApplyRendererAuthorityVisibility()
 end
 
 function ManagedPrototype:ApplyConfiguration(_reason)
@@ -2887,8 +2815,8 @@ function ManagedPrototype:ApplyConfiguration(_reason)
         return false, "candidate filters not applied"
     end
 
-    if not self:ApplyRendererAuthorityVisibility() then
-        return false, "renderer authority visibility not applied"
+    if not self:CommitManagedPresentation() then
+        return false, "managed presentation not committed"
     end
 
     ReportManagedCompatibilityWarning(self)
@@ -3291,10 +3219,6 @@ local function FinishManagedScreenDrag(prototype, group)
     settings.y = savedY
     RecordManagedScreenPosition(prototype, group, savedX, savedY)
     ClearManagedHostUserPlaced(host)
-
-    if OBB.Bars and OBB.Bars.UpdateAllGroupPositions then
-        OBB.Bars:UpdateAllGroupPositions()
-    end
 end
 
 local function ConfigureManagedHeaderDrag(header, group)
@@ -3762,6 +3686,10 @@ function ManagedPrototype:Initialize()
         end
 
         RefreshManagedCompatibilityState(self)
+        local effectiveSettingsValid, effectiveSettingsReason = ValidateManagedEffectiveSettings()
+        if not effectiveSettingsValid then
+            error(effectiveSettingsReason, 0)
+        end
         local startupConfig = BuildManagedStartupConfig()
         if not startupConfig then
             error("effective managed startup state unavailable", 0)
@@ -3809,11 +3737,12 @@ function ManagedPrototype:Initialize()
         end
 
         self.initialized = true
-        local visibilitySuccess, visibilityReason = self:ApplyRendererAuthorityVisibility(nil, true)
+        local visibilitySuccess, visibilityReason = self:CommitManagedPresentation(true)
         if not visibilitySuccess then
             error(visibilityReason or "managed presentation commit failed", 0)
         end
         RefreshFishingLureRow("prototype initialization commit", true)
+        ReportManagedCompatibilityWarning(self)
     end, function(errorValue)
         return tostring(errorValue)
     end)
