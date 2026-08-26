@@ -325,16 +325,6 @@ local function BuildOverrideListText()
     return table.concat(lines, "\n")
 end
 
-local function CanDisplayFilterText(value)
-    if value == nil then
-        return false
-    end
-    if issecretvalue and issecretvalue(value) then
-        return canaccessvalue and canaccessvalue(value)
-    end
-    return true
-end
-
 local function GetCurrentAuraFilterRows(settings)
     if settings.id == 1 or settings.id == 3 then
         local managedPrototype = OBB.ManagedPrototype
@@ -346,56 +336,7 @@ local function GetCurrentAuraFilterRows(settings)
         end
         return {}
     end
-
-    local rows = {}
-    local seen = {}
-    local knownRows = OBB.filterAuraRows and OBB.filterAuraRows[settings.id]
-    if type(knownRows) == "table" then
-        for spellID, data in pairs(knownRows) do
-            if type(spellID) == "number" and not seen[spellID] then
-                seen[spellID] = true
-                rows[#rows + 1] = {
-                    spellID = spellID,
-                    name = data.name or ("Spell " .. tostring(spellID)),
-                    icon = data.icon,
-                }
-            end
-        end
-    end
-    local auraData = OBB.auraData and OBB.auraData[settings.id]
-    if type(auraData) == "table" then
-        for _, data in ipairs(auraData) do
-            local spellID = data and data.spellID
-            if type(spellID) == "number" and not seen[spellID] then
-                seen[spellID] = true
-                local name = CanDisplayFilterText(data.name) and type(data.name) == "string" and data.name or nil
-                rows[#rows + 1] = {
-                    spellID = spellID,
-                    name = name or ("Spell " .. tostring(spellID)),
-                    icon = data.icon,
-                }
-            end
-        end
-    end
-    local filters = EnsureGroupFilters(settings)
-    for _, filterTable in pairs(filters) do
-        if type(filterTable) == "table" then
-            for spellID, enabled in pairs(filterTable) do
-                if enabled and type(spellID) == "number" and not seen[spellID] then
-                    seen[spellID] = true
-                    rows[#rows + 1] = {
-                        spellID = spellID,
-                        name = "Saved spell",
-                        icon = [[Interface\Icons\INV_Misc_QuestionMark]],
-                    }
-                end
-            end
-        end
-    end
-    table.sort(rows, function(left, right)
-        return left.spellID < right.spellID
-    end)
-    return rows
+    return {}
 end
 
 function Config:Initialize()

@@ -4,9 +4,6 @@ _G.OdysseusBuffBars = OBB
 
 OBB.addonName = addonName
 OBB.version = "0.1.0"
-OBB.groups = {}
-OBB.bars = {}
-OBB.auraData = {}
 
 local defaults = {
     locked = false,
