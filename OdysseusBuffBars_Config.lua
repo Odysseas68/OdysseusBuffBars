@@ -1194,7 +1194,7 @@ function Config:BuildGeneralPage(page)
             self:WarnCombat()
             return
         end
-        OBB:RefreshAuras("config Refresh Auras")
+        OBB:RefreshAll("config Refresh Auras")
     end)
 
     local anchors = CreateButton(page, "Toggle Anchors")

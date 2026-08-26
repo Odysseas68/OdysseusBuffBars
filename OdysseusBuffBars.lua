@@ -229,10 +229,6 @@ function OBB:RefreshAll(reason)
     return true
 end
 
-function OBB:RefreshAuras(reason)
-    return self:RefreshAll(reason or "explicit refresh")
-end
-
 function OBB:OnAddonLoaded(name)
     if name ~= addonName then
         return
@@ -397,7 +393,7 @@ SLASH_ODYSSEUSBUFFBARS3 = "/obbtest"
 SlashCmdList.ODYSSEUSBUFFBARS = function(msg)
     msg = msg and msg:lower() or ""
     if msg == "refresh" then
-        OBB:RefreshAuras("slash command")
+        OBB:RefreshAll("slash command")
     elseif msg == "config" or msg == "options" or msg == "open" then
         OBB.Config:Toggle()
     elseif msg == "anchors" then

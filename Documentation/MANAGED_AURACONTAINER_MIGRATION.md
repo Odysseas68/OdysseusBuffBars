@@ -25,7 +25,7 @@ Current milestone status:
 | Historical development comparison workflow | Runtime validation is preserved as migration history. The controls, offset path, and authority switching are retired. |
 | Runtime renderer authority | MANAGED only. No mutable/per-group authority, query/setter API, STAGED/LEGACY switching, legacy fallback, or SavedVariables authority field. Config derives ENCHANTMENTS' fixed managed Sort/Max state directly from group 3. |
 | Managed readiness and partial initialization | Complete. FAILED is terminal until `/reload`; startup fails closed. Historical three-path containment tests and the post-retirement CAPABILITY test are recorded below, with all injection code removed. |
-| Remaining production work | First review the updated Live `Blizzard_AuraContainerUtil.lua` and `Blizzard_PrivateAurasUI.lua` in BlizzardResearch. Refresh-façade/historical-default review, ManagedPrototype rename/terminology cleanup, final Config polish, library/licensing review, and release metadata remain separate later tasks. |
+| Remaining production work | First audit the duplicate Config refresh/application calls that follow `RefreshAll()` without changing sequencing before that review. Updated Live source review, historical-default review, ManagedPrototype rename/terminology cleanup, final Config polish, library/licensing review, and release metadata remain separate later tasks. |
 | Blizzard BuffFrame visibility during combat | Blizzard Edit Mode owns BuffFrame visibility; the supported user-facing solution is the Aura Frame visibility setting `Hidden`, while OBB's best-effort legacy toggle is not authoritative. |
 
 ## 1. Current Architecture
@@ -40,7 +40,7 @@ WoW events
   > ManagedPrototype owns semantic/native/Fishing Lure recovery
 
 Config or explicit refresh
-  > Core RefreshAll()/RefreshAuras() compatibility façade
+  > Core RefreshAll() managed coordinator
   > managed ApplyConfiguration()/RefreshManagedState() out of combat
 ```
 
@@ -701,7 +701,7 @@ Authority retirement is complete:
 
 - MANAGED is the sole production renderer; STAGED/LEGACY modes, mutable authority, setters, transition transactions, legacy pre-scan/fallback, and managed-to-legacy position synchronization are retired.
 - Startup is READY-or-FAILED and fails closed. The Bars and Auras/Engine backends are removed; Core owns no legacy aura/weapon renderer events.
-- `RefreshAll()`/`RefreshAuras()` are managed-only compatibility façades for unchanged callers.
+- `RefreshAll()` remains the managed-only Core coordinator for configuration-first semantic/native/Fishing Lure recovery; slash refresh and Config `Refresh Auras` call it directly, and the redundant `RefreshAuras()` alias is retired.
 - No renderer-authority query or setter API remains; Config's ENCHANTMENTS fixed Sort/Max state derives directly from group identity.
 - Compatible SavedVariables fields remain preserved until a separate deliberate schema cleanup.
 - ABOVE remains absent from managed placement choices; historical raw values use only the copied runtime fallback until explicit user correction.
@@ -763,4 +763,4 @@ Every phase should also include LuaCheck, load/reload testing, Lua error capture
 12. Which historical/internal `ManagedPrototype` names require a compatibility alias during the dedicated production rename?
 13. Can profession-tool lure cancellation be supported safely through a documented public path, and does slot 28 accept `C_PaperDollInfo.CancelTemporaryEnchantment` at runtime?
 
-The MANAGED-only authority migration, managed Fishing Lure formatter extraction, Bars/secure-overlay retirement, Auras/Engine retirement, legacy runtime-cache cleanup, and renderer-authority query-façade retirement are complete and runtime validated to their recorded boundaries. Blizzard-managed containers and AuraButtons are the sole B/D/E production renderer after normal READY startup; terminal failure is fail closed, `OdysseusBuffBars.Bars` and `OdysseusBuffBars.Engine` are absent, and no direct legacy scanner, synthetic legacy weapon-enchantment scanner, legacy cache fallback, or authority query/setter API remains. The historical Auras-deletion `/reload` retained an empty `auraData` table and nil `filterAuraRows`; the later focused cache-cleanup `/reload` confirmed `groups`, `bars`, `auraData`, and `filterAuraRows` all nil, with no reported regression. The next task is a separate BlizzardResearch review of updated Live `Blizzard_AuraContainerUtil.lua` and `Blizzard_PrivateAurasUI.lua`; refresh-façade and dormant-default audits, `ManagedPrototype` production rename, terminology cleanup, final Config polish, library/licensing work, OdysseusDebugConsole, and release preparation remain separate later phases.
+The MANAGED-only authority migration, managed Fishing Lure formatter extraction, Bars/secure-overlay retirement, Auras/Engine retirement, legacy runtime-cache cleanup, renderer-authority query-façade retirement, and `RefreshAuras()` compatibility-alias retirement are complete and runtime validated to their recorded boundaries. Blizzard-managed containers and AuraButtons are the sole B/D/E production renderer after normal READY startup; terminal failure is fail closed, `OdysseusBuffBars.Bars` and `OdysseusBuffBars.Engine` are absent, and no direct legacy scanner, synthetic legacy weapon-enchantment scanner, legacy cache fallback, authority query/setter API, or `RefreshAuras()` alias remains. `RefreshAll()` remains the central managed coordinator. The historical Auras-deletion `/reload` retained an empty `auraData` table and nil `filterAuraRows`; the later focused cache-cleanup `/reload` confirmed `groups`, `bars`, `auraData`, and `filterAuraRows` all nil. Alias-retirement validation confirmed `RefreshAll` was a function, `RefreshAuras` was nil, normal managed B/D/E presentation, both direct refresh paths, ordinary Config Apply, and the in-combat framework-owned no-op remained correct; no regression was reported. The next task is a separate read-only audit of duplicate Config refresh/application calls after `RefreshAll()`; updated Live source review, dormant-default audit, `ManagedPrototype` production rename, terminology cleanup, final Config polish, library/licensing work, OdysseusDebugConsole, and release preparation remain separate later phases.

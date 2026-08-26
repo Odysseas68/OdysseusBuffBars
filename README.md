@@ -19,6 +19,7 @@ A standalone World of Warcraft Retail addon implementing a modern managed AuraCo
 - ✅ Legacy Auras/Engine retirement
 - ✅ Legacy runtime cache scaffolding retirement
 - ✅ Renderer-authority query façade retirement
+- ✅ `RefreshAuras()` compatibility-alias retirement
 
 The managed Player BUFFS implementation has been validated across its historical PTR milestone and current Retail production work for the AuraContainer lifecycle, dynamic self-sizing, native sorting, native whitelist/blacklist filtering, automatic configuration synchronization, native tooltips, native right-click cancellation, and combat operation.
 
@@ -68,5 +69,6 @@ Startup preserves intentional independent DEBUFFS/ENCHANTMENTS SCREEN roots acro
 - Production migration — MANAGED is the sole runtime renderer; READY-or-FAILED startup, fail-closed failure handling, mode/API retirement, managed-only refresh, legacy event/scan/render retirement, and managed-drag rollback synchronization removal are complete
 - Backend cleanup — Fishing Lure formatter extraction, Bars/secure-overlay retirement, Auras/Engine retirement, and obsolete runtime-cache scaffolding retirement are complete
 - Compatibility cleanup — Renderer-authority mutation and query APIs are retired; ENCHANTMENTS fixed Sort/Max Config state now derives directly from the MANAGED-only group-3 architecture while historical SavedVariables remain preserved
-- Next checkpoint — Review the updated Live `Blizzard_AuraContainerUtil.lua` and `Blizzard_PrivateAurasUI.lua` in BlizzardResearch; change OBB only if that source diff demonstrates a real compatibility impact
-- Later cleanup — Audit the `RefreshAll()`/`RefreshAuras()` compatibility façades and dormant historical defaults separately, then address managed production naming/terminology, Config polish, media/library work, licensing, OdysseusDebugConsole, and release preparation
+- Refresh cleanup — `RefreshAll()` remains the central managed coordinator; the redundant `RefreshAuras()` alias is retired and slash/Config refresh paths call `RefreshAll()` directly
+- Next checkpoint — Read-only audit the duplicate Config calls that follow `RefreshAll()`, including repeated `ApplyConfiguration()` and `RefreshCandidateFilters()` work; do not change sequencing before that audit
+- Later cleanup — Review dormant historical defaults separately, then address managed production naming/terminology, Config polish, media/library work, licensing, OdysseusDebugConsole, and release preparation
