@@ -6,7 +6,7 @@
 - Language: Lua 5.1 in the WoW addon sandbox.
 - Purpose: standalone aura-bar research and development addon, separate from the production Odysseus Utility Suite.
 - Keep this addon small and focused on aura scanning, sorting, bar rendering, timer text, icons, and saved frame position.
-- Blizzard-managed containers are the sole production renderer authority for BUFFS, DEBUFFS, and ENCHANTMENTS. The mature direct-scanning and ordinary-bar implementations remain loaded but dormant pending separate file-cleanup phases.
+- Blizzard-managed containers are the sole production renderer authority for BUFFS, DEBUFFS, and ENCHANTMENTS. The ordinary-bar backend and its secure cancellation overlays are retired; the direct-scanning backend remains loaded but dormant pending its own cleanup phase.
 
 ## Active Files
 - `OdysseusBuffBars.toc`
@@ -14,9 +14,7 @@
 - `OdysseusBuffBars.lua`
   - Module bootstrap: defaults, SavedVariables migration, events, slash commands, refresh flow, and public addon API.
 - `OdysseusBuffBars_Auras.lua`
-  - Dormant Retail direct-scanning/cache backend. Production MANAGED runtime no longer depends on it; remaining `OBB.Engine` dependencies are confined to this dormant backend and dormant Bars. Keep it loaded until the Bars dependency is intentionally retired.
-- `OdysseusBuffBars_Bars.lua`
-  - Dormant ordinary-bar, pooling, layout, tooltip, and secure-overlay backend. Core no longer initializes it.
+  - Dormant Retail direct-scanning/cache backend. Production MANAGED runtime no longer depends on it; all remaining `OBB.Engine` references are self-contained in this file pending a read-only Auras/Engine retirement audit.
 - `OdysseusBuffBars_Config.lua`
   - Native configuration frame, combat-locked controls, group settings, filters UI, and research/debug commands.
 - `OdysseusBuffBars_ManagedPrototype.lua`
@@ -61,8 +59,8 @@ The TOC must load only this addon's active files and bundled libraries. The old 
 - Fatal managed failure marks FAILED first, retains the reason, invalidates delayed callbacks, unregisters/gates addon-owned managed events, stops dragging and Fishing Lure timer work, and disables/hides constructed containers and hosts as best effort. Created/named frames may survive the Lua session but must remain inert; they are not destroyed.
 - Core consumes `Initialize()` and checks `IsReady()`. READY exposes complete managed B/D/E presentation. Fatal startup fails closed: it reports one clear ERROR, keeps managed presentation inert, attempts no alternate renderer, and leaves failure handling without a destructive SavedVariables rewrite. Config still initializes regardless of readiness.
 - Before recursive defaults, startup records raw saved groups that have an explicit placement but no serialized `anchorTo`; after defaults it restores that intentional nil parent. This preserves D/E SCREEN roots without a schema field or generic `CopyDefaults` change. Missing placement plus missing parent still receives the historical D->B / E->D defaults, while unsupported or contradictory explicit state remains raw for the compatibility evaluator.
-- Core never initializes Bars, never calls the legacy Engine scanner, and no longer registers the legacy `UNIT_AURA`, `WEAPON_ENCHANT_CHANGED`, or `WEAPON_SLOT_CHANGED` renderer events. Therefore no legacy groups, headers, rows, timers, tooltips, secure overlays, positioning, or scan/cache refresh work is active.
-- Managed Fishing Lure formatting is module-local and preserves the historical 1.5-unit thresholds, upward rounding, suffixes, protected call, and empty-string degradation. Production Core, Config, and ManagedPrototype have no `OBB.Engine` dependency; remaining references are dormant Auras/Bars code only.
+- The legacy Bars backend is removed, Core never calls the legacy Engine scanner, and Core no longer registers the legacy `UNIT_AURA`, `WEAPON_ENCHANT_CHANGED`, or `WEAPON_SLOT_CHANGED` renderer events. No legacy group, header, row, timer, tooltip, secure overlay, positioning, or scan/cache refresh path is loaded or creatable by OBB production code.
+- Managed Fishing Lure formatting is module-local and preserves the historical 1.5-unit thresholds, upward rounding, suffixes, protected call, and empty-string degradation. Production Core, Config, and ManagedPrototype have no `OBB.Engine` dependency; all remaining references are self-contained in dormant Auras code.
 - Default vertical anchor chain:
   - BUFFS anchors to the screen.
   - DEBUFFS anchors below BUFFS.
@@ -92,7 +90,6 @@ The TOC must load only this addon's active files and bundled libraries. The old 
 - Managed Config constrains Anchor choices to BUFFS SCREEN, DEBUFFS SCREEN/BUFFS, and ENCHANTMENTS SCREEN/DEBUFFS. Parented D/E offer only BELOW/LEFT/RIGHT; ABOVE and arbitrary targets are not offered.
 - Dropdowns should be preferred over cycle buttons for multi-choice position settings.
 - While a group title is being dragged, aura refresh/layout updates skip reapplying that group's position so it does not fight the mouse.
-- Dormant legacy Bars still contains its historical non-mutating cycle/self-anchor guard; do not reactivate or refactor it during unrelated cleanup.
 - General includes `Sync Group Bars`; when enabled, group bar settings sync across all groups except Anchor, Place, Offset X, and Offset Y.
 - General includes `Hide default Blizzard frames`; this is a best-effort legacy convenience toggle that hides/shows Blizzard aura frames out of combat without replacing Blizzard update logic. Blizzard Edit Mode remains the supported owner of default aura-frame visibility.
 - Hide default Blizzard frames is reapplied when Blizzard Edit Mode closes, with short delayed retries, because Edit Mode can show the default aura frames again after applying its layout.
@@ -121,7 +118,7 @@ The TOC must load only this addon's active files and bundled libraries. The old 
 - If the configuration frame is open when combat starts, it is hidden and restored after combat ends.
 - The configuration frame intentionally does not use profiles.
 - Managed AuraButtons own native supported tooltip and right-click cancellation behavior. Managed DEBUFFS is non-cancellable; the ordinary Fishing Lure footer has no cancellation path.
-- Dormant Bars still contains separate secure overlay, synthetic weapon-enchant, tooltip, and legacy anchoring code. None of it is initialized or active; remove it only in the dedicated Bars cleanup.
+- The retired legacy secure overlay, synthetic weapon-enchant bar, tooltip, and ordinary-bar anchoring implementation is no longer loaded or present. Do not replace it; managed cancellation remains Blizzard/native.
 
 ## Phase Notes
 - The MANAGED-only authority cutover is complete. Normal production validation passed fresh login, `/reload`, B/D/E presentation, many World Quests and Delves, heavy simultaneous aura populations, correct routing, and absence of duplicate legacy presentation or observed OBB Lua errors. An unrelated XML/Lua error was traced to CraftSim.
@@ -129,8 +126,8 @@ The TOC must load only this addon's active files and bundled libraries. The old 
 - Post-cutover cleanup Phase 2 is complete: raw SavedVariables remain history/Config authority; one copied runtime-only effective state interprets unsupported historical duration/topology for MANAGED without persistence; Config exposes only supported duration/topology; synthetic placement cannot be persisted by dragging; and legacy cycle fallback is non-mutating. Historical compatibility injection paths are source/static validated but not deliberately runtime injected.
 - Managed capability/readiness and partial-initialization hardening is complete. Historical pre-retirement diagnostics covered CAPABILITY, AFTER_DEBUFF_CONSTRUCTION, and INITIAL_E_DESCRIPTOR containment. After authority retirement, a temporary CAPABILITY injection specifically validated the final fail-closed contract: exactly one ERROR, MANAGED compatibility façade, retained FAILED reason, no managed or legacy aura UI, Config availability, and no observed OBB Lua errors. All temporary code was removed and the exact production blobs were restored before the final clean `/reload`.
 - Fishing Lure formatter extraction is complete and runtime validated for fresh login, normal managed presentation, an approximately 10-minute countdown, fishing-pole removal, and restoration without duplicate/stale presentation or an observed Lua error. Exact 90-second, 5400-second, and 129600-second boundaries are static-equivalence coverage, not claimed natural runtime tests.
-- Current phase: the next major cleanup is a read-only Bars/secure-overlay retirement audit, followed by explicit Bars removal if approved. Only after Bars no longer depends on Engine should Auras and its TOC entry be audited/removed. Temporary Config façade cleanup, the `ManagedPrototype` production rename, stale terminology cleanup, final Config polish, library review, licensing, and release metadata remain separate reviewable work.
-- The mature direct-scanning and ordinary-bar implementations are dormant compatibility/history backends. Do not reactivate them. Do not delete Bars before its external-callability and secure-overlay paths are reviewed, and do not delete Auras while dormant Bars retains Engine formatter dependencies unless that relationship is intentionally resolved.
+- The Bars/secure-overlay retirement audit, backend deletion, and fresh-`/reload` runtime matrix are complete. MANAGED B/D/E, normal routing/presentation, native cancellation, placement, and refresh remained functional; `OdysseusBuffBars.Bars` was nil; and no duplicate, Lua error, taint, blocked action, or restricted-layout error was observed. The next major cleanup is a read-only Auras/Engine retirement audit covering Config fallback use of `OBB.auraData`/filter rows, Engine external-callability, Core bootstrap state, TOC removal, and dead cache/scanner ownership. Temporary Config façade cleanup, the `ManagedPrototype` production rename, stale terminology cleanup, final Config polish, library review, licensing, and release metadata remain separate reviewable work.
+- The mature direct-scanning implementation remains a dormant compatibility/history backend. Do not reactivate or delete it before the isolated Auras/Engine audit proves its remaining Config/cache/bootstrap relationships.
 - Override Settings shape:
   - Store global aura overrides in `OdysseusBuffBarsDB`, not profiles.
   - Prefer `spellID` keys for overrides.
@@ -187,7 +184,7 @@ The TOC must load only this addon's active files and bundled libraries. The old 
   - ABOVE is intentionally unsupported in the managed architecture and retired from current Config choices. Do not implement it by reading dynamic managed height/bottom, polling, private layout hooks, or introducing a second content-height authority; reconsider only with a separately researched and runtime-validated bottom-owned/full-visible-bounds architecture.
   - Consume supported raw placement graphs exactly. For historical unsupported raw topology, build copied runtime-only effective placement: invalid B -> SCREEN using usable saved numeric x/y; invalid D -> BELOW B at 0,-8; invalid E -> BELOW D at 0,-8. Preserve every raw placement/parent/offset value until explicit Config correction; no schema field, automatic migration, or exact historical visual-equivalence claim.
   - Preserve serialized SCREEN roots through the narrow startup normalization: record an explicit raw placement with no raw parent before recursive defaults, then restore the intentional nil parent after defaults. Do not add a persistent discriminator, change generic defaults, or silently repair unsupported topology.
-  - Managed dragging moves only ordinary addon-owned hosts. Persist the real shared SCREEN coordinates through the inverse host translation and update copied managed applied placement state; do not call dormant legacy Bars positioning. Refuse drag persistence when the current managed SCREEN placement is a synthetic compatibility fallback.
+  - Managed dragging moves only ordinary addon-owned hosts. Persist the real shared SCREEN coordinates through the inverse host translation and update copied managed applied placement state; it has no legacy Bars positioning dependency. Refuse drag persistence when the current managed SCREEN placement is a synthetic compatibility fallback.
   - OBB SavedVariables are the sole persistent position authority for managed ordinary hosts. Do not allow WoW user-placed frame persistence to compete with them: make a host movable/resizable before calling `SetUserPlaced(false)`, and clear user-placed ownership again after drag persistence or safe post-combat restoration. Do not repair ownership conflicts with polling or managed-container geometry inspection.
   - The retired `showLegacyBars` and `legacyComparisonMode` SavedVariables remain dormant compatibility/history fields. They no longer have Config controls, affect presentation, or participate in renderer authority.
   - If background or chrome must follow the managed bounds, use a separate ordinary chrome frame and apply `DisableUntrustedLayoutScriptsTemplate` where required by the verified secure-layout design.
@@ -275,6 +272,6 @@ After aura-related changes, test at minimum:
 - Prefer one-file-at-a-time changes when actively debugging combat behavior.
 - Use `pcall` around risky C API calls that may reject secret/tainted input.
 - Avoid structural frame work in combat unless known safe.
-- Do not create or reconfigure secure cancel buttons during combat; defer those changes until `PLAYER_REGEN_ENABLED`.
-- Run `luacheck OdysseusBuffBars.lua OdysseusBuffBars_Auras.lua OdysseusBuffBars_Bars.lua OdysseusBuffBars_Config.lua` after Lua changes.
+- Managed cancellation remains Blizzard/native; do not reintroduce addon-owned secure cancel buttons.
+- Run `luacheck OdysseusBuffBars.lua OdysseusBuffBars_Auras.lua OdysseusBuffBars_Config.lua` after Lua changes.
   - The current baseline has many WoW-global warnings, but should report `0 errors`.

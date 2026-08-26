@@ -15,7 +15,8 @@ A standalone World of Warcraft Retail addon implementing a modern managed AuraCo
 - ✅ Managed readiness and partial-initialization hardening
 - ✅ MANAGED-only authority retirement and fail-closed startup
 - ✅ Managed Fishing Lure formatter extraction
-- 🚧 Dormant legacy backend/file cleanup
+- ✅ Dormant legacy Bars/secure-overlay retirement
+- 🚧 Dormant Auras/Engine retirement audit
 
 The managed Player BUFFS implementation has been validated across its historical PTR milestone and current Retail production work for the AuraContainer lifecycle, dynamic self-sizing, native sorting, native whitelist/blacklist filtering, automatic configuration synchronization, native tooltips, native right-click cancellation, and combat operation.
 
@@ -34,6 +35,8 @@ The managed module object always exists and exposes `ManagedPrototype:IsReady()`
 Final production testing passed fresh login, `/reload`, normal managed B/D/E presentation, many World Quests and Delves, simultaneous buffs/debuffs, correct routing, and duplicate-legacy suppression without observed OBB Lua errors. An unrelated XML/Lua error was traced to CraftSim. The retired `SetRendererAuthorityMode` and `SetGroupRendererAuthority` APIs were verified absent. A temporary post-cutover CAPABILITY injection then verified exactly one fail-closed startup ERROR, retained FAILED readiness, no managed or legacy aura UI, Config availability, and no observed OBB Lua errors. The hook was removed completely, the exact tested production blobs were restored, and a final clean `/reload` restored normal managed B/D/E presentation without failure, legacy display, duplicates, or errors.
 
 Managed Fishing Lure time formatting is now self-contained in `OdysseusBuffBars_ManagedPrototype.lua`; production MANAGED runtime no longer depends on `OBB.Engine`. The extraction preserved the historical 1.5-unit thresholds, upward rounding, exact suffixes, protected call, and empty-string degradation without changing lure discovery, events, timer cadence, expiration, combat deferral, or readiness. Runtime validation passed fresh login and normal managed B/D/E presentation; an applied lure appeared in ENCHANTMENTS with an approximately 10-minute countdown, disappeared when the fishing pole was removed from profession equipment, and returned when the pole was restored. The countdown remained stable, with no duplicate/stale lure or observed Lua error. The 90-second, 5400-second, and 129600-second boundaries were verified statically against the previous formatter rather than claimed as natural runtime coverage.
+
+The dormant legacy Bars backend and its separate secure cancellation overlays have been removed. OBB no longer loads or exposes legacy group/header/bar construction, legacy row timers/tooltips, or addon-owned `cancelaura`/target-slot overlays. Managed AuraButtons retain Blizzard/native cancellation, and the ordinary Fishing Lure footer remains intentionally non-cancellable. Fresh-`/reload` validation passed with normal MANAGED B/D/E, routing/presentation, native cancellation, placement, and refresh behavior; `OdysseusBuffBars.Bars` was nil; and no duplicate, Lua error, taint, blocked action, or restricted-layout error was observed. `OdysseusBuffBars_Auras.lua` remains loaded temporarily, but its `OBB.Engine` scanner/cache/formatter surface is fully isolated from active MANAGED runtime pending a dedicated read-only retirement audit.
 
 Post-cutover cleanup Phase 1 removed the `Show Legacy BuffBars (Development)` and `Legacy Comparison Mode (Development)` Config controls plus their runtime presentation offset/save compensation. Their existing defaulted SavedVariables remain preserved but dormant. Historical LEGACY/STAGED rollback and position-synchronization validation remains recorded in the migration history, but those operational paths are now retired.
 
@@ -61,6 +64,6 @@ Startup preserves intentional independent DEBUFFS/ENCHANTMENTS SCREEN roots acro
 - Visual parity — Validated across the three managed areas
 - Configuration integration — Managed BUFF destination filtering and the intentional broad/unfiltered D/E policies are runtime validated; the final parity audit and focused HELPFUL-routing investigation found no current routing implementation blocker
 - Production migration — MANAGED is the sole runtime renderer; READY-or-FAILED startup, fail-closed failure handling, mode/API retirement, managed-only refresh, legacy event/scan/render retirement, and managed-drag rollback synchronization removal are complete
-- Backend cleanup — The Fishing Lure formatter extraction is complete; next audit and retire dormant Bars/secure-overlay code, then audit/remove Auras and its TOC entry after the remaining Engine dependencies are gone
+- Backend cleanup — The Fishing Lure formatter extraction and dormant Bars/secure-overlay retirement are complete; next perform the read-only Auras/Engine retirement audit before considering Auras and its TOC entry for removal
 - Compatibility cleanup — Remove temporary Config façades only when Config no longer needs them; preserve historical SavedVariables until a deliberate schema decision
 - Production naming, Config polish, library review, licensing, and release metadata remain separate future work

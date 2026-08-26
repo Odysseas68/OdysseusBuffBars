@@ -16,6 +16,5 @@ Libs\LibSharedMedia-3.0\LibSharedMedia-3.0.lua
 
 OdysseusBuffBars.lua
 OdysseusBuffBars_Auras.lua
-OdysseusBuffBars_Bars.lua
 OdysseusBuffBars_Config.lua
 OdysseusBuffBars_ManagedPrototype.lua
