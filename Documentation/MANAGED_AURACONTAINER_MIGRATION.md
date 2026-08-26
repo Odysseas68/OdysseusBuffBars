@@ -1,6 +1,6 @@
 # Managed AuraContainer Migration
 
-Phase A, managed AuraButton presentation, Phase B.2 dynamic self-sizing, native managed behavior, the all-managed production cutover, readiness/partial-initialization hardening, and final renderer-authority retirement are validated. MANAGED is the sole production renderer. Startup is READY-or-FAILED: successful protected initialization commits complete B/D/E presentation; terminal failure leaves presentation inert, reports once, and attempts no alternate renderer until `/reload`. Retail Live also validates the final group-specific filtering policy: BUFFS retains destination filtering, while managed DEBUFFS and ENCHANTMENTS are intentionally broad/unfiltered. HELPFUL routing and hidden/group overrides remain ownership policy. The legacy Bars/secure-overlay backend is removed; Auras/Engine remains loaded but dormant pending a separate retirement audit.
+Phase A, managed AuraButton presentation, Phase B.2 dynamic self-sizing, native managed behavior, the all-managed production cutover, readiness/partial-initialization hardening, and final renderer-authority retirement are validated. MANAGED is the sole production renderer. Startup is READY-or-FAILED: successful protected initialization commits complete B/D/E presentation; terminal failure leaves presentation inert, reports once, and attempts no alternate renderer until `/reload`. Retail Live also validates the final group-specific filtering policy: BUFFS retains destination filtering, while managed DEBUFFS and ENCHANTMENTS are intentionally broad/unfiltered. HELPFUL routing and hidden/group overrides remain ownership policy. The legacy Bars/secure-overlay and Auras/Engine backends are removed and runtime validated.
 
 Evidence labels used below:
 
@@ -25,12 +25,12 @@ Current milestone status:
 | Historical development comparison workflow | Runtime validation is preserved as migration history. The controls, offset path, and authority switching are retired. |
 | Runtime renderer authority | MANAGED only. No mutable/per-group authority, mode setters, STAGED/LEGACY switching, legacy fallback, or SavedVariables authority field. The immutable `GetRendererAuthorityMode() -> "MANAGED"` façade remains temporarily for unchanged Config. |
 | Managed readiness and partial initialization | Complete. FAILED is terminal until `/reload`; startup fails closed. Historical three-path containment tests and the post-retirement CAPABILITY test are recorded below, with all injection code removed. |
-| Remaining production work | Read-only Auras/Engine retirement audit and possible later file/TOC removal; temporary Config façade cleanup; Core bootstrap cleanup; ManagedPrototype rename/terminology cleanup; final Config polish; library/licensing review; and release metadata remain separate tasks. |
+| Remaining production work | Read-only Core bootstrap / Config compatibility fallback audit; temporary Config façade cleanup; ManagedPrototype rename/terminology cleanup; final Config polish; library/licensing review; and release metadata remain separate tasks. |
 | Blizzard BuffFrame visibility during combat | Blizzard Edit Mode owns BuffFrame visibility; the supported user-facing solution is the Aura Frame visibility setting `Hidden`, while OBB's best-effort legacy toggle is not authoritative. |
 
 ## 1. Current Architecture
 
-The addon now has one runtime renderer: managed `CustomAuraContainer` production for BUFFS, DEBUFFS, and ENCHANTMENTS. Managed ENCHANTMENTS contains native item-enchantment sources and a separate managed HELPFUL aura group; HELPFUL entries are not converted into Blizzard item enchantments. A small ordinary fishing-lure row is anchored with ENCHANTMENTS as an explicit exception and is not a managed AuraButton. The standalone custom-bar backend is removed; the direct-scanning Auras/Engine implementation remains loaded but dormant and isolated from active MANAGED runtime.
+The addon now has one runtime renderer: managed `CustomAuraContainer` production for BUFFS, DEBUFFS, and ENCHANTMENTS. Managed ENCHANTMENTS contains native item-enchantment sources and a separate managed HELPFUL aura group; HELPFUL entries are not converted into Blizzard item enchantments. A small ordinary fishing-lure row is anchored with ENCHANTMENTS as an explicit exception and is not a managed AuraButton. The standalone custom-bar and direct-scanning Auras/Engine backends are removed.
 
 Runtime flow:
 
@@ -44,7 +44,7 @@ Config or explicit refresh
   > managed ApplyConfiguration()/RefreshManagedState() out of combat
 ```
 
-Core no longer registers player `UNIT_AURA`, `WEAPON_ENCHANT_CHANGED`, or `WEAPON_SLOT_CHANGED` for legacy rendering and never invokes `Engine:Scan()`. The deleted Bars backend and TOC entry leave no `OBB.Bars` namespace or legacy groups, headers, rows, timers, tooltips, positioning, or secure overlays. Managed Fishing Lure formatting is private to ManagedPrototype, so production MANAGED runtime has no `OBB.Engine` dependency; all remaining Engine references are self-contained in dormant Auras code pending its dedicated retirement audit.
+Core no longer registers player `UNIT_AURA`, `WEAPON_ENCHANT_CHANGED`, or `WEAPON_SLOT_CHANGED` for legacy rendering. The deleted Bars and Auras backends and TOC entries leave no `OBB.Bars`, `OBB.Engine`, legacy groups, headers, rows, timers, tooltips, positioning, secure overlays, direct aura scanner, or synthetic legacy weapon-enchantment scanner. Managed Fishing Lure formatting remains private to ManagedPrototype. Core's empty `OBB.auraData` compatibility table and Config's guarded legacy fallback reads remain temporarily unchanged; `OBB.filterAuraRows` has no production writer and may remain nil. No SavedVariables or schema migration was required.
 
 The immutable production authority is deliberately outside SavedVariables:
 
@@ -101,11 +101,7 @@ Key components:
   - Owns the managed-only refresh compatibility façade and no longer registers legacy aura/weapon renderer events.
   - Avoids Blizzard-frame visibility changes during combat.
 
-- [OdysseusBuffBars_Auras.lua](<D:/Program Files/Blizzard/World of Warcraft/_retail_/Interface/AddOns/OdysseusBuffBars/OdysseusBuffBars_Auras.lua:368>)
-  - Retains the dormant direct scanner/cache/synthetic-enchant backend with no production scan caller.
-  - Remains loaded temporarily with all `OBB.Engine`, scan, cache, formatter, and synthetic-enchant references self-contained and isolated from active MANAGED runtime pending a read-only retirement audit.
-
-- The retired `OdysseusBuffBars_Bars.lua` backend and TOC entry are absent. Its legacy ordinary group/bar, pooling, tooltip, positioning, timer, and secure-overlay implementation is no longer loaded or creatable through `OBB.Bars`; managed cancellation remains Blizzard/native.
+- The retired `OdysseusBuffBars_Bars.lua` and `OdysseusBuffBars_Auras.lua` backends and TOC entries are absent. Their legacy ordinary group/bar, pooling, tooltip, positioning, timer, secure-overlay, direct-scanner/cache/formatter, filter-row writer, and synthetic-enchantment implementations are no longer loaded or creatable through `OBB.Bars` or `OBB.Engine`; managed cancellation, routing/filtering, native enchants, and Fishing Lure behavior remain managed.
 
 - [OdysseusBuffBars_Config.lua](<D:/Program Files/Blizzard/World of Warcraft/_retail_/Interface/AddOns/OdysseusBuffBars/OdysseusBuffBars_Config.lua:701>)
   - Edits the three SavedVariables-backed groups.
@@ -704,14 +700,14 @@ Rollback: preserve existing SavedVariables fields and switch the group backend b
 Authority retirement is complete:
 
 - MANAGED is the sole production renderer; STAGED/LEGACY modes, mutable authority, setters, transition transactions, legacy pre-scan/fallback, and managed-to-legacy position synchronization are retired.
-- Startup is READY-or-FAILED and fails closed. The Bars backend is removed; Core does not invoke the legacy scanner or own legacy aura/weapon renderer events.
+- Startup is READY-or-FAILED and fails closed. The Bars and Auras/Engine backends are removed; Core owns no legacy aura/weapon renderer events.
 - `RefreshAll()`/`RefreshAuras()` are managed-only compatibility façades for unchanged callers.
 - Compatible SavedVariables fields remain preserved until a separate deliberate schema cleanup.
 - ABOVE remains absent from managed placement choices; historical raw values use only the copied runtime fallback until explicit user correction.
 
 The managed Fishing Lure formatter extraction is complete. It preserved the previous threshold/rounding/output and protected fallback semantics without changing discovery, events, timer, expiration, combat, or readiness behavior. Runtime validation passed fresh login, normal managed presentation, an approximately 10-minute lure countdown, fishing-pole removal, and restoration without duplicate/stale presentation or an observed Lua error; exact 90-second, 5400-second, and 129600-second boundaries were verified statically.
 
-The read-only Bars/secure-overlay audit, narrow Bars file/TOC retirement, and fresh-`/reload` runtime matrix are complete. MANAGED B/D/E, normal routing/presentation, native cancellation, placement, and refresh remained functional; `OdysseusBuffBars.Bars` was nil; and no duplicate, Lua error, taint, blocked action, or restricted-layout error was observed. The next dependency-ordered cleanup is a read-only audit of the dormant Auras scanner/cache/filter/classification backend, Config fallback use of `OBB.auraData`/filter rows, Engine external-callability, Core bootstrap state, and its TOC entry. Temporary Config façades and historical names remain separate later tasks.
+The read-only Bars/secure-overlay audit, narrow Bars file/TOC retirement, and fresh-`/reload` runtime matrix are complete. MANAGED B/D/E, normal routing/presentation, native cancellation, placement, and refresh remained functional; `OdysseusBuffBars.Bars` was nil; and no duplicate, Lua error, taint, blocked action, or restricted-layout error was observed. The later read-only Auras/Engine audit proved no production caller, required load-time action, active Config dependency, or migration requirement, and the Auras file and TOC entry are removed. Fresh-`/reload` validation passed normal MANAGED operation and B/D/E presentation with no legacy presentation or observed OBB Lua error; the deletion proofs returned `Engine: nil`, `auraData: table nil`, and `filterAuraRows: nil`. Core's empty `OBB.auraData` compatibility table and Config's guarded fallback reads remain temporarily unchanged; `OBB.filterAuraRows` has no production writer. The next dependency-ordered cleanup is a read-only Core bootstrap / Config compatibility fallback audit. Temporary Config façades and historical names remain separate later tasks.
 
 ## 6. Risk Register
 
@@ -746,7 +742,7 @@ The read-only Bars/secure-overlay audit, narrow Bars file/TOC retirement, and fr
 | E | Buffs, debuffs, enhancements, fishing bobber routing, fishing-lure apply/expire/reapply, independent positioning, chaining, and growth. |
 | F | Tooltip behavior, right-click cancellation, non-cancellable debuffs, enchant cancellation, combat interaction. |
 | G | Blizzard icons outside combat, during combat, after combat, after Edit Mode, and after reload. |
-| H | Passed authority and Bars-backend retirement: no production direct-scanner or Bars call sites, no legacy renderer events, READY-or-FAILED fail-closed startup, no authority setters/modes, successful post-retirement CAPABILITY and final clean-reload tests, `OdysseusBuffBars.Bars == nil`, normal managed behavior after deletion, and no observed duplicate/error/taint/blocked-action/restricted-layout regression. |
+| H | Passed authority plus Bars and Auras/Engine backend retirement: no production direct-scanner or Bars call sites, no legacy renderer events, READY-or-FAILED fail-closed startup, no authority setters/modes, successful post-retirement CAPABILITY and clean-reload tests, nil `OdysseusBuffBars.Bars` and `OdysseusBuffBars.Engine`, retained empty `auraData`, normally nil `filterAuraRows`, normal managed behavior after deletion, and no observed OBB Lua error from Auras retirement. |
 
 Every phase should also include LuaCheck, load/reload testing, Lua error capture, taint-log review, combat transitions, and static diff review when the directory is under Git.
 
@@ -766,4 +762,4 @@ Every phase should also include LuaCheck, load/reload testing, Lua error capture
 12. Which historical/internal `ManagedPrototype` names require a compatibility alias during the dedicated production rename?
 13. Can profession-tool lure cancellation be supported safely through a documented public path, and does slot 28 accept `C_PaperDollInfo.CancelTemporaryEnchantment` at runtime?
 
-The MANAGED-only authority migration, managed Fishing Lure formatter extraction, and Bars/secure-overlay retirement are complete and runtime validated. Blizzard-managed containers and AuraButtons are the sole B/D/E production renderer after normal READY startup; terminal failure is fail closed, `OdysseusBuffBars.Bars` is nil, production Core/Config/ManagedPrototype have no Engine dependency, and no Bars-deletion runtime regression was observed. The next cleanup boundary is a read-only Auras/Engine/file/TOC audit. Config façade cleanup, historical `ManagedPrototype` production rename, terminology cleanup, final Config polish, library/licensing review, and release preparation remain separate later phases.
+The MANAGED-only authority migration, managed Fishing Lure formatter extraction, Bars/secure-overlay retirement, and Auras/Engine retirement are complete and runtime validated. Blizzard-managed containers and AuraButtons are the sole B/D/E production renderer after normal READY startup; terminal failure is fail closed, `OdysseusBuffBars.Bars` and `OdysseusBuffBars.Engine` are absent, and no direct legacy scanner or synthetic legacy weapon-enchantment scanner remains. The Auras-deletion `/reload` retained normal B/D/E with no legacy presentation or observed OBB Lua error; `auraData` remained an empty table and `filterAuraRows` remained nil. The next cleanup boundary is a read-only Core bootstrap / Config compatibility fallback audit. Config façade cleanup, historical `ManagedPrototype` production rename, terminology cleanup, final Config polish, library/licensing review, and release preparation remain separate later phases.

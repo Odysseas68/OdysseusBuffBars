@@ -18,7 +18,7 @@ Production ENCHANTMENTS combines a seven-row managed `HelpfulEnhancements` HELPF
 
 Managed Fishing Lure time formatting is self-contained in ManagedPrototype and no longer calls `OBB.Engine`. The private helper preserves the historical 1.5-unit thresholds, upward rounding, exact suffixes, protected call, and empty-string fallback without changing discovery, profession-slot resolution, events, the 0.1-second timer cadence, expiration generation, combat deferral, or readiness. Runtime validation passed fresh login and normal managed presentation; an approximately 10-minute lure countdown appeared, disappeared when the fishing pole was removed from profession equipment, and returned after restoration without duplicate/stale presentation or an observed Lua error. Exact 90-second, 5400-second, and 129600-second semantics were verified statically against the previous formatter, not naturally runtime-tested.
 
-The dormant legacy Bars backend and its secure cancellation overlays are retired and no longer loaded. OBB production code cannot construct legacy groups, headers, rows, row timers/tooltips, or addon-owned `cancelaura`/target-slot overlays. Managed AuraButtons continue to use Blizzard/native cancellation, while the ordinary Fishing Lure footer remains non-cancellable. Fresh-`/reload` validation passed with normal MANAGED B/D/E, routing/presentation, native cancellation, placement, and refresh behavior; `OdysseusBuffBars.Bars` was nil; and no duplicate, Lua error, taint, blocked action, or restricted-layout error was observed. `OdysseusBuffBars_Auras.lua` remains loaded temporarily, but all `OBB.Engine` references are self-contained there and isolated from active MANAGED runtime pending a read-only Auras/Engine retirement audit.
+The legacy Bars backend, its secure cancellation overlays, and the dormant Auras/Engine backend are retired and no longer loaded. OBB production code cannot construct legacy groups, headers, rows, row timers/tooltips, addon-owned `cancelaura`/target-slot overlays, direct legacy aura scans, or synthetic legacy weapon-enchantment rows, and `OBB.Engine` no longer exists. Managed AuraButtons continue to use Blizzard/native cancellation; active routing/filtering and native enchant behavior remain managed; and the ordinary Fishing Lure footer plus its formatter remain local to ManagedPrototype. The Auras retirement required no SavedVariables/schema migration. Core temporarily retains an empty `OBB.auraData` compatibility table for Config's guarded fallback read; `OBB.filterAuraRows` has no production writer and may remain nil. Fresh-`/reload` validation passed normal MANAGED B/D/E presentation with no legacy presentation or observed OBB Lua error; `OdysseusBuffBars.Engine` was nil, `auraData` was an empty table, and `filterAuraRows` was nil.
 
 The public temporary-enchantment surface supplies slot, enchant ID, timing/expiration, charges, native row identity, cancellation slot, and equipped-item tooltip context, but no clean supported enchant-effect name. The addon therefore does not scrape tooltips, inspect private provider state, enumerate AuraButtons, or maintain hardcoded enchant-name data.
 
@@ -53,14 +53,13 @@ Only BUFFS exposes the managed Whitelist/Blacklist editor. Its `Current group au
 - Keep the addon small and focused on Retail aura research.
 - Preserve verified behavior and distinguish PTR evidence from shipped Live behavior.
 - Do not treat the legacy scanner's Retail 12.1 limitations as managed-frame failures.
-- Treat MANAGED-only authority and legacy Bars retirement as complete while keeping Auras/Engine audit/removal and release metadata as separate work.
+- Treat MANAGED-only authority plus legacy Bars and Auras/Engine retirement as complete. The next cleanup is a read-only Core bootstrap / Config compatibility fallback audit; release metadata remains separate work.
 - Do not add Classic support or unrelated addon systems.
 
 ## Repository layout
 
 - `OdysseusBuffBars.toc` — addon manifest and load order.
 - `OdysseusBuffBars.lua` — bootstrap, settings, events, and refresh coordination.
-- `OdysseusBuffBars_Auras.lua` — dormant legacy scanner/cache/filter/classification backend. Production MANAGED runtime no longer depends on it; all remaining `OBB.Engine` references are self-contained in this file pending a dedicated read-only retirement audit.
 - `OdysseusBuffBars_Config.lua` — native configuration interface and existing filter editor.
 - `OdysseusBuffBars_ManagedPrototype.lua` — production-critical managed BUFFS, DEBUFFS, and ENCHANTMENTS architecture, shared static presentation, semantic HELPFUL routing, native weapon enchantments, and the self-contained fishing-lure exception/formatter. Its historical filename may be evaluated during cleanup; this checkpoint does not rename or split it.
 - `Reference/` — frozen local reference material; it is not loaded by the addon.
