@@ -1559,8 +1559,7 @@ function Config:BuildGroupPage(page, settings)
 
     function page:Refresh()
         local enabled = not Config:IsCombatLocked()
-        local rendererMode = OBB.GetRendererAuthorityMode and OBB:GetRendererAuthorityMode()
-        local managedEnchantments = settings.id == 3 and rendererMode == "MANAGED"
+        local managedEnchantments = settings.id == 3
         SetSliderValue(page.controls.width, settings.width or 260)
         SetSliderValue(page.controls.height, settings.height or 18)
         SetSliderValue(page.controls.spacing, settings.spacing or 3)

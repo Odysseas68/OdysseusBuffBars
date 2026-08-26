@@ -130,10 +130,6 @@ function OBB:GetSettings()
     return self.db
 end
 
-function OBB:GetRendererAuthorityMode()
-    return "MANAGED"
-end
-
 function OBB:ReportManagedRendererFailure(reason)
     if self.managedRendererFailureReported then
         return
