@@ -201,9 +201,9 @@ local function GetGroupByID(id)
 end
 
 local function GetManagedCompatibilityState()
-    local managedPrototype = OBB.ManagedPrototype
-    if managedPrototype and managedPrototype.GetCompatibilityState then
-        return managedPrototype:GetCompatibilityState()
+    local managed = OBB.Managed
+    if managed and managed.GetCompatibilityState then
+        return managed:GetCompatibilityState()
     end
     return {
         active = false,
@@ -274,9 +274,9 @@ local function EnsureGroupFilters(settings)
 end
 
 local function RefreshManagedHelpfulCandidateFilters()
-    local managedPrototype = OBB.ManagedPrototype
-    if managedPrototype and managedPrototype.RefreshCandidateFilters then
-        managedPrototype:RefreshCandidateFilters()
+    local managed = OBB.Managed
+    if managed and managed.RefreshCandidateFilters then
+        managed:RefreshCandidateFilters()
     end
 end
 
@@ -327,9 +327,9 @@ end
 
 local function GetCurrentAuraFilterRows(settings)
     if settings.id == 1 or settings.id == 3 then
-        local managedPrototype = OBB.ManagedPrototype
-        if managedPrototype and managedPrototype.GetCurrentHelpfulAuraFilterRows then
-            local rows = managedPrototype.GetCurrentHelpfulAuraFilterRows(settings.id)
+        local managed = OBB.Managed
+        if managed and managed.GetCurrentHelpfulAuraFilterRows then
+            local rows = managed.GetCurrentHelpfulAuraFilterRows(settings.id)
             if type(rows) == "table" then
                 return rows
             end
@@ -725,10 +725,10 @@ function Config:Apply()
     end
     local refreshSuccess = OBB:RefreshAll()
     if not refreshSuccess
-        and OBB.ManagedPrototype
-        and OBB.ManagedPrototype.ApplyConfiguration
+        and OBB.Managed
+        and OBB.Managed.ApplyConfiguration
     then
-        OBB.ManagedPrototype:ApplyConfiguration("config apply")
+        OBB.Managed:ApplyConfiguration("config apply")
     end
     if self.frame and self.frame:IsShown() then
         local page = self.pages[OBB.db.config.page]
@@ -1258,9 +1258,9 @@ function Config:BuildGeneralPage(page)
         syncBars:SetChecked(OBB.db.syncGroupBars)
         hideBlizzard:SetChecked(OBB.db.hideBlizzardFrames)
         if compatibilityState.active then
-            local summary = OBB.ManagedPrototype
-                and OBB.ManagedPrototype.GetCompatibilitySummary
-                and OBB.ManagedPrototype:GetCompatibilitySummary()
+            local summary = OBB.Managed
+                and OBB.Managed.GetCompatibilitySummary
+                and OBB.Managed:GetCompatibilitySummary()
                 or ""
             compatibilityStatus:SetText(
                 "Compatibility action required: historical settings are being interpreted temporarily."

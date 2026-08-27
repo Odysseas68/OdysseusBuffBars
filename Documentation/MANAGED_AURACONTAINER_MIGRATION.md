@@ -1,6 +1,6 @@
 # Managed AuraContainer Migration
 
-Phase A, managed AuraButton presentation, Phase B.2 dynamic self-sizing, native managed behavior, the all-managed production cutover, readiness/partial-initialization hardening, and final renderer-authority retirement are validated. MANAGED is the sole production renderer. Startup is READY-or-FAILED: successful protected initialization commits complete B/D/E presentation; terminal failure leaves presentation inert, reports once, and attempts no alternate renderer until `/reload`. Retail Live also validates the final group-specific filtering policy: BUFFS retains destination filtering, while managed DEBUFFS and ENCHANTMENTS are intentionally broad/unfiltered. HELPFUL routing and hidden/group overrides remain ownership policy. The legacy Bars/secure-overlay and Auras/Engine backends are removed and runtime validated.
+Phase A, managed AuraButton presentation, Phase B.2 dynamic self-sizing, native managed behavior, the all-managed production cutover, readiness/partial-initialization hardening, final renderer-authority retirement, and the atomic production file/namespace rename are validated. MANAGED is the sole production renderer. Its current implementation is `OdysseusBuffBars_Managed.lua`, exposed as `OBB.Managed`. Startup is READY-or-FAILED: successful protected initialization commits complete B/D/E presentation; terminal failure leaves presentation inert, reports once, and attempts no alternate renderer until `/reload`. Retail Live also validates the final group-specific filtering policy: BUFFS retains destination filtering, while managed DEBUFFS and ENCHANTMENTS are intentionally broad/unfiltered. HELPFUL routing and hidden/group overrides remain ownership policy. The legacy Bars/secure-overlay and Auras/Engine backends are removed and runtime validated.
 
 Evidence labels used below:
 
@@ -25,7 +25,7 @@ Current milestone status:
 | Historical development comparison workflow | Runtime validation is preserved as migration history. The controls, offset path, and authority switching are retired. |
 | Runtime renderer authority | MANAGED only. No mutable/per-group authority, query/setter API, STAGED/LEGACY switching, legacy fallback, or SavedVariables authority field. Config derives ENCHANTMENTS' fixed managed Sort/Max state directly from group 3. |
 | Managed readiness and partial initialization | Complete. FAILED is terminal until `/reload`; startup fails closed. Historical three-path containment tests and the post-retirement CAPABILITY test are recorded below, with all injection code removed. |
-| Remaining production work | The duplicate Config refresh/application audit and conditional fallback cleanup are complete. Updated Live source review, historical-default review, ManagedPrototype rename/terminology cleanup, final Config polish, library/licensing review, and release metadata remain separate later tasks. |
+| Remaining production work | The duplicate Config refresh/application audit, historical-default cleanup, and atomic production rename are complete. Internal prototype terminology cleanup, diagnostic-retention review, final Config polish, library/licensing review, and release metadata remain separate later tasks. |
 | Blizzard BuffFrame visibility during combat | Blizzard Edit Mode owns BuffFrame visibility; the supported user-facing solution is the Aura Frame visibility setting `Hidden`, while OBB's best-effort legacy toggle is not authoritative. |
 
 ## 1. Current Architecture
@@ -37,14 +37,14 @@ Runtime flow:
 ```text
 WoW events
   > Blizzard managed AuraContainer lifecycle owns active aura presentation
-  > ManagedPrototype owns semantic/native/Fishing Lure recovery
+  > OBB.Managed owns semantic/native/Fishing Lure recovery
 
 Config or explicit refresh
   > Core RefreshAll() managed coordinator
   > managed ApplyConfiguration()/RefreshManagedState() out of combat
 ```
 
-Core no longer registers player `UNIT_AURA`, `WEAPON_ENCHANT_CHANGED`, or `WEAPON_SLOT_CHANGED` for legacy rendering. The deleted Bars and Auras backends and TOC entries leave no `OBB.Bars`, `OBB.Engine`, legacy groups, headers, rows, timers, tooltips, positioning, secure overlays, direct aura scanner, or synthetic legacy weapon-enchantment scanner. Managed Fishing Lure formatting remains private to ManagedPrototype. The subsequent cache cleanup removed Core's obsolete `OBB.groups`, `OBB.bars`, and `OBB.auraData` tables and Config's guarded `OBB.filterAuraRows`/`OBB.auraData` current-row fallback. Managed ID 1/3 discovery remains authoritative, unsupported group requests return no compatibility-cache rows, and no SavedVariables or schema migration was required.
+Core no longer registers player `UNIT_AURA`, `WEAPON_ENCHANT_CHANGED`, or `WEAPON_SLOT_CHANGED` for legacy rendering. The deleted Bars and Auras backends and TOC entries leave no `OBB.Bars`, `OBB.Engine`, legacy groups, headers, rows, timers, tooltips, positioning, secure overlays, direct aura scanner, or synthetic legacy weapon-enchantment scanner. Managed Fishing Lure formatting remains private to `OBB.Managed`. The subsequent cache cleanup removed Core's obsolete `OBB.groups`, `OBB.bars`, and `OBB.auraData` tables and Config's guarded `OBB.filterAuraRows`/`OBB.auraData` current-row fallback. Managed ID 1/3 discovery remains authoritative, unsupported group requests return no compatibility-cache rows, and no SavedVariables or schema migration was required.
 
 The immutable production authority is deliberately outside SavedVariables:
 
@@ -74,7 +74,7 @@ Successful readiness calls one unconditional managed presentation commit: all th
 
 ### Managed readiness and partial-initialization hardening
 
-The managed module object always exists. `ManagedPrototype:IsReady()` reports successful readiness or a retained reason across uninitialized, initializing, ready, and failed lifecycle states. FAILED is terminal for the session: same-session reconstruction is unavailable and `/reload` is required.
+The managed module object always exists at `OBB.Managed`. `OBB.Managed:IsReady()` reports successful readiness or a retained reason across uninitialized, initializing, ready, and failed lifecycle states. FAILED is terminal for the session: same-session reconstruction is unavailable and `/reload` is required.
 
 Static startup validation checks required current Retail AuraContainer sort/direction members, FlowLayout members, item-enchantment slot/sort/placement members, safety APIs, timer APIs, HELPFUL discovery APIs, spell metadata APIs, and temporary-enchantment APIs. Template availability and required constructed-object methods are validated inside the protected hidden construction boundary because no supported generic template introspection API is used. Runtime/degraded failures remain separate from structural capability failures.
 
@@ -94,6 +94,8 @@ Before authority retirement, temporary diagnostics exercised three fatal contain
 
 The historical selector, allowed-value helper/table, every injection branch/site, and every diagnostic-only failure-injection API were removed afterward. After authority retirement, the separate CAPABILITY fail-closed test described above was likewise removed completely. All injection strings are absent from production code, the tested production blobs were restored exactly, and a final clean `/reload` returned to MANAGED. No temporary hook exists in the checkpointed implementation.
 
+The later atomic production rename changed only the active filename and module identity: `OdysseusBuffBars_ManagedPrototype.lua` became `OdysseusBuffBars_Managed.lua`, `OBB.ManagedPrototype` became `OBB.Managed`, and the undocumented `OBB.managedAuraPrototype` alias was retired without a compatibility shim. No supported external consumer was identified, the TOC load position and SavedVariables/schema remained unchanged, and static plus focused runtime validation passed. Runtime namespace proof returned `Managed: table`, `ManagedPrototype: nil`, and `managedAuraPrototype: nil`; normal behavior, filters, automatic refresh/lifecycle activity, combat/loading transitions, screen-root dragging, anchored-group drag refusal without a required chat warning, and the renamed semantic-routing diagnostic completed without an observed duplicate, OBB Lua error, taint, blocked action, or restricted-layout error. `/obb refresh` produced no error and no obvious visual change because managed state was already synchronized. The diagnostic classified spell ID `1234969` (`Ethereal Augmentation`) as `AUGMENT_RUNE`, produced a one-ID discovered routing set, and reported that routing was already synchronized. MainHand/OffHand and Fishing Lure were not newly required or claimed for this naming checkpoint.
+
 Key components:
 
 - [OdysseusBuffBars.lua](<D:/Program Files/Blizzard/World of Warcraft/_retail_/Interface/AddOns/OdysseusBuffBars/OdysseusBuffBars.lua:191>)
@@ -109,9 +111,13 @@ Key components:
   - Displays copied runtime compatibility truth without rewriting historical unsupported raw values; explicit user selection is the only persistence path for a supported replacement.
   - Conservatively prevents configuration mutation in combat.
 
+- [OdysseusBuffBars_Managed.lua](<D:/Program Files/Blizzard/World of Warcraft/_retail_/Interface/AddOns/OdysseusBuffBars/OdysseusBuffBars_Managed.lua>)
+  - Exposes `OBB.Managed`, the sole production B/D/E renderer/runtime owner.
+  - Owns readiness, managed construction and containment, HELPFUL routing/filter composition, native enchant recovery, Fishing Lure behavior, managed hosts/layout, and current diagnostics.
+
 ### Phase 2 runtime-only compatibility bridge
 
-Raw `OdysseusBuffBarsDB` group tables remain the historical and Config authority. `ManagedPrototype` deep-copies each B/D/E group into one effective runtime set. Managed duration compilation, placement construction, startup validation/configuration, and live apply use those copies. Compatibility state records affected groups plus raw/effective interpretations, and public access returns another copy. No compatibility SavedVariables, schema version, migration field, or backup field exists.
+Raw `OdysseusBuffBarsDB` group tables remain the historical and Config authority. `OBB.Managed` deep-copies each B/D/E group into one effective runtime set. Managed duration compilation, placement construction, startup validation/configuration, and live apply use those copies. Compatibility state records affected groups plus raw/effective interpretations, and public access returns another copy. No compatibility SavedVariables, schema version, migration field, or backup field exists.
 
 Supported raw state is consumed exactly. BUFF ALL remains ALL and TIMED_ONLY remains TIMED_ONLY. Historical TIMELESS_ONLY/NONE becomes effective ALL. Invalid BUFFS topology becomes effective SCREEN using usable saved numeric x/y; invalid DEBUFFS becomes BELOW BUFFS at `0,-8`; invalid ENCHANTMENTS becomes BELOW DEBUFFS at `0,-8`. These fallbacks do not promise historical visual equivalence and never write raw parent, placement, coordinates, or offsets.
 
@@ -253,17 +259,17 @@ This accepted baseline is no longer static after startup. The normal out-of-comb
 
 ### Configuration synchronization checkpoints
 
-Managed initialization no longer occurs at Lua file-load time. `OBB:OnAddonLoaded()` first adopts SavedVariables, fills defaults, runs migrations, normalizes group fields, and establishes `OBB.db`. It then calls the idempotent `ManagedPrototype:Initialize()`:
+Managed initialization no longer occurs at Lua file-load time. `OBB:OnAddonLoaded()` first adopts SavedVariables, fills defaults, runs migrations, normalizes group fields, and establishes `OBB.db`. It then calls the idempotent `OBB.Managed:Initialize()`:
 
 ```text
 ADDON_LOADED
 -> SavedVariables adoption/defaults/migrations
 -> group normalization and OBB.db readiness
--> ManagedPrototype:Initialize()
+-> OBB.Managed:Initialize()
 -> managed hosts/containers/event frames/fishing-lure row construction
 ```
 
-No managed frames, containers, event frames, or lure rows are constructed when `OdysseusBuffBars_ManagedPrototype.lua` is loaded. Initialization builds prototype-owned copied configuration/style data. Complete RGBA tables are copied and validated; the managed backend does not retain mutable SavedVariables color-table references.
+No managed frames, containers, event frames, or lure rows are constructed when `OdysseusBuffBars_Managed.lua` is loaded. Initialization builds prototype-owned copied configuration/style data. Complete RGBA tables are copied and validated; the managed backend does not retain mutable SavedVariables color-table references.
 
 The startup snapshot consumes the following compatible settings for BUFFS, DEBUFFS, and ENCHANTMENTS:
 
@@ -290,10 +296,10 @@ existing config mutation / syncGroupBars fan-out
 -> SavedVariables update
 -> Config:Apply()
    +- OBB:RefreshAll()                         (managed-only coordinator)
-   L- ManagedPrototype:ApplyConfiguration()    (unchanged compatibility call)
+   L- OBB.Managed:ApplyConfiguration()         (failed-transaction fallback)
 ```
 
-Config remains unchanged in the authority-retirement checkpoint, so its direct managed apply currently follows the Core coordinator. That redundant compatibility surface is a later isolated Config cleanup target.
+The later Config sequencing cleanup captures the `RefreshAll()` result: successful transactions suppress the former duplicate direct managed follow-up, while failed transactions retain the existing Apply/candidate call as a narrow fallback.
 
 `ApplyConfiguration()` currently reads and live-applies only:
 
@@ -621,7 +627,7 @@ Dynamic managed routing:
 - The final prototype has no hardcoded routing spell-ID list. The temporary control route for `1232325` was removed; discovered IDs are session-only, are not persisted, add no SavedVariables, and do not create a historical enhancement database.
 - Item IDs are not treated as aura spell IDs. Bloom Skewers item ID `242302` was never used in candidate filters; the observed active Well Fed aura spell ID was `1232325`.
 - Discovered membership remains semantic source state. The authoritative compiler combines it with higher-precedence overrides and destination filters to produce both effective descriptors. The auras remain managed HELPFUL entries, move between OBB presentation groups, and are not duplicated.
-- Automatic discovery runs on `PLAYER_ENTERING_WORLD` and player-filtered `UNIT_AURA`. Restricted update payloads are not parsed for semantic discovery; the prototype performs a safe full HELPFUL rediscovery. No polling or continuous `OnUpdate` scanner is used. The manual diagnostic remains `/run OdysseusBuffBars.ManagedPrototype.DiscoverAndApplyHelpfulEnhancementRouting()`.
+- Automatic discovery runs on `PLAYER_ENTERING_WORLD` and player-filtered `UNIT_AURA`. Restricted update payloads are not parsed for semantic discovery; the prototype performs a safe full HELPFUL rediscovery. No polling or continuous `OnUpdate` scanner is used. The current manual diagnostic is `/run OdysseusBuffBars.Managed.DiscoverAndApplyHelpfulEnhancementRouting()`.
 - Semantic membership and the last successfully applied complete candidate descriptor snapshot are retained separately. Equality is membership-based. Unchanged discovery remains silent, but setter suppression occurs only when the complete BUFF/E descriptors already match; an empty semantic set remains meaningful and clears stale semantic ownership without discarding overrides or filters.
 
 Runtime evidence:
@@ -762,7 +768,7 @@ Every phase should also include LuaCheck, load/reload testing, Lua error capture
 9. What final Config polish remains useful after authority retirement without reopening unsupported topology?
 10. Does an actual private player HARMFUL aura traverse the verified default public-plus-private source path with correct presentation, sorting, tooltip, and removal behavior on Retail Live?
 11. Is one container per group acceptable under realistic multi-group combat load?
-12. Which historical/internal `ManagedPrototype` names require a compatibility alias during the dedicated production rename?
+12. Which remaining historical/internal prototype terms should be cleaned cosmetically without erasing chronology, and which preserved research/debug diagnostics should remain?
 13. Can profession-tool lure cancellation be supported safely through a documented public path, and does slot 28 accept `C_PaperDollInfo.CancelTemporaryEnchantment` at runtime?
 
-The MANAGED-only authority migration, managed Fishing Lure formatter extraction, Bars/secure-overlay retirement, Auras/Engine retirement, legacy runtime-cache cleanup, renderer-authority query-façade retirement, `RefreshAuras()` compatibility-alias retirement, successful-path Config refresh deduplication, and dormant renderer-era defaults retirement are complete and runtime validated to their recorded boundaries. Blizzard-managed containers and AuraButtons are the sole B/D/E production renderer after normal READY startup; terminal failure is fail closed, `OdysseusBuffBars.Bars` and `OdysseusBuffBars.Engine` are absent, and no direct legacy scanner, synthetic legacy weapon-enchantment scanner, legacy cache fallback, authority query/setter API, `RefreshAuras()` alias, or production default/reader/writer for `showLegacyBars` or `legacyComparisonMode` remains. `RefreshAll()` remains the central managed coordinator. The historical Auras-deletion `/reload` retained an empty `auraData` table and nil `filterAuraRows`; the later focused cache-cleanup `/reload` confirmed `groups`, `bars`, `auraData`, and `filterAuraRows` all nil. Alias-retirement validation confirmed `RefreshAll` was a function and `RefreshAuras` was nil. The sequencing checkpoint retained direct Config managed calls only as failed-transaction fallbacks. The defaults checkpoint retained existing `showLegacyBars=false` and `legacyComparisonMode=true` copies without runtime effect or destructive cleanup. Updated Live source review remains separate BlizzardResearch work; the next clean OBB architectural task is the `ManagedPrototype` production rename and terminology cleanup, followed separately by final Config polish, library/licensing work, OdysseusDebugConsole, and release preparation.
+The MANAGED-only authority migration, managed Fishing Lure formatter extraction, Bars/secure-overlay retirement, Auras/Engine retirement, legacy runtime-cache cleanup, renderer-authority query-façade retirement, `RefreshAuras()` compatibility-alias retirement, successful-path Config refresh deduplication, dormant renderer-era defaults retirement, and atomic production file/namespace rename are complete and runtime validated to their recorded boundaries. Blizzard-managed containers and AuraButtons are the sole B/D/E production renderer after normal READY startup; the active implementation is `OdysseusBuffBars_Managed.lua` / `OBB.Managed`; terminal failure is fail closed; `OdysseusBuffBars.Bars`, `OdysseusBuffBars.Engine`, `OBB.ManagedPrototype`, and `OBB.managedAuraPrototype` are absent; and no direct legacy scanner, synthetic legacy weapon-enchantment scanner, legacy cache fallback, authority query/setter API, `RefreshAuras()` alias, or production default/reader/writer for `showLegacyBars` or `legacyComparisonMode` remains. `RefreshAll()` remains the central managed coordinator. The historical Auras-deletion `/reload` retained an empty `auraData` table and nil `filterAuraRows`; the later focused cache-cleanup `/reload` confirmed `groups`, `bars`, `auraData`, and `filterAuraRows` all nil. Alias-retirement validation confirmed `RefreshAll` was a function and `RefreshAuras` was nil. The sequencing checkpoint retained direct Config managed calls only as failed-transaction fallbacks. The defaults checkpoint retained existing `showLegacyBars=false` and `legacyComparisonMode=true` copies without runtime effect or destructive cleanup. No SavedVariables migration or compatibility shim was required for the managed rename. Internal prototype terminology cleanup and diagnostic-retention review remain separate from final Config polish, library/licensing work, OdysseusDebugConsole, and release preparation.

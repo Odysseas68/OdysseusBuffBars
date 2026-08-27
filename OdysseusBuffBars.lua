@@ -202,11 +202,11 @@ function OBB:RefreshAll(reason)
     if not self.db then
         return false, "database unavailable"
     end
-    local managedPrototype = self.ManagedPrototype
-    if not managedPrototype or not managedPrototype.IsReady then
+    local managed = self.Managed
+    if not managed or not managed.IsReady then
         return false, "managed renderer unavailable"
     end
-    local ready, readinessReason = managedPrototype:IsReady()
+    local ready, readinessReason = managed:IsReady()
     if not ready then
         return false, readinessReason
     end
@@ -214,15 +214,15 @@ function OBB:RefreshAll(reason)
         return true, "managed lifecycle remains framework-owned in combat"
     end
 
-    if not managedPrototype.ApplyConfiguration then
+    if not managed.ApplyConfiguration then
         return false, "managed configuration refresh unavailable"
     end
-    local applySuccess, applyReason = managedPrototype:ApplyConfiguration(reason or "managed refresh")
+    local applySuccess, applyReason = managed:ApplyConfiguration(reason or "managed refresh")
     if not applySuccess then
         return false, applyReason or "managed configuration refresh failed"
     end
-    if managedPrototype.RefreshManagedState then
-        return managedPrototype:RefreshManagedState(reason or "managed refresh")
+    if managed.RefreshManagedState then
+        return managed:RefreshManagedState(reason or "managed refresh")
     end
     return true
 end
@@ -305,16 +305,16 @@ function OBB:OnAddonLoaded(name)
 
     local managedStartupReady = false
     local managedStartupReason = "managed renderer module unavailable"
-    local managedPrototype = self.ManagedPrototype
-    if managedPrototype and managedPrototype.Initialize and managedPrototype.IsReady then
+    local managed = self.Managed
+    if managed and managed.Initialize and managed.IsReady then
         local initializeCallSuccess, initializeSuccess, initializeReason = pcall(
-            managedPrototype.Initialize,
-            managedPrototype
+            managed.Initialize,
+            managed
         )
         if initializeCallSuccess and initializeSuccess then
             local readinessCallSuccess, ready, readinessReason = pcall(
-                managedPrototype.IsReady,
-                managedPrototype
+                managed.IsReady,
+                managed
             )
             managedStartupReady = readinessCallSuccess and ready == true
             managedStartupReason = readinessCallSuccess
@@ -343,8 +343,8 @@ function OBB:ToggleAnchors()
         return
     end
     self.db.anchorsShown = not self.db.anchorsShown
-    if self.ManagedPrototype and self.ManagedPrototype.ApplyHeaderVisibility then
-        self.ManagedPrototype:ApplyHeaderVisibility()
+    if self.Managed and self.Managed.ApplyHeaderVisibility then
+        self.Managed:ApplyHeaderVisibility()
     end
 end
 

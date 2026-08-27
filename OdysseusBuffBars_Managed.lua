@@ -6,9 +6,8 @@ end
 
 OBB.ENABLE_MANAGED_AURA_PROTOTYPE = true
 
-local ManagedPrototype = {}
-OBB.ManagedPrototype = ManagedPrototype
-OBB.managedAuraPrototype = ManagedPrototype
+local Managed = {}
+OBB.Managed = Managed
 
 local BUFF_BAR_SPACING = 3
 local BUFF_BAR_STYLE = {
@@ -200,7 +199,7 @@ local managedCallbackGeneration = 0
 local MANAGED_BUFF_DURATION_MODE_ALL = "ALL"
 local MANAGED_BUFF_DURATION_MODE_TIMED_ONLY = "TIMED_ONLY"
 
-function ManagedPrototype:IsReady()
+function Managed:IsReady()
     if self.failed then
         return false, self.failureReason or "managed renderer failed"
     end
@@ -632,7 +631,7 @@ local function RefreshManagedCompatibilityState(prototype)
 end
 
 local function GetEffectiveGroupSettings(groupID)
-    local settingsByID = ManagedPrototype.effectiveGroupSettingsByID
+    local settingsByID = Managed.effectiveGroupSettingsByID
     return settingsByID and settingsByID[groupID] or nil
 end
 
@@ -659,8 +658,8 @@ local function ValidateManagedEffectiveSettings()
 end
 
 local function GetManagedCompatibilityIssue(groupID, kind)
-    local groupState = ManagedPrototype.compatibilityState
-        and ManagedPrototype.compatibilityState.groups[groupID]
+    local groupState = Managed.compatibilityState
+        and Managed.compatibilityState.groups[groupID]
     for _, issue in ipairs(groupState and groupState.issues or {}) do
         if issue.kind == kind then
             return issue
@@ -695,14 +694,14 @@ local function ReportManagedCompatibilityWarning(prototype)
     )
 end
 
-function ManagedPrototype:GetCompatibilityState()
+function Managed:GetCompatibilityState()
     return CopyManagedCompatibilityValue(self.compatibilityState or {
         active = false,
         groups = {},
     })
 end
 
-function ManagedPrototype:GetCompatibilitySummary()
+function Managed:GetCompatibilitySummary()
     return BuildManagedCompatibilitySummary(self.compatibilityState)
 end
 
@@ -1353,8 +1352,8 @@ local function CompileCurrentManagedCandidateFilterState()
     )
 end
 
-function ManagedPrototype.GetCurrentHelpfulAuraFilterRows(groupID)
-    if not ManagedPrototype:IsReady() then
+function Managed.GetCurrentHelpfulAuraFilterRows(groupID)
+    if not Managed:IsReady() then
         return {}
     end
 
@@ -1389,7 +1388,7 @@ function ManagedPrototype.GetCurrentHelpfulAuraFilterRows(groupID)
     return rows
 end
 
-function ManagedPrototype:RefreshCandidateFilters(allowInitializing)
+function Managed:RefreshCandidateFilters(allowInitializing)
     local canMutate, readinessReason = CanMutateManagedPrototype(self, allowInitializing)
     if not canMutate then
         return false, readinessReason
@@ -1540,7 +1539,7 @@ local function HasSemanticMarker(nameText, descriptionText, marker)
     return false
 end
 
-function ManagedPrototype.ClassifyHelpfulEnhancement(spellID)
+function Managed.ClassifyHelpfulEnhancement(spellID)
     if not IsReadableDiagnosticValue(spellID) or type(spellID) ~= "number" then
         return nil
     end
@@ -1571,7 +1570,7 @@ function ManagedPrototype.ClassifyHelpfulEnhancement(spellID)
     return nil
 end
 
-function ManagedPrototype.DumpHelpfulEnhancementClassifications()
+function Managed.DumpHelpfulEnhancementClassifications()
     if _G.InCombatLockdown and _G.InCombatLockdown() then
         PrintDiagnostic("run this classification diagnostic out of combat")
         return
@@ -1600,7 +1599,7 @@ function ManagedPrototype.DumpHelpfulEnhancementClassifications()
             if IsReadableDiagnosticValue(spellID) and type(spellID) == "number" then
                 local classificationSuccess
                 classificationSuccess, classification = pcall(
-                    ManagedPrototype.ClassifyHelpfulEnhancement,
+                    Managed.ClassifyHelpfulEnhancement,
                     spellID
                 )
                 if not classificationSuccess
@@ -1651,7 +1650,7 @@ local function CollectCurrentReadableHelpfulAuraState(auras, printDetails)
                 }
 
                 local classificationSuccess, classification = pcall(
-                    ManagedPrototype.ClassifyHelpfulEnhancement,
+                    Managed.ClassifyHelpfulEnhancement,
                     spellID
                 )
                 if not classificationSuccess then
@@ -1706,7 +1705,7 @@ local function RefreshOpenManagedHelpfulFilterEditor()
 end
 
 local function RunHelpfulEnhancementDiscovery(printDetails)
-    local ready, readinessReason = ManagedPrototype:IsReady()
+    local ready, readinessReason = Managed:IsReady()
     if not ready then
         return false, nil, readinessReason
     end
@@ -1754,8 +1753,8 @@ local function RunHelpfulEnhancementDiscovery(printDetails)
     currentReadableHelpfulAuraRows = readableAuraRows
 
     local applySuccess, applied, compositionChanged = pcall(
-        ManagedPrototype.RefreshCandidateFilters,
-        ManagedPrototype
+        Managed.RefreshCandidateFilters,
+        Managed
     )
     if not applySuccess or not applied then
         return false, nil, "managed filter application failed"
@@ -1765,8 +1764,8 @@ local function RunHelpfulEnhancementDiscovery(printDetails)
     return true, #discoveredSpellIDList, nil, routingChanged or compositionChanged
 end
 
-function ManagedPrototype.DiscoverAndApplyHelpfulEnhancementRouting()
-    local ready, readinessReason = ManagedPrototype:IsReady()
+function Managed.DiscoverAndApplyHelpfulEnhancementRouting()
+    local ready, readinessReason = Managed:IsReady()
     if not ready then
         return false, readinessReason
     end
@@ -2019,7 +2018,7 @@ local function ScheduleFishingLureExpirationRefresh(row, remainingSeconds)
     local lifecycleGeneration = managedCallbackGeneration
     timerAPI.After(remainingSeconds + FISHING_LURE_TIMER_INTERVAL, function()
         if lifecycleGeneration ~= managedCallbackGeneration
-            or not ManagedPrototype:IsReady()
+            or not Managed:IsReady()
             or row.expirationRefreshGeneration ~= generation
             or not row:IsShown()
         then
@@ -2030,7 +2029,7 @@ local function ScheduleFishingLureExpirationRefresh(row, remainingSeconds)
 end
 
 local function UpdateFishingLureTimer(row, elapsed)
-    if not ManagedPrototype:IsReady() then
+    if not Managed:IsReady() then
         return
     end
     row.timerElapsed = (row.timerElapsed or 0) + elapsed
@@ -2125,11 +2124,11 @@ local function ShowFishingLureRow(row, inventorySlot, enchantInfo, iconTexture)
 end
 
 RefreshFishingLureRow = function(_reason, allowInitializing)
-    local canMutate = CanMutateManagedPrototype(ManagedPrototype, allowInitializing)
+    local canMutate = CanMutateManagedPrototype(Managed, allowInitializing)
     if not canMutate then
         return false
     end
-    local row = ManagedPrototype.fishingLureRow
+    local row = Managed.fishingLureRow
     if not row then
         return false
     end
@@ -2139,8 +2138,8 @@ RefreshFishingLureRow = function(_reason, allowInitializing)
     end
 
     local inventorySlot, resolution = ResolveFishingToolSlot()
-    ManagedPrototype.fishingToolSlot = inventorySlot
-    ManagedPrototype.fishingToolSlotResolution = resolution
+    Managed.fishingToolSlot = inventorySlot
+    Managed.fishingToolSlotResolution = resolution
     if not inventorySlot then
         HideFishingLureRow(row)
         SetFishingLureRefreshPending(false)
@@ -2180,7 +2179,7 @@ RefreshFishingLureRow = function(_reason, allowInitializing)
     return shown
 end
 
-function ManagedPrototype:RefreshManagedState(reason)
+function Managed:RefreshManagedState(reason)
     local ready, readinessReason = self:IsReady()
     if not ready then
         return false, readinessReason
@@ -2213,8 +2212,8 @@ function ManagedPrototype:RefreshManagedState(reason)
     return true
 end
 
-function ManagedPrototype.DumpFishingLureState()
-    local ready, readinessReason = ManagedPrototype:IsReady()
+function Managed.DumpFishingLureState()
+    local ready, readinessReason = Managed:IsReady()
     if not ready then
         PrintDiagnostic("fishing lure diagnostic unavailable: " .. readinessReason)
         return false
@@ -2227,11 +2226,11 @@ function ManagedPrototype.DumpFishingLureState()
         refreshState = RefreshFishingLureRow("manual diagnostic") and "refreshed" or "refresh-failed"
     end
 
-    local row = ManagedPrototype.fishingLureRow
+    local row = Managed.fishingLureRow
     PrintDiagnostic(
         "fishing lure refresh=" .. refreshState
-            .. " toolSlot=" .. FormatDiagnosticValue(ManagedPrototype.fishingToolSlot)
-            .. " slotResolution=" .. FormatDiagnosticValue(ManagedPrototype.fishingToolSlotResolution)
+            .. " toolSlot=" .. FormatDiagnosticValue(Managed.fishingToolSlot)
+            .. " slotResolution=" .. FormatDiagnosticValue(Managed.fishingToolSlotResolution)
             .. " enchantID=" .. FormatDiagnosticValue(row and row.enchantID)
             .. " remainingTimeMs=" .. FormatDiagnosticValue(row and row.remainingTimeMs)
             .. " chargesRemaining=" .. FormatDiagnosticValue(row and row.chargesRemaining)
@@ -2423,7 +2422,7 @@ local function InspectKnownAuraTooltip(spellID)
     end
 end
 
-function ManagedPrototype.DumpKnownAuraTooltips()
+function Managed.DumpKnownAuraTooltips()
     if _G.InCombatLockdown and _G.InCombatLockdown() then
         PrintDiagnostic("run this diagnostic out of combat")
         return
@@ -2447,8 +2446,8 @@ function ManagedPrototype.DumpKnownAuraTooltips()
 end
 
 local function TrackManagedPresentation(groupKey, owner, presentation)
-    local owners = ManagedPrototype.presentationOwners
-        and ManagedPrototype.presentationOwners[groupKey]
+    local owners = Managed.presentationOwners
+        and Managed.presentationOwners[groupKey]
     if not owners then
         return
     end
@@ -2640,7 +2639,7 @@ local function ApplyManagedPlacement(prototype, placement)
     return true
 end
 
-function ManagedPrototype:ApplyHeaderVisibility(allowInitializing)
+function Managed:ApplyHeaderVisibility(allowInitializing)
     local canMutate, readinessReason = CanMutateManagedPrototype(self, allowInitializing)
     if not canMutate then
         return false, readinessReason
@@ -2666,7 +2665,7 @@ function ManagedPrototype:ApplyHeaderVisibility(allowInitializing)
     return true
 end
 
-function ManagedPrototype:CommitManagedPresentation(allowInitializing)
+function Managed:CommitManagedPresentation(allowInitializing)
     local canMutate, readinessReason = CanMutateManagedPrototype(self, allowInitializing)
     if not canMutate then
         return false, readinessReason
@@ -2706,7 +2705,7 @@ function ManagedPrototype:CommitManagedPresentation(allowInitializing)
     return true
 end
 
-function ManagedPrototype:ApplyConfiguration(_reason)
+function Managed:ApplyConfiguration(_reason)
     local ready, readinessReason = self:IsReady()
     if not ready then
         return false, readinessReason
@@ -2926,7 +2925,7 @@ local function InitializeManagedBarPresentation(auraButton, style, groupKey)
 end
 
 local function InitializeManagedAuraButtonSafely(auraButton, groupKey, cancellable)
-    local failedDuringInitialization = ManagedPrototype.initializing == true
+    local failedDuringInitialization = Managed.initializing == true
     local initializeSuccess, initializeReason = xpcall(function()
         ValidateRequiredMethods(auraButton, groupKey .. " AuraButton", REQUIRED_AURA_BUTTON_METHODS)
         if cancellable then
@@ -2934,7 +2933,7 @@ local function InitializeManagedAuraButtonSafely(auraButton, groupKey, cancellab
         end
         InitializeManagedBarPresentation(
             auraButton,
-            ManagedPrototype.currentBarStyles[groupKey],
+            Managed.currentBarStyles[groupKey],
             groupKey
         )
         if cancellable then
@@ -2945,7 +2944,7 @@ local function InitializeManagedAuraButtonSafely(auraButton, groupKey, cancellab
     end)
     if not initializeSuccess then
         local failureReason = groupKey .. " AuraButton initialization failed: " .. initializeReason
-        ContainManagedFatalFailure(ManagedPrototype, failureReason)
+        ContainManagedFatalFailure(Managed, failureReason)
         if failedDuringInitialization then
             error(failureReason, 0)
         end
@@ -2957,9 +2956,9 @@ local function InitializeAuraButton(auraButton)
 end
 
 local function CreateFishingLureRow(host, container)
-    local style = ManagedPrototype.currentBarStyles.ENCHANTMENTS
+    local style = Managed.currentBarStyles.ENCHANTMENTS
     local row = _G.CreateFrame("Button", "OdysseusBuffBarsManagedFishingLureRow", host)
-    ManagedPrototype.fishingLureRow = row
+    Managed.fishingLureRow = row
     row:Hide()
     row:SetSize(style.width, style.height)
     row:SetPoint("TOPLEFT", container, "BOTTOMLEFT", 0, -style.spacing)
@@ -3057,7 +3056,7 @@ end
 local function CreateFishingLureEventFrame()
     local eventFrame = _G.CreateFrame("Frame")
     fishingLureEventFrame = eventFrame
-    ManagedPrototype.fishingLureEventFrame = eventFrame
+    Managed.fishingLureEventFrame = eventFrame
     local inventoryGeneration = 0
     local inventoryCheckPending
 
@@ -3071,7 +3070,7 @@ local function CreateFishingLureEventFrame()
         local lifecycleGeneration = managedCallbackGeneration
         _G.C_Timer.After(0, function()
             inventoryCheckPending = nil
-            if lifecycleGeneration ~= managedCallbackGeneration or not ManagedPrototype:IsReady() then
+            if lifecycleGeneration ~= managedCallbackGeneration or not Managed:IsReady() then
                 return
             end
             if inventoryGeneration ~= scheduledGeneration then
@@ -3086,7 +3085,7 @@ local function CreateFishingLureEventFrame()
     eventFrame:RegisterUnitEvent("UNIT_INVENTORY_CHANGED", "player")
     eventFrame:RegisterEvent("PROFESSION_EQUIPMENT_CHANGED")
     eventFrame:SetScript("OnEvent", function(_, event, eventArg1, eventArg2)
-        if not ManagedPrototype:IsReady() then
+        if not Managed:IsReady() then
             return
         end
         if event == "PLAYER_ENTERING_WORLD" then
@@ -3235,20 +3234,20 @@ end
 local function ConfigureManagedHeaderDrag(header, group)
     header:RegisterForDrag("LeftButton")
     header:SetScript("OnDragStart", function()
-        BeginManagedScreenDrag(ManagedPrototype, group)
+        BeginManagedScreenDrag(Managed, group)
     end)
     header:SetScript("OnDragStop", function()
-        FinishManagedScreenDrag(ManagedPrototype, group)
+        FinishManagedScreenDrag(Managed, group)
     end)
 end
 
 local function CreateManagedDragEventFrame()
     local eventFrame = _G.CreateFrame("Frame")
-    ManagedPrototype.dragEventFrame = eventFrame
+    Managed.dragEventFrame = eventFrame
     eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
     eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
     eventFrame:SetScript("OnEvent", function(_, event)
-        if not ManagedPrototype:IsReady() then
+        if not Managed:IsReady() then
             return
         end
         if event == "PLAYER_REGEN_DISABLED" then
@@ -3258,7 +3257,7 @@ local function CreateManagedDragEventFrame()
             end
 
             activeManagedDragGroup = nil
-            ManagedPrototype[group.hostKey]:StopMovingOrSizing()
+            Managed[group.hostKey]:StopMovingOrSizing()
             interruptedManagedDragGroup = group
             return
         end
@@ -3266,7 +3265,7 @@ local function CreateManagedDragEventFrame()
         local group = interruptedManagedDragGroup
         interruptedManagedDragGroup = nil
         if group then
-            RestoreAppliedManagedScreenPosition(ManagedPrototype, group)
+            RestoreAppliedManagedScreenPosition(Managed, group)
         end
     end)
 end
@@ -3290,13 +3289,13 @@ local function StyleManagedGroupHeader(header, style)
 end
 
 local function CreateManagedAuraPrototype()
-    local groupConfig = ManagedPrototype.startupConfig.BUFFS
+    local groupConfig = Managed.startupConfig.BUFFS
     local settings = GetEffectiveGroupSettings(1)
     local barStyle = groupConfig.barStyle
     local headerStyle = groupConfig.headerStyle
     local savedX, savedY, hostX, hostY = GetManagedScreenPosition(settings, headerStyle, 420, -180)
     local host = CreateFrame("Frame", "OdysseusBuffBarsManagedPrototypeHost", UIParent)
-    ManagedPrototype.host = host
+    Managed.host = host
     host:Hide()
     host:SetMovable(true)
     ClearManagedHostUserPlaced(host)
@@ -3311,7 +3310,7 @@ local function CreateManagedAuraPrototype()
         hostX,
         hostY
     )
-    ManagedPrototype.appliedBuffsScreenPosition = {
+    Managed.appliedBuffsScreenPosition = {
         x = savedX,
         y = savedY,
         isScreenRoot = IsManagedBuffsScreenRoot(settings),
@@ -3326,7 +3325,7 @@ local function CreateManagedAuraPrototype()
         host,
         _G.BackdropTemplateMixin and "BackdropTemplate"
     )
-    ManagedPrototype.groupHeaders.BUFFS = dragHandle
+    Managed.groupHeaders.BUFFS = dragHandle
     dragHandle:Hide()
     dragHandle:SetPoint("TOPLEFT", host, "TOPLEFT", HOST_PADDING, 0)
     StyleManagedGroupHeader(dragHandle, headerStyle)
@@ -3338,7 +3337,7 @@ local function CreateManagedAuraPrototype()
         host,
         "CustomAuraContainerTemplate"
     )
-    ManagedPrototype.container = container
+    Managed.container = container
     container:Hide()
     ValidateRequiredMethods(container, "BUFF AuraContainer", REQUIRED_CONTAINER_METHODS)
     container:SetPoint(
@@ -3369,26 +3368,26 @@ local function CreateManagedAuraPrototype()
     })
 
     local sortButton = CreateFrame("Button", nil, host, "UIPanelButtonTemplate")
-    ManagedPrototype.sortButton = sortButton
+    Managed.sortButton = sortButton
     sortButton:SetSize(94, 18)
     sortButton:SetPoint("TOPRIGHT", dragHandle, "TOPRIGHT", -2, -2)
     sortButton:SetFrameLevel(dragHandle:GetFrameLevel() + 1)
     sortButton:SetText("Sort: " .. activeSort.label)
     sortButton:SetScript("OnClick", function()
-        if not ManagedPrototype:IsReady() then
+        if not Managed:IsReady() then
             return
         end
         if InCombatLockdown and InCombatLockdown() then
             return
         end
 
-        local currentSortMode = ManagedPrototype.currentGroupSortModes.BUFFS
-        ApplyManagedGroupSort(ManagedPrototype, "BUFFS", NEXT_SORT_MODE[currentSortMode])
+        local currentSortMode = Managed.currentGroupSortModes.BUFFS
+        ApplyManagedGroupSort(Managed, "BUFFS", NEXT_SORT_MODE[currentSortMode])
     end)
 
     local filterInitFrame = CreateFrame("Frame")
     automaticDiscoveryFrame = filterInitFrame
-    ManagedPrototype.automaticDiscoveryFrame = filterInitFrame
+    Managed.automaticDiscoveryFrame = filterInitFrame
     local transitionRecoveryPending
     local transitionInventoryGeneration
     local transitionInventoryCheckEpoch
@@ -3405,7 +3404,7 @@ local function CreateManagedAuraPrototype()
             return
         end
 
-        ManagedPrototype.enchantmentContainer:UpdateAllAuras()
+        Managed.enchantmentContainer:UpdateAllAuras()
         transitionRecoveryPending = nil
         nativeEnchantmentRecoveryDeferredForCombat = nil
         UpdateAutomaticDiscoveryFrameRegenRegistration()
@@ -3423,7 +3422,7 @@ local function CreateManagedAuraPrototype()
         local lifecycleGeneration = managedCallbackGeneration
         transitionInventoryCheckEpoch = scheduledEpoch
         C_Timer.After(0, function()
-            if lifecycleGeneration ~= managedCallbackGeneration or not ManagedPrototype:IsReady() then
+            if lifecycleGeneration ~= managedCallbackGeneration or not Managed:IsReady() then
                 return
             end
             if transitionInventoryCheckEpoch == scheduledEpoch then
@@ -3447,11 +3446,11 @@ local function CreateManagedAuraPrototype()
     filterInitFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     filterInitFrame:RegisterUnitEvent("UNIT_AURA", "player")
     filterInitFrame:SetScript("OnEvent", function(_, event)
-        if not ManagedPrototype:IsReady() then
+        if not Managed:IsReady() then
             return
         end
         if event == "PLAYER_ENTERING_WORLD" then
-            ManagedPrototype.enchantmentContainer:UpdateAllAuras()
+            Managed.enchantmentContainer:UpdateAllAuras()
             AttemptAutomaticHelpfulEnhancementDiscovery("PLAYER_ENTERING_WORLD")
             transitionRecoveryEpoch = transitionRecoveryEpoch + 1
             transitionRecoveryPending = true
@@ -3483,9 +3482,9 @@ end
 
 local function CreateManagedDebuffPrototype()
     local placement = MANAGED_DEBUFF_PLACEMENT
-    local appliedState = GetSupportedManagedPlacementState(ManagedPrototype, placement)
+    local appliedState = GetSupportedManagedPlacementState(Managed, placement)
         or BuildDefaultManagedPlacementState(placement)
-    local groupConfig = ManagedPrototype.startupConfig.DEBUFFS
+    local groupConfig = Managed.startupConfig.DEBUFFS
     local barStyle = groupConfig.barStyle
     local headerStyle = groupConfig.headerStyle
     local host = CreateFrame(
@@ -3494,7 +3493,7 @@ local function CreateManagedDebuffPrototype()
         UIParent,
         "DisableUntrustedLayoutScriptsTemplate"
     )
-    ManagedPrototype.debuffHost = host
+    Managed.debuffHost = host
     host:Hide()
     host:SetMovable(true)
     ClearManagedHostUserPlaced(host)
@@ -3502,8 +3501,8 @@ local function CreateManagedDebuffPrototype()
         headerStyle.width + (HOST_PADDING * 2),
         headerStyle.height + headerStyle.firstRowGap
     )
-    SetManagedHostPoint(ManagedPrototype, placement, appliedState, false)
-    RecordManagedPlacement(ManagedPrototype, placement, appliedState)
+    SetManagedHostPoint(Managed, placement, appliedState, false)
+    RecordManagedPlacement(Managed, placement, appliedState)
     host:SetFrameStrata("MEDIUM")
     host:SetScale(groupConfig.scale)
     host:SetAlpha(groupConfig.alpha)
@@ -3513,7 +3512,7 @@ local function CreateManagedDebuffPrototype()
         host,
         _G.BackdropTemplateMixin and "BackdropTemplate"
     )
-    ManagedPrototype.groupHeaders.DEBUFFS = header
+    Managed.groupHeaders.DEBUFFS = header
     header:Hide()
     header:SetPoint("TOPLEFT", host, "TOPLEFT", HOST_PADDING, 0)
     StyleManagedGroupHeader(header, headerStyle)
@@ -3525,7 +3524,7 @@ local function CreateManagedDebuffPrototype()
         host,
         "CustomAuraContainerTemplate"
     )
-    ManagedPrototype.debuffContainer = container
+    Managed.debuffContainer = container
     container:Hide()
     ValidateRequiredMethods(container, "DEBUFF AuraContainer", REQUIRED_CONTAINER_METHODS)
     container:SetPoint(
@@ -3555,21 +3554,21 @@ local function CreateManagedDebuffPrototype()
     })
 
     local sortButton = CreateFrame("Button", nil, host, "UIPanelButtonTemplate")
-    ManagedPrototype.debuffSortButton = sortButton
+    Managed.debuffSortButton = sortButton
     sortButton:SetSize(94, 18)
     sortButton:SetPoint("TOPRIGHT", header, "TOPRIGHT", -2, -2)
     sortButton:SetFrameLevel(header:GetFrameLevel() + 1)
     sortButton:SetText("Sort: " .. activeSort.label)
     sortButton:SetScript("OnClick", function()
-        if not ManagedPrototype:IsReady() then
+        if not Managed:IsReady() then
             return
         end
         if InCombatLockdown and InCombatLockdown() then
             return
         end
 
-        local currentSortMode = ManagedPrototype.currentGroupSortModes.DEBUFFS
-        ApplyManagedGroupSort(ManagedPrototype, "DEBUFFS", NEXT_SORT_MODE[currentSortMode])
+        local currentSortMode = Managed.currentGroupSortModes.DEBUFFS
+        ApplyManagedGroupSort(Managed, "DEBUFFS", NEXT_SORT_MODE[currentSortMode])
     end)
 
 end
@@ -3580,9 +3579,9 @@ end
 
 local function CreateManagedEnchantmentPrototype()
     local placement = MANAGED_ENCHANTMENT_PLACEMENT
-    local appliedState = GetSupportedManagedPlacementState(ManagedPrototype, placement)
+    local appliedState = GetSupportedManagedPlacementState(Managed, placement)
         or BuildDefaultManagedPlacementState(placement)
-    local groupConfig = ManagedPrototype.startupConfig.ENCHANTMENTS
+    local groupConfig = Managed.startupConfig.ENCHANTMENTS
     local barStyle = groupConfig.barStyle
     local headerStyle = groupConfig.headerStyle
     local host = CreateFrame(
@@ -3591,7 +3590,7 @@ local function CreateManagedEnchantmentPrototype()
         UIParent,
         "DisableUntrustedLayoutScriptsTemplate"
     )
-    ManagedPrototype.enchantmentHost = host
+    Managed.enchantmentHost = host
     host:Hide()
     host:SetMovable(true)
     ClearManagedHostUserPlaced(host)
@@ -3599,8 +3598,8 @@ local function CreateManagedEnchantmentPrototype()
         headerStyle.width + (HOST_PADDING * 2),
         headerStyle.height + headerStyle.firstRowGap
     )
-    SetManagedHostPoint(ManagedPrototype, placement, appliedState, false)
-    RecordManagedPlacement(ManagedPrototype, placement, appliedState)
+    SetManagedHostPoint(Managed, placement, appliedState, false)
+    RecordManagedPlacement(Managed, placement, appliedState)
     host:SetFrameStrata("MEDIUM")
     host:SetScale(groupConfig.scale)
     host:SetAlpha(groupConfig.alpha)
@@ -3610,7 +3609,7 @@ local function CreateManagedEnchantmentPrototype()
         host,
         _G.BackdropTemplateMixin and "BackdropTemplate"
     )
-    ManagedPrototype.groupHeaders.ENCHANTMENTS = header
+    Managed.groupHeaders.ENCHANTMENTS = header
     header:Hide()
     header:SetPoint("TOPLEFT", host, "TOPLEFT", HOST_PADDING, 0)
     StyleManagedGroupHeader(header, headerStyle)
@@ -3622,7 +3621,7 @@ local function CreateManagedEnchantmentPrototype()
         host,
         "CustomAuraContainerTemplate"
     )
-    ManagedPrototype.enchantmentContainer = container
+    Managed.enchantmentContainer = container
     container:Hide()
     ValidateRequiredMethods(container, "ENCHANTMENTS AuraContainer", REQUIRED_CONTAINER_METHODS)
     ValidateRequiredMethods(
@@ -3677,7 +3676,7 @@ local function CreateManagedEnchantmentPrototype()
     CreateFishingLureEventFrame()
 end
 
-function ManagedPrototype:Initialize()
+function Managed:Initialize()
     if self.failed then
         return false, self.failureReason
     end
