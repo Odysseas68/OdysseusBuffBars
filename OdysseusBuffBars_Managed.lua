@@ -4,7 +4,7 @@ if not OBB then
     return
 end
 
-OBB.ENABLE_MANAGED_AURA_PROTOTYPE = true
+OBB.ENABLE_MANAGED_AURA_RENDERER = true
 
 local Managed = {}
 OBB.Managed = Managed
@@ -113,7 +113,7 @@ local DEBUFF_AURA_GROUP_KEY = "Harmful"
 local ENHANCEMENT_AURA_GROUP_KEY = "HelpfulEnhancements"
 local FISHING_TOOL_SLOT_FALLBACK = 28
 local FISHING_LURE_TIMER_INTERVAL = 0.1
-local INITIAL_PROTOTYPE_SORT_MODE = "TIMELEFT"
+local MANAGED_DEFAULT_AURA_SORT_MODE = "TIMELEFT"
 
 local SORT_MODES = {
     DEFAULT = {
@@ -212,11 +212,11 @@ function Managed:IsReady()
     return false, self.failureReason or "managed renderer not initialized"
 end
 
-local function CanMutateManagedPrototype(prototype, allowInitializing)
-    if allowInitializing and prototype.initializing and not prototype.failed then
+local function CanMutateManagedRuntime(managed, allowInitializing)
+    if allowInitializing and managed.initializing and not managed.failed then
         return true
     end
-    return prototype:IsReady()
+    return managed:IsReady()
 end
 
 local function GetCapabilityMember(container, member)
@@ -303,7 +303,7 @@ local function ValidateManagedStaticCapabilities()
         },
     }
 
-    if not OBB.ENABLE_MANAGED_AURA_PROTOTYPE then
+    if not OBB.ENABLE_MANAGED_AURA_RENDERER then
         return false, "managed renderer is disabled"
     end
     for _, check in ipairs(checks) do
@@ -623,10 +623,10 @@ local function EvaluateManagedCompatibility()
     return effectiveSettingsByID, state
 end
 
-local function RefreshManagedCompatibilityState(prototype)
+local function RefreshManagedCompatibilityState(managed)
     local effectiveSettingsByID, state = EvaluateManagedCompatibility()
-    prototype.effectiveGroupSettingsByID = effectiveSettingsByID
-    prototype.compatibilityState = state
+    managed.effectiveGroupSettingsByID = effectiveSettingsByID
+    managed.compatibilityState = state
     return state
 end
 
@@ -680,13 +680,13 @@ local function BuildManagedCompatibilitySummary(state)
     return table.concat(parts, "; ")
 end
 
-local function ReportManagedCompatibilityWarning(prototype)
-    local state = prototype.compatibilityState
-    if prototype.compatibilityWarningShown or not state or not state.active then
+local function ReportManagedCompatibilityWarning(managed)
+    local state = managed.compatibilityState
+    if managed.compatibilityWarningShown or not state or not state.active then
         return
     end
 
-    prototype.compatibilityWarningShown = true
+    managed.compatibilityWarningShown = true
     OBB:Print(
         "|cffff3333WARNING:|r historical unsupported settings are being interpreted temporarily;"
             .. " SavedVariables were not changed. Open /obb config to choose supported settings. "
@@ -705,7 +705,7 @@ function Managed:GetCompatibilitySummary()
     return BuildManagedCompatibilitySummary(self.compatibilityState)
 end
 
-local function BuildManagedPlacementState(prototype, settings, placement)
+local function BuildManagedPlacementState(managed, settings, placement)
     if IsSupportedManagedScreenPlacement(settings) then
         return {
             mode = "SCREEN",
@@ -729,7 +729,7 @@ local function BuildManagedPlacementState(prototype, settings, placement)
             parentGroupID = placement.parentGroupID,
             offsetX = settings.offsetX or MANAGED_GROUP_GAP,
             offsetY = settings.offsetY or 0,
-            parentWidth = prototype.currentBarStyles[placement.parentGroupKey].width,
+            parentWidth = managed.currentBarStyles[placement.parentGroupKey].width,
         }
     end
 
@@ -739,20 +739,20 @@ local function BuildManagedPlacementState(prototype, settings, placement)
             parentGroupID = placement.parentGroupID,
             offsetX = settings.offsetX or -MANAGED_GROUP_GAP,
             offsetY = settings.offsetY or 0,
-            childWidth = prototype.currentBarStyles[placement.key].width,
+            childWidth = managed.currentBarStyles[placement.key].width,
         }
     end
 
     return nil
 end
 
-local function GetSupportedManagedPlacementState(prototype, placement)
+local function GetSupportedManagedPlacementState(managed, placement)
     if not IsManagedBuffsScreenRoot(GetEffectiveGroupSettings(1)) then
         return nil
     end
 
     local debuffState = BuildManagedPlacementState(
-        prototype,
+        managed,
         GetEffectiveGroupSettings(MANAGED_DEBUFF_PLACEMENT.id),
         MANAGED_DEBUFF_PLACEMENT
     )
@@ -764,7 +764,7 @@ local function GetSupportedManagedPlacementState(prototype, placement)
     end
 
     return BuildManagedPlacementState(
-        prototype,
+        managed,
         GetEffectiveGroupSettings(MANAGED_ENCHANTMENT_PLACEMENT.id),
         MANAGED_ENCHANTMENT_PLACEMENT
     )
@@ -799,13 +799,13 @@ local function AreManagedPlacementStatesEqual(left, right)
     return equal
 end
 
-local function SetManagedScreenHostPoint(prototype, group, state, clearExistingPoints)
-    local host = prototype[group.hostKey]
+local function SetManagedScreenHostPoint(managed, group, state, clearExistingPoints)
+    local host = managed[group.hostKey]
     if clearExistingPoints then
         host:ClearAllPoints()
     end
 
-    local headerStyle = prototype.startupConfig[group.key].headerStyle
+    local headerStyle = managed.startupConfig[group.key].headerStyle
     host:SetPoint(
         "TOPLEFT",
         _G.UIParent,
@@ -815,13 +815,13 @@ local function SetManagedScreenHostPoint(prototype, group, state, clearExistingP
     )
 end
 
-local function SetManagedHostPoint(prototype, placement, state, clearExistingPoints)
+local function SetManagedHostPoint(managed, placement, state, clearExistingPoints)
     if state.mode == "SCREEN" then
-        SetManagedScreenHostPoint(prototype, placement, state, clearExistingPoints)
+        SetManagedScreenHostPoint(managed, placement, state, clearExistingPoints)
         return
     end
 
-    local host = prototype[placement.hostKey]
+    local host = managed[placement.hostKey]
     if clearExistingPoints then
         host:ClearAllPoints()
     end
@@ -830,12 +830,12 @@ local function SetManagedHostPoint(prototype, placement, state, clearExistingPoi
     local hostOffsetX = state.offsetX - HOST_PADDING
     local hostOffsetY = state.offsetY
     if state.mode == "RIGHT" then
-        local headerStyle = prototype.startupConfig[placement.key].headerStyle
+        local headerStyle = managed.startupConfig[placement.key].headerStyle
         relativePoint = "TOPLEFT"
         hostOffsetX = state.parentWidth + state.offsetX - HOST_PADDING
         hostOffsetY = state.offsetY + headerStyle.height + headerStyle.firstRowGap
     elseif state.mode == "LEFT" then
-        local headerStyle = prototype.startupConfig[placement.key].headerStyle
+        local headerStyle = managed.startupConfig[placement.key].headerStyle
         relativePoint = "TOPLEFT"
         hostOffsetX = state.offsetX - HOST_PADDING - state.childWidth
         hostOffsetY = state.offsetY + headerStyle.height + headerStyle.firstRowGap
@@ -843,14 +843,14 @@ local function SetManagedHostPoint(prototype, placement, state, clearExistingPoi
 
     host:SetPoint(
         "TOPLEFT",
-        prototype[placement.parentContainerKey],
+        managed[placement.parentContainerKey],
         relativePoint,
         hostOffsetX,
         hostOffsetY
     )
 end
 
-local function RecordManagedPlacement(prototype, placement, state)
+local function RecordManagedPlacement(managed, placement, state)
     local appliedState
     if state.mode == "SCREEN" then
         appliedState = {
@@ -871,7 +871,7 @@ local function RecordManagedPlacement(prototype, placement, state)
             appliedState.childWidth = state.childWidth
         end
     end
-    prototype.appliedManagedPlacements[placement.key] = appliedState
+    managed.appliedManagedPlacements[placement.key] = appliedState
 end
 
 local function BuildManagedBarStyle(settings, fallback)
@@ -970,8 +970,8 @@ local function BuildManagedGroupConfig(
         alpha = GetValidatedNumber(settings and settings.alpha, 1, 0, 1),
         growUp = consumeGrowth and settings and settings.growUp == true or false,
         sortMode = consumeAuraGroupBehavior
-            and (savedSortMode or INITIAL_PROTOTYPE_SORT_MODE)
-            or INITIAL_PROTOTYPE_SORT_MODE,
+            and (savedSortMode or MANAGED_DEFAULT_AURA_SORT_MODE)
+            or MANAGED_DEFAULT_AURA_SORT_MODE,
         maxBars = consumeAuraGroupBehavior
             and GetValidatedInteger(settings and settings.maxBars, fallbackMaxBars, 1, 80)
             or fallbackMaxBars,
@@ -1004,7 +1004,7 @@ local function BuildManagedStartupConfig()
             true,
             true
         ),
-        -- ENCHANTMENTS keeps the validated prototype's separate TIMELEFT
+        -- ENCHANTMENTS keeps the managed renderer's separate TIMELEFT
         -- HelpfulEnhancements behavior and fixed internal capacity; its saved
         -- sort/maxBars remain deferred.
         ENCHANTMENTS = BuildManagedGroupConfig(
@@ -1324,7 +1324,7 @@ local function CopyManagedCandidateFilterState(state)
     }
 end
 
--- The desired routed membership is prototype-owned source state. The applied
+-- The desired routed membership is managed-runtime-owned source state. The applied
 -- snapshot represents the complete two-group composition, not just routing.
 local currentHelpfulEnhancementSpellIDs = {}
 local currentReadableHelpfulAuraRows = {}
@@ -1389,7 +1389,7 @@ function Managed.GetCurrentHelpfulAuraFilterRows(groupID)
 end
 
 function Managed:RefreshCandidateFilters(allowInitializing)
-    local canMutate, readinessReason = CanMutateManagedPrototype(self, allowInitializing)
+    local canMutate, readinessReason = CanMutateManagedRuntime(self, allowInitializing)
     if not canMutate then
         return false, readinessReason
     end
@@ -1954,34 +1954,34 @@ local function StopManagedEventFrame(frame)
     BestEffortManagedMethod(frame, "SetScript", "OnEvent", nil)
 end
 
-ContainManagedFatalFailure = function(prototype, reason)
-    if prototype.failed then
-        return false, prototype.failureReason
+ContainManagedFatalFailure = function(managed, reason)
+    if managed.failed then
+        return false, managed.failureReason
     end
 
-    local failedDuringInitialization = prototype.initializing == true
-    prototype.failed = true
-    prototype.failureReason = tostring(reason or "unknown managed renderer failure")
-    prototype.initialized = nil
-    prototype.initializing = nil
+    local failedDuringInitialization = managed.initializing == true
+    managed.failed = true
+    managed.failureReason = tostring(reason or "unknown managed renderer failure")
+    managed.initialized = nil
+    managed.initializing = nil
     managedCallbackGeneration = managedCallbackGeneration + 1
-    prototype.callbackGeneration = managedCallbackGeneration
+    managed.callbackGeneration = managedCallbackGeneration
 
     automaticDiscoveryPending = nil
     nativeEnchantmentRecoveryDeferredForCombat = nil
     fishingLureRefreshPending = nil
     StopManagedEventFrame(automaticDiscoveryFrame)
     StopManagedEventFrame(fishingLureEventFrame)
-    StopManagedEventFrame(prototype.dragEventFrame)
+    StopManagedEventFrame(managed.dragEventFrame)
 
     if activeManagedDragGroup then
-        BestEffortManagedMethod(prototype[activeManagedDragGroup.hostKey], "StopMovingOrSizing")
+        BestEffortManagedMethod(managed[activeManagedDragGroup.hostKey], "StopMovingOrSizing")
     end
     activeManagedDragGroup = nil
     interruptedManagedDragGroup = nil
 
-    if prototype.fishingLureRow then
-        pcall(HideFishingLureRow, prototype.fishingLureRow)
+    if managed.fishingLureRow then
+        pcall(HideFishingLureRow, managed.fishingLureRow)
     end
 
     for _, containerKey in ipairs({
@@ -1989,22 +1989,22 @@ ContainManagedFatalFailure = function(prototype, reason)
         "debuffContainer",
         "enchantmentContainer",
     }) do
-        local container = prototype[containerKey]
+        local container = managed[containerKey]
         BestEffortManagedMethod(container, "SetEnabled", false)
         BestEffortManagedMethod(container, "Hide")
     end
     for _, group in ipairs(MANAGED_GROUPS) do
-        local header = prototype.groupHeaders and prototype.groupHeaders[group.key]
+        local header = managed.groupHeaders and managed.groupHeaders[group.key]
         BestEffortManagedMethod(header, "Hide")
-        BestEffortManagedMethod(prototype[group.hostKey], "Hide")
+        BestEffortManagedMethod(managed[group.hostKey], "Hide")
     end
 
     if not failedDuringInitialization then
         if type(OBB.ReportManagedRendererFailure) == "function" then
-            OBB:ReportManagedRendererFailure(prototype.failureReason)
+            OBB:ReportManagedRendererFailure(managed.failureReason)
         end
     end
-    return false, prototype.failureReason
+    return false, managed.failureReason
 end
 
 local function ScheduleFishingLureExpirationRefresh(row, remainingSeconds)
@@ -2124,7 +2124,7 @@ local function ShowFishingLureRow(row, inventorySlot, enchantInfo, iconTexture)
 end
 
 RefreshFishingLureRow = function(_reason, allowInitializing)
-    local canMutate = CanMutateManagedPrototype(Managed, allowInitializing)
+    local canMutate = CanMutateManagedRuntime(Managed, allowInitializing)
     if not canMutate then
         return false
     end
@@ -2188,7 +2188,7 @@ function Managed:RefreshManagedState(reason)
         return false, "combat lockdown"
     end
     if not self.container or not self.enchantmentContainer then
-        return false, "managed prototype not initialized"
+        return false, "managed renderer not initialized"
     end
 
     local discoverySuccess, _, discoveryReason = RunHelpfulEnhancementDiscovery(false)
@@ -2520,7 +2520,7 @@ local function BuildManagedItemEnchantmentLayout(elementWidth, elementHeight, el
     }
 end
 
-local function ApplyManagedLayoutState(prototype, groupKey, style, widthChanged)
+local function ApplyManagedLayoutState(managed, groupKey, style, widthChanged)
     local layout = {
         elementWidth = style.width,
         elementHeight = style.height,
@@ -2528,12 +2528,12 @@ local function ApplyManagedLayoutState(prototype, groupKey, style, widthChanged)
     }
 
     if groupKey == "BUFFS" then
-        prototype.container:SetAuraGroupLayout(AURA_GROUP_KEY, layout)
+        managed.container:SetAuraGroupLayout(AURA_GROUP_KEY, layout)
     elseif groupKey == "DEBUFFS" then
-        prototype.debuffContainer:SetAuraGroupLayout(DEBUFF_AURA_GROUP_KEY, layout)
+        managed.debuffContainer:SetAuraGroupLayout(DEBUFF_AURA_GROUP_KEY, layout)
     else
-        prototype.enchantmentContainer:SetAuraGroupLayout(ENHANCEMENT_AURA_GROUP_KEY, layout)
-        prototype.enchantmentContainer:SetItemEnchantmentLayout(BuildManagedItemEnchantmentLayout(
+        managed.enchantmentContainer:SetAuraGroupLayout(ENHANCEMENT_AURA_GROUP_KEY, layout)
+        managed.enchantmentContainer:SetItemEnchantmentLayout(BuildManagedItemEnchantmentLayout(
             style.width,
             style.height,
             style.spacing
@@ -2541,35 +2541,35 @@ local function ApplyManagedLayoutState(prototype, groupKey, style, widthChanged)
     end
 
     if widthChanged then
-        prototype.groupHeaders[groupKey]:SetWidth(style.width)
+        managed.groupHeaders[groupKey]:SetWidth(style.width)
     end
 end
 
-local function ApplyManagedGroupSort(prototype, groupKey, sortMode)
+local function ApplyManagedGroupSort(managed, groupKey, sortMode)
     local group = CONFIG_MANAGED_AURA_GROUPS[groupKey]
     local sort = SORT_MODES[sortMode]
     if not group or not sort then
         return false
     end
 
-    prototype[group.containerKey]:SetAuraGroupSortMethod(
+    managed[group.containerKey]:SetAuraGroupSortMethod(
         group.auraGroupKey,
         sort.method,
         sort.direction
     )
-    prototype[group.buttonKey]:SetText("Sort: " .. sort.label)
-    prototype.currentGroupSortModes[groupKey] = sortMode
+    managed[group.buttonKey]:SetText("Sort: " .. sort.label)
+    managed.currentGroupSortModes[groupKey] = sortMode
     return true
 end
 
-local function ApplyManagedGroupMaxFrameCount(prototype, groupKey, maxFrameCount)
+local function ApplyManagedGroupMaxFrameCount(managed, groupKey, maxFrameCount)
     local group = CONFIG_MANAGED_AURA_GROUPS[groupKey]
     if not group then
         return false
     end
 
-    prototype[group.containerKey]:SetAuraGroupMaxFrameCount(group.auraGroupKey, maxFrameCount)
-    prototype.currentGroupMaxFrameCounts[groupKey] = maxFrameCount
+    managed[group.containerKey]:SetAuraGroupMaxFrameCount(group.auraGroupKey, maxFrameCount)
+    managed.currentGroupMaxFrameCounts[groupKey] = maxFrameCount
     return true
 end
 
@@ -2581,18 +2581,18 @@ local function SetManagedContainerGrowUp(container, growUp)
     )
 end
 
-local function ApplyManagedGroupGrowUp(prototype, groupKey, growUp)
+local function ApplyManagedGroupGrowUp(managed, groupKey, growUp)
     local containerKey = MANAGED_GROWTH_CONTAINERS[groupKey]
     if not containerKey then
         return false
     end
 
-    SetManagedContainerGrowUp(prototype[containerKey], growUp)
-    prototype.currentGroupGrowUp[groupKey] = growUp
+    SetManagedContainerGrowUp(managed[containerKey], growUp)
+    managed.currentGroupGrowUp[groupKey] = growUp
     return true
 end
 
-local function ApplyManagedBuffsScreenPosition(prototype)
+local function ApplyManagedBuffsScreenPosition(managed)
     local settings = GetEffectiveGroupSettings(1)
     if not IsManagedBuffsScreenRoot(settings) then
         return false
@@ -2600,11 +2600,11 @@ local function ApplyManagedBuffsScreenPosition(prototype)
 
     local savedX, savedY, hostX, hostY = GetManagedScreenPosition(
         settings,
-        prototype.startupConfig.BUFFS.headerStyle,
+        managed.startupConfig.BUFFS.headerStyle,
         420,
         -180
     )
-    local appliedState = prototype.appliedBuffsScreenPosition
+    local appliedState = managed.appliedBuffsScreenPosition
     if appliedState
         and appliedState.isScreenRoot
         and appliedState.x == savedX
@@ -2613,9 +2613,9 @@ local function ApplyManagedBuffsScreenPosition(prototype)
         return false
     end
 
-    prototype.host:ClearAllPoints()
-    prototype.host:SetPoint("TOPLEFT", _G.UIParent, "TOPLEFT", hostX, hostY)
-    prototype.appliedBuffsScreenPosition = {
+    managed.host:ClearAllPoints()
+    managed.host:SetPoint("TOPLEFT", _G.UIParent, "TOPLEFT", hostX, hostY)
+    managed.appliedBuffsScreenPosition = {
         x = savedX,
         y = savedY,
         isScreenRoot = true,
@@ -2623,24 +2623,24 @@ local function ApplyManagedBuffsScreenPosition(prototype)
     return true
 end
 
-local function ApplyManagedPlacement(prototype, placement)
-    local desiredState = GetSupportedManagedPlacementState(prototype, placement)
+local function ApplyManagedPlacement(managed, placement)
+    local desiredState = GetSupportedManagedPlacementState(managed, placement)
     if not desiredState then
         return false
     end
 
-    local appliedState = prototype.appliedManagedPlacements[placement.key]
+    local appliedState = managed.appliedManagedPlacements[placement.key]
     if AreManagedPlacementStatesEqual(appliedState, desiredState) then
         return false
     end
 
-    SetManagedHostPoint(prototype, placement, desiredState, true)
-    RecordManagedPlacement(prototype, placement, desiredState)
+    SetManagedHostPoint(managed, placement, desiredState, true)
+    RecordManagedPlacement(managed, placement, desiredState)
     return true
 end
 
 function Managed:ApplyHeaderVisibility(allowInitializing)
-    local canMutate, readinessReason = CanMutateManagedPrototype(self, allowInitializing)
+    local canMutate, readinessReason = CanMutateManagedRuntime(self, allowInitializing)
     if not canMutate then
         return false, readinessReason
     end
@@ -2666,7 +2666,7 @@ function Managed:ApplyHeaderVisibility(allowInitializing)
 end
 
 function Managed:CommitManagedPresentation(allowInitializing)
-    local canMutate, readinessReason = CanMutateManagedPrototype(self, allowInitializing)
+    local canMutate, readinessReason = CanMutateManagedRuntime(self, allowInitializing)
     if not canMutate then
         return false, readinessReason
     end
@@ -3105,16 +3105,16 @@ local function IsManagedDragCombatLocked()
     return _G.InCombatLockdown and _G.InCombatLockdown()
 end
 
-local function GetAppliedManagedScreenState(prototype, group)
+local function GetAppliedManagedScreenState(managed, group)
     if group.key == "BUFFS" then
-        local state = prototype.appliedBuffsScreenPosition
+        local state = managed.appliedBuffsScreenPosition
         if state and state.isScreenRoot then
             return state
         end
         return nil
     end
 
-    local state = prototype.appliedManagedPlacements[group.key]
+    local state = managed.appliedManagedPlacements[group.key]
     if state and state.mode == "SCREEN" then
         return state
     end
@@ -3125,20 +3125,20 @@ local function ClearManagedHostUserPlaced(host)
     host:SetUserPlaced(false)
 end
 
-local function RestoreAppliedManagedScreenPosition(prototype, group)
-    ClearManagedHostUserPlaced(prototype[group.hostKey])
-    local state = GetAppliedManagedScreenState(prototype, group)
+local function RestoreAppliedManagedScreenPosition(managed, group)
+    ClearManagedHostUserPlaced(managed[group.hostKey])
+    local state = GetAppliedManagedScreenState(managed, group)
     if not state then
         return false
     end
 
-    SetManagedScreenHostPoint(prototype, group, state, true)
+    SetManagedScreenHostPoint(managed, group, state, true)
     return true
 end
 
-local function RecordManagedScreenPosition(prototype, group, x, y)
+local function RecordManagedScreenPosition(managed, group, x, y)
     if group.key == "BUFFS" then
-        prototype.appliedBuffsScreenPosition = {
+        managed.appliedBuffsScreenPosition = {
             x = x,
             y = y,
             isScreenRoot = true,
@@ -3146,15 +3146,15 @@ local function RecordManagedScreenPosition(prototype, group, x, y)
         return
     end
 
-    RecordManagedPlacement(prototype, MANAGED_PLACEMENTS_BY_KEY[group.key], {
+    RecordManagedPlacement(managed, MANAGED_PLACEMENTS_BY_KEY[group.key], {
         mode = "SCREEN",
         x = x,
         y = y,
     })
 end
 
-local function CanBeginManagedScreenDrag(prototype, group)
-    if not prototype:IsReady() then
+local function CanBeginManagedScreenDrag(managed, group)
+    if not managed:IsReady() then
         return false
     end
     if IsManagedDragCombatLocked() then
@@ -3181,25 +3181,25 @@ local function CanBeginManagedScreenDrag(prototype, group)
         return false
     end
 
-    return GetAppliedManagedScreenState(prototype, group) ~= nil
+    return GetAppliedManagedScreenState(managed, group) ~= nil
 end
 
-local function BeginManagedScreenDrag(prototype, group)
-    if not CanBeginManagedScreenDrag(prototype, group) then
+local function BeginManagedScreenDrag(managed, group)
+    if not CanBeginManagedScreenDrag(managed, group) then
         return
     end
 
     activeManagedDragGroup = group
-    prototype[group.hostKey]:StartMoving()
+    managed[group.hostKey]:StartMoving()
 end
 
-local function FinishManagedScreenDrag(prototype, group)
+local function FinishManagedScreenDrag(managed, group)
     if activeManagedDragGroup ~= group then
         return
     end
 
     activeManagedDragGroup = nil
-    local host = prototype[group.hostKey]
+    local host = managed[group.hostKey]
     host:StopMovingOrSizing()
     if IsManagedDragCombatLocked() then
         interruptedManagedDragGroup = group
@@ -3208,9 +3208,9 @@ local function FinishManagedScreenDrag(prototype, group)
 
     local settings = GetGroupSettings(group.id)
     if not IsSupportedManagedScreenPlacement(settings)
-        or not GetAppliedManagedScreenState(prototype, group)
+        or not GetAppliedManagedScreenState(managed, group)
     then
-        RestoreAppliedManagedScreenPosition(prototype, group)
+        RestoreAppliedManagedScreenPosition(managed, group)
         return
     end
 
@@ -3218,16 +3218,16 @@ local function FinishManagedScreenDrag(prototype, group)
     local top = host:GetTop()
     local parentTop = _G.UIParent:GetTop()
     if type(left) ~= "number" or type(top) ~= "number" or type(parentTop) ~= "number" then
-        RestoreAppliedManagedScreenPosition(prototype, group)
+        RestoreAppliedManagedScreenPosition(managed, group)
         return
     end
 
-    local headerStyle = prototype.startupConfig[group.key].headerStyle
+    local headerStyle = managed.startupConfig[group.key].headerStyle
     local savedX = left + HOST_PADDING
     local savedY = (top - parentTop) - headerStyle.height - headerStyle.firstRowGap
     settings.x = savedX
     settings.y = savedY
-    RecordManagedScreenPosition(prototype, group, savedX, savedY)
+    RecordManagedScreenPosition(managed, group, savedX, savedY)
     ClearManagedHostUserPlaced(host)
 end
 
@@ -3288,7 +3288,7 @@ local function StyleManagedGroupHeader(header, style)
     label:SetText(style.text)
 end
 
-local function CreateManagedAuraPrototype()
+local function CreateManagedBuffGroupInfrastructure()
     local groupConfig = Managed.startupConfig.BUFFS
     local settings = GetEffectiveGroupSettings(1)
     local barStyle = groupConfig.barStyle
@@ -3480,7 +3480,7 @@ local function InitializeDebuffAuraButton(auraButton)
     InitializeManagedAuraButtonSafely(auraButton, "DEBUFFS", false)
 end
 
-local function CreateManagedDebuffPrototype()
+local function CreateManagedDebuffGroupInfrastructure()
     local placement = MANAGED_DEBUFF_PLACEMENT
     local appliedState = GetSupportedManagedPlacementState(Managed, placement)
         or BuildDefaultManagedPlacementState(placement)
@@ -3577,7 +3577,7 @@ local function InitializeEnchantmentAuraButton(auraButton)
     InitializeManagedAuraButtonSafely(auraButton, "ENCHANTMENTS", true)
 end
 
-local function CreateManagedEnchantmentPrototype()
+local function CreateManagedEnchantmentGroupInfrastructure()
     local placement = MANAGED_ENCHANTMENT_PLACEMENT
     local appliedState = GetSupportedManagedPlacementState(Managed, placement)
         or BuildDefaultManagedPlacementState(placement)
@@ -3720,9 +3720,9 @@ function Managed:Initialize()
             ENCHANTMENTS = setmetatable({}, { __mode = "k" }),
         }
 
-        CreateManagedAuraPrototype()
-        CreateManagedDebuffPrototype()
-        CreateManagedEnchantmentPrototype()
+        CreateManagedBuffGroupInfrastructure()
+        CreateManagedDebuffGroupInfrastructure()
+        CreateManagedEnchantmentGroupInfrastructure()
         CreateManagedDragEventFrame()
         if not self.host or not self.container
             or not self.debuffHost or not self.debuffContainer
@@ -3751,7 +3751,7 @@ function Managed:Initialize()
         if not visibilitySuccess then
             error(visibilityReason or "managed presentation commit failed", 0)
         end
-        RefreshFishingLureRow("prototype initialization commit", true)
+        RefreshFishingLureRow("managed initialization commit", true)
         ReportManagedCompatibilityWarning(self)
     end, function(errorValue)
         return tostring(errorValue)
