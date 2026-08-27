@@ -10,8 +10,6 @@ local defaults = {
     anchorsShown = true,
     syncGroupBars = false,
     hideBlizzardFrames = false,
-    showLegacyBars = true,
-    legacyComparisonMode = false,
     overrides = {},
     groups = {
         {

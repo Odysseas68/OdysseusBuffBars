@@ -36,7 +36,7 @@ ABOVE is intentionally unsupported in the managed architecture and retired from 
 
 `anchorsShown` controls the addon-owned managed headers. Hiding them is visibility-only: hosts, containers, reserved header geometry, SCREEN/BELOW/RIGHT/LEFT topology, saved coordinates, growth, scale, aura bars, and Fishing Lure remain unchanged. Hidden headers provide no drag input; showing them restores the existing SCREEN-root drag behavior. `locked` remains independent.
 
-The former `showLegacyBars` and `legacyComparisonMode` fields remain defaulted and preserved as dormant history/compatibility data, but their Config controls and runtime presentation effects were removed in Phase 1. They have no renderer-authority role.
+The former `showLegacyBars` and `legacyComparisonMode` fields are no longer production defaults and have no production Lua reader or writer. New/default databases do not receive them. Existing serialized copies remain preserved and ignored without migration, purge, schema change, or destructive rewrite; focused runtime validation retained this user's historical `false`/`true` values while normal managed operation remained correct. Their historical Config controls and runtime presentation effects remain documented as retired Phase 1 behavior.
 
 Phase 2 separates raw and effective configuration. Raw SavedVariables remain the historical and Config source; the managed backend deep-copies B/D/E settings into one runtime-only effective set. Supported values are consumed exactly. Historical BUFF TIMELESS_ONLY/NONE becomes effective ALL, invalid BUFF topology becomes SCREEN using usable saved numeric coordinates, invalid DEBUFFS becomes BELOW BUFFS at `0,-8`, and invalid ENCHANTMENTS becomes BELOW DEBUFFS at `0,-8`. No compatibility/schema/migration/backup field is stored. General and affected group pages show compact warnings, chat warns once per session, and managed dragging refuses synthetic placement until an explicit supported Config correction is selected.
 
@@ -55,7 +55,7 @@ Only BUFFS exposes the managed Whitelist/Blacklist editor. Its `Current group au
 - Keep the addon small and focused on Retail aura research.
 - Preserve verified behavior and distinguish PTR evidence from shipped Live behavior.
 - Do not treat the legacy scanner's Retail 12.1 limitations as managed-frame failures.
-- Treat MANAGED-only authority plus legacy Bars, Auras/Engine, runtime-cache scaffolding, and the renderer-authority query façade as retired. Next review the updated Live `Blizzard_AuraContainerUtil.lua` and `Blizzard_PrivateAurasUI.lua` in BlizzardResearch; do not modify OBB unless that source diff demonstrates a real compatibility impact. Release metadata remains separate work.
+- Treat MANAGED-only authority plus legacy Bars, Auras/Engine, runtime-cache scaffolding, the renderer-authority query façade, and the dormant renderer-era defaults as retired. The next clean OBB architectural task is the managed production rename/terminology cleanup. Updated Live AuraContainer/private-aura source review remains separate BlizzardResearch work; do not modify OBB unless that source diff demonstrates a real compatibility impact. Release metadata remains separate work.
 - Do not add Classic support or unrelated addon systems.
 
 ## Repository layout
