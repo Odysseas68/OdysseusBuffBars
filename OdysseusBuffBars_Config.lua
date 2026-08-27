@@ -723,8 +723,11 @@ function Config:Apply()
         self:RefreshActivePage()
         return
     end
-    OBB:RefreshAll()
-    if OBB.ManagedPrototype and OBB.ManagedPrototype.ApplyConfiguration then
+    local refreshSuccess = OBB:RefreshAll()
+    if not refreshSuccess
+        and OBB.ManagedPrototype
+        and OBB.ManagedPrototype.ApplyConfiguration
+    then
         OBB.ManagedPrototype:ApplyConfiguration("config apply")
     end
     if self.frame and self.frame:IsShown() then
@@ -847,8 +850,10 @@ function Config:CreateFiltersFrame()
         filters[frame.activeList or "whitelist"][spellID] = true
         frame.input:SetText("")
         frame.input:ClearFocus()
-        OBB:RefreshAll()
-        RefreshManagedHelpfulGroupFilters(frame.settings)
+        local refreshSuccess = OBB:RefreshAll()
+        if not refreshSuccess then
+            RefreshManagedHelpfulGroupFilters(frame.settings)
+        end
         self:RefreshFiltersFrame()
     end)
 
@@ -868,8 +873,10 @@ function Config:CreateFiltersFrame()
         filters[frame.activeList or "whitelist"][spellID] = nil
         frame.input:SetText("")
         frame.input:ClearFocus()
-        OBB:RefreshAll()
-        RefreshManagedHelpfulGroupFilters(frame.settings)
+        local refreshSuccess = OBB:RefreshAll()
+        if not refreshSuccess then
+            RefreshManagedHelpfulGroupFilters(frame.settings)
+        end
         self:RefreshFiltersFrame()
     end)
 
@@ -928,8 +935,10 @@ function Config:CreateFiltersFrame()
             local filters = EnsureGroupFilters(frame.settings)
             local activeList = frame.activeList or "whitelist"
             filters[activeList][spellID] = rowButton:GetChecked() and true or nil
-            OBB:RefreshAll()
-            RefreshManagedHelpfulGroupFilters(frame.settings)
+            local refreshSuccess = OBB:RefreshAll()
+            if not refreshSuccess then
+                RefreshManagedHelpfulGroupFilters(frame.settings)
+            end
             Config:RefreshFiltersFrame()
         end)
         frame.rows[index] = row
@@ -1110,8 +1119,10 @@ function Config:CreateOverridesFrame()
                 hidden = hidden,
             }
         end
-        OBB:RefreshAll()
-        RefreshManagedHelpfulCandidateFilters()
+        local refreshSuccess = OBB:RefreshAll()
+        if not refreshSuccess then
+            RefreshManagedHelpfulCandidateFilters()
+        end
         self:RefreshManagedHelpfulFilterEditor()
         self:RefreshOverridesFrame()
     end)
@@ -1131,8 +1142,10 @@ function Config:CreateOverridesFrame()
         EnsureOverrides()[spellID] = nil
         frame.selectedGroup = nil
         frame.hiddenValue = false
-        OBB:RefreshAll()
-        RefreshManagedHelpfulCandidateFilters()
+        local refreshSuccess = OBB:RefreshAll()
+        if not refreshSuccess then
+            RefreshManagedHelpfulCandidateFilters()
+        end
         self:RefreshManagedHelpfulFilterEditor()
         self:RefreshOverridesFrame()
     end)

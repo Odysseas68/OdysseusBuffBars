@@ -20,6 +20,7 @@ A standalone World of Warcraft Retail addon implementing a modern managed AuraCo
 - ✅ Legacy runtime cache scaffolding retirement
 - ✅ Renderer-authority query façade retirement
 - ✅ `RefreshAuras()` compatibility-alias retirement
+- ✅ Successful-path Config refresh deduplication with failure fallbacks retained
 
 The managed Player BUFFS implementation has been validated across its historical PTR milestone and current Retail production work for the AuraContainer lifecycle, dynamic self-sizing, native sorting, native whitelist/blacklist filtering, automatic configuration synchronization, native tooltips, native right-click cancellation, and combat operation.
 
@@ -70,5 +71,5 @@ Startup preserves intentional independent DEBUFFS/ENCHANTMENTS SCREEN roots acro
 - Backend cleanup — Fishing Lure formatter extraction, Bars/secure-overlay retirement, Auras/Engine retirement, and obsolete runtime-cache scaffolding retirement are complete
 - Compatibility cleanup — Renderer-authority mutation and query APIs are retired; ENCHANTMENTS fixed Sort/Max Config state now derives directly from the MANAGED-only group-3 architecture while historical SavedVariables remain preserved
 - Refresh cleanup — `RefreshAll()` remains the central managed coordinator; the redundant `RefreshAuras()` alias is retired and slash/Config refresh paths call `RefreshAll()` directly
-- Next checkpoint — Read-only audit the duplicate Config calls that follow `RefreshAll()`, including repeated `ApplyConfiguration()` and `RefreshCandidateFilters()` work; do not change sequencing before that audit
+- Config sequencing cleanup — successful `RefreshAll()` transactions no longer repeat direct managed Apply/candidate work; the existing direct calls remain conditional failure fallbacks
 - Later cleanup — Review dormant historical defaults separately, then address managed production naming/terminology, Config polish, media/library work, licensing, OdysseusDebugConsole, and release preparation
