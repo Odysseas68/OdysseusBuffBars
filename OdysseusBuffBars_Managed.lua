@@ -117,26 +117,17 @@ local MANAGED_DEFAULT_AURA_SORT_MODE = "TIMELEFT"
 
 local SORT_MODES = {
     DEFAULT = {
-        label = "Default",
         method = _G.AuraContainerSortMethod and _G.AuraContainerSortMethod.Default,
         direction = _G.AuraContainerSortDirection and _G.AuraContainerSortDirection.Normal,
     },
     NAME = {
-        label = "Name",
         method = _G.AuraContainerSortMethod and _G.AuraContainerSortMethod.NameOnly,
         direction = _G.AuraContainerSortDirection and _G.AuraContainerSortDirection.Normal,
     },
     TIMELEFT = {
-        label = "Time Left",
         method = _G.AuraContainerSortMethod and _G.AuraContainerSortMethod.ExpirationOnly,
         direction = _G.AuraContainerSortDirection and _G.AuraContainerSortDirection.Reverse,
     },
-}
-
-local NEXT_SORT_MODE = {
-    DEFAULT = "NAME",
-    NAME = "TIMELEFT",
-    TIMELEFT = "DEFAULT",
 }
 
 local SAVED_SORT_MODES = {
@@ -365,12 +356,10 @@ local CONFIG_MANAGED_AURA_GROUPS = {
     BUFFS = {
         containerKey = "container",
         auraGroupKey = AURA_GROUP_KEY,
-        buttonKey = "sortButton",
     },
     DEBUFFS = {
         containerKey = "debuffContainer",
         auraGroupKey = DEBUFF_AURA_GROUP_KEY,
-        buttonKey = "debuffSortButton",
     },
 }
 
@@ -2557,7 +2546,6 @@ local function ApplyManagedGroupSort(managed, groupKey, sortMode)
         sort.method,
         sort.direction
     )
-    managed[group.buttonKey]:SetText("Sort: " .. sort.label)
     managed.currentGroupSortModes[groupKey] = sortMode
     return true
 end
@@ -3367,24 +3355,6 @@ local function CreateManagedBuffGroupInfrastructure()
         },
     })
 
-    local sortButton = CreateFrame("Button", nil, host, "UIPanelButtonTemplate")
-    Managed.sortButton = sortButton
-    sortButton:SetSize(94, 18)
-    sortButton:SetPoint("TOPRIGHT", dragHandle, "TOPRIGHT", -2, -2)
-    sortButton:SetFrameLevel(dragHandle:GetFrameLevel() + 1)
-    sortButton:SetText("Sort: " .. activeSort.label)
-    sortButton:SetScript("OnClick", function()
-        if not Managed:IsReady() then
-            return
-        end
-        if InCombatLockdown and InCombatLockdown() then
-            return
-        end
-
-        local currentSortMode = Managed.currentGroupSortModes.BUFFS
-        ApplyManagedGroupSort(Managed, "BUFFS", NEXT_SORT_MODE[currentSortMode])
-    end)
-
     local filterInitFrame = CreateFrame("Frame")
     automaticDiscoveryFrame = filterInitFrame
     Managed.automaticDiscoveryFrame = filterInitFrame
@@ -3552,24 +3522,6 @@ local function CreateManagedDebuffGroupInfrastructure()
             elementSpacing = groupConfig.spacing,
         },
     })
-
-    local sortButton = CreateFrame("Button", nil, host, "UIPanelButtonTemplate")
-    Managed.debuffSortButton = sortButton
-    sortButton:SetSize(94, 18)
-    sortButton:SetPoint("TOPRIGHT", header, "TOPRIGHT", -2, -2)
-    sortButton:SetFrameLevel(header:GetFrameLevel() + 1)
-    sortButton:SetText("Sort: " .. activeSort.label)
-    sortButton:SetScript("OnClick", function()
-        if not Managed:IsReady() then
-            return
-        end
-        if InCombatLockdown and InCombatLockdown() then
-            return
-        end
-
-        local currentSortMode = Managed.currentGroupSortModes.DEBUFFS
-        ApplyManagedGroupSort(Managed, "DEBUFFS", NEXT_SORT_MODE[currentSortMode])
-    end)
 
 end
 

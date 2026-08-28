@@ -75,5 +75,5 @@ Startup preserves intentional independent DEBUFFS/ENCHANTMENTS SCREEN roots acro
 - Refresh cleanup — `RefreshAll()` remains the central managed coordinator; the redundant `RefreshAuras()` alias is retired and slash/Config refresh paths call `RefreshAll()` directly
 - Config sequencing cleanup — successful `RefreshAll()` transactions no longer repeat direct managed Apply/candidate work; the existing direct calls remain conditional failure fallbacks
 - Terminology cleanup — The production file/namespace and internal managed-renderer Lua terminology cleanups are complete and runtime validated without SavedVariables, schema, API, or behavior changes; six global runtime frame names containing `Prototype` remain intentionally unchanged
-- Next code cleanup — Remove the two visible BUFFS/DEBUFFS Sort buttons while preserving Config-owned saved sorting and ENCHANTMENTS' fixed `TIMELEFT` behavior
-- Later cleanup — Diagnostic-retention review and any evidence-driven frame-name migration decision remain separate from Config polish, media/library work, licensing, OdysseusDebugConsole, and release preparation
+- Sort-control cleanup — The redundant BUFFS/DEBUFFS header Sort buttons are removed; Config remains the sole sorting control, saved B/D sort values still apply through the managed renderer, and ENCHANTMENTS remains fixed `TIMELEFT`
+- Next cleanup — Audit diagnostic retention/removal; any evidence-driven frame-name migration decision remains deferred and separate from Config polish, media/library work, licensing, OdysseusDebugConsole, and release preparation
