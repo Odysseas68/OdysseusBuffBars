@@ -1483,15 +1483,6 @@ local function PrintDiagnostic(message)
     print("|cff66ccffOBB managed tooltip|r: " .. message)
 end
 
-local MANAGED_DEBUG = false
-
-local function DebugPrint(message)
-    if not MANAGED_DEBUG then
-        return
-    end
-    PrintDiagnostic(message)
-end
-
 local function CallDiagnosticAPI(apiTable, apiName, ...)
     if type(apiTable) ~= "table" or type(apiTable[apiName]) ~= "function" then
         return false
@@ -1780,42 +1771,22 @@ function Managed.DiscoverAndApplyHelpfulEnhancementRouting()
     return true
 end
 
-local function AttemptAutomaticHelpfulEnhancementDiscovery(reason, reportUnchangedSynchronization)
+local function AttemptAutomaticHelpfulEnhancementDiscovery(reason)
     if _G.InCombatLockdown and _G.InCombatLockdown() then
-        if not automaticDiscoveryPending then
-            DebugPrint("automatic routing deferred reason=" .. reason .. " combat lockdown")
-        end
         SetAutomaticHelpfulEnhancementDiscoveryPending(true)
         return
     end
 
-    local success, discoveredCount, failureReason, routingChanged = RunHelpfulEnhancementDiscovery(false)
+    local success, _, failureReason = RunHelpfulEnhancementDiscovery(false)
     if not success then
         SetAutomaticHelpfulEnhancementDiscoveryPending(true)
-        local message = "automatic routing deferred reason=" .. reason .. " " .. failureReason
-        if failureReason == "readable player HELPFUL auras are unavailable" then
-            DebugPrint(message)
-        else
-            PrintDiagnostic(message)
+        if failureReason ~= "readable player HELPFUL auras are unavailable" then
+            PrintDiagnostic("automatic routing deferred reason=" .. reason .. " " .. failureReason)
         end
         return
     end
 
     SetAutomaticHelpfulEnhancementDiscoveryPending(false)
-    if not routingChanged then
-        if reportUnchangedSynchronization then
-            DebugPrint(
-                "automatic routing synchronized reason=" .. reason
-                    .. " discoveredSpellIDs=" .. discoveredCount
-            )
-        end
-        return
-    end
-
-    DebugPrint(
-        "automatic routing succeeded reason=" .. reason
-            .. " discoveredSpellIDs=" .. discoveredCount
-    )
 end
 
 local function SetFishingLureRefreshPending(pending)
@@ -1954,7 +1925,6 @@ ContainManagedFatalFailure = function(managed, reason)
     managed.initialized = nil
     managed.initializing = nil
     managedCallbackGeneration = managedCallbackGeneration + 1
-    managed.callbackGeneration = managedCallbackGeneration
 
     automaticDiscoveryPending = nil
     nativeEnchantmentRecoveryDeferredForCombat = nil
@@ -3044,7 +3014,6 @@ end
 local function CreateFishingLureEventFrame()
     local eventFrame = _G.CreateFrame("Frame")
     fishingLureEventFrame = eventFrame
-    Managed.fishingLureEventFrame = eventFrame
     local inventoryGeneration = 0
     local inventoryCheckPending
 
@@ -3357,7 +3326,6 @@ local function CreateManagedBuffGroupInfrastructure()
 
     local filterInitFrame = CreateFrame("Frame")
     automaticDiscoveryFrame = filterInitFrame
-    Managed.automaticDiscoveryFrame = filterInitFrame
     local transitionRecoveryPending
     local transitionInventoryGeneration
     local transitionInventoryCheckEpoch
@@ -3432,7 +3400,7 @@ local function CreateManagedBuffGroupInfrastructure()
             AttemptAutomaticHelpfulEnhancementDiscovery("UNIT_AURA player")
         elseif event == "PLAYER_REGEN_ENABLED" then
             if automaticDiscoveryPending then
-                AttemptAutomaticHelpfulEnhancementDiscovery("PLAYER_REGEN_ENABLED", true)
+                AttemptAutomaticHelpfulEnhancementDiscovery("PLAYER_REGEN_ENABLED")
             end
             if nativeEnchantmentRecoveryDeferredForCombat then
                 CompleteNativeEnchantmentTransitionRecovery()
@@ -3640,7 +3608,6 @@ function Managed:Initialize()
     end
 
     self.initializing = true
-    self.callbackGeneration = managedCallbackGeneration
     local initializeSuccess, initializeReason = xpcall(function()
         local capabilitiesAvailable, capabilityReason = ValidateManagedStaticCapabilities()
         if not capabilitiesAvailable then
@@ -3680,8 +3647,8 @@ function Managed:Initialize()
             or not self.debuffHost or not self.debuffContainer
             or not self.enchantmentHost or not self.enchantmentContainer
             or not self.fishingLureRow
-            or not self.automaticDiscoveryFrame
-            or not self.fishingLureEventFrame
+            or not automaticDiscoveryFrame
+            or not fishingLureEventFrame
             or not self.dragEventFrame
         then
             error("managed B/D/E infrastructure incomplete", 0)
