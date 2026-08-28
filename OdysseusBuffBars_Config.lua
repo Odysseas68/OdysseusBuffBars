@@ -6,6 +6,17 @@ OBB.Config = Config
 local FRAME_NAME = "OdysseusBuffBarsConfigFrame"
 local PANEL_WIDTH = 150
 local PADDING = 14
+local TEXTURE_PICKER_WIDTH = 360
+local TEXTURE_PICKER_VISIBLE_ROWS = 15
+local TEXTURE_PICKER_ROW_HEIGHT = 22
+local TEXTURE_PICKER_PADDING = 8
+local TEXTURE_PICKER_PREVIEW_WIDTH = 100
+local TEXTURE_PICKER_PREVIEW_HEIGHT = 12
+local FONT_PICKER_WIDTH = 360
+local FONT_PICKER_VISIBLE_ROWS = 15
+local FONT_PICKER_ROW_HEIGHT = 24
+local FONT_PICKER_PADDING = 8
+local FONT_PICKER_PREVIEW_SIZE = 14
 
 local function Round(value, step)
     step = step or 1
@@ -64,6 +75,351 @@ local function CreateDropdown(parent, width, itemsProvider, onSelect)
         UIDropDownMenu_SetText(self, text)
     end
     return dropdown
+end
+
+local function CreateStatusBarTexturePicker(parent, ownerFrame, onSelect)
+    local picker = CreateButton(parent, "")
+    picker:SetWidth(220)
+
+    local popup = _G.CreateFrame(
+        "Frame",
+        nil,
+        parent,
+        _G.BackdropTemplateMixin and "BackdropTemplate"
+    )
+    popup:SetSize(
+        TEXTURE_PICKER_WIDTH,
+        (TEXTURE_PICKER_VISIBLE_ROWS * TEXTURE_PICKER_ROW_HEIGHT)
+            + (TEXTURE_PICKER_PADDING * 2)
+    )
+    popup:SetFrameStrata(ownerFrame:GetFrameStrata())
+    popup:SetFrameLevel(ownerFrame:GetFrameLevel() + 100)
+    popup:SetClampedToScreen(true)
+    popup:EnableMouse(true)
+    popup:SetBackdrop({
+        bgFile = [[Interface\DialogFrame\UI-DialogBox-Background]],
+        edgeFile = [[Interface\Tooltips\UI-Tooltip-Border]],
+        tile = true,
+        tileSize = 16,
+        edgeSize = 12,
+        insets = { left = 3, right = 3, top = 3, bottom = 3 },
+    })
+    popup:Hide()
+
+    local scrollBox = _G.CreateFrame("Frame", nil, popup, "WowScrollBoxList")
+    scrollBox:SetPoint("TOPLEFT", popup, "TOPLEFT", TEXTURE_PICKER_PADDING, -TEXTURE_PICKER_PADDING)
+    scrollBox:SetPoint("BOTTOMRIGHT", popup, "BOTTOMRIGHT", -28, TEXTURE_PICKER_PADDING)
+    scrollBox:SetFrameLevel(popup:GetFrameLevel() + 1)
+    scrollBox:EnableMouseWheel(true)
+
+    local scrollBar = _G.CreateFrame("EventFrame", nil, popup, "MinimalScrollBar")
+    scrollBar:SetPoint("TOPLEFT", scrollBox, "TOPRIGHT", 4, 0)
+    scrollBar:SetPoint("BOTTOMLEFT", scrollBox, "BOTTOMRIGHT", 4, 0)
+    scrollBar:SetFrameLevel(popup:GetFrameLevel() + 1)
+
+    local view = _G.CreateScrollBoxListLinearView()
+    view:SetElementExtent(TEXTURE_PICKER_ROW_HEIGHT)
+    view:SetElementInitializer("Button", function(row, elementData)
+        if not row.texturePickerInitialized then
+            row.texturePickerInitialized = true
+            row:RegisterForClicks("LeftButtonUp")
+
+            row.selectionIcon = row:CreateTexture(nil, "ARTWORK")
+            row.selectionIcon:SetSize(18, 18)
+            row.selectionIcon:SetPoint("LEFT", row, "LEFT", 2, 0)
+            row.selectionIcon:SetTexture([[Interface\Buttons\UI-CheckBox-Check]])
+
+            row.texturePreview = row:CreateTexture(nil, "ARTWORK")
+            row.texturePreview:SetSize(TEXTURE_PICKER_PREVIEW_WIDTH, TEXTURE_PICKER_PREVIEW_HEIGHT)
+            row.texturePreview:SetPoint("LEFT", row, "LEFT", 24, 0)
+
+            row.mediaNameText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+            row.mediaNameText:SetPoint("LEFT", row.texturePreview, "RIGHT", 6, 0)
+            row.mediaNameText:SetPoint("RIGHT", row, "RIGHT", -4, 0)
+            row.mediaNameText:SetJustifyH("LEFT")
+            row.mediaNameText:SetWordWrap(false)
+            row.mediaNameText:SetMaxLines(1)
+
+            local highlight = row:CreateTexture(nil, "HIGHLIGHT")
+            highlight:SetAllPoints()
+            highlight:SetColorTexture(1, 1, 1, 0.12)
+
+            row:SetScript("OnClick", function(clickedRow)
+                popup:Hide()
+                onSelect(clickedRow.mediaName)
+            end)
+        end
+
+        row.mediaName = elementData.name
+        row.selectionIcon:SetShown(elementData.name == popup.selectedMediaName)
+        row.texturePreview:SetTexture(elementData.texture)
+        row.mediaNameText:SetText(elementData.name)
+    end)
+    _G.ScrollUtil.InitScrollBoxListWithScrollBar(scrollBox, scrollBar, view)
+
+    function popup:RefreshMedia()
+        local libSharedMedia = _G.LibStub
+            and _G.LibStub:GetLibrary("LibSharedMedia-3.0", true)
+        local mediaType = libSharedMedia
+            and libSharedMedia.MediaType
+            and libSharedMedia.MediaType.STATUSBAR
+        local mediaNames = mediaType and libSharedMedia:List(mediaType) or {}
+        local entries = {}
+        local selectedIndex
+        local fallbackIndex
+
+        for _, mediaName in ipairs(mediaNames) do
+            local texture = libSharedMedia:Fetch(mediaType, mediaName, true)
+            if texture then
+                entries[#entries + 1] = {
+                    name = mediaName,
+                    texture = texture,
+                }
+                local entryIndex = #entries
+                if mediaName == OBB.db.statusBarTexture then
+                    selectedIndex = entryIndex
+                elseif mediaName == "Blizzard" then
+                    fallbackIndex = entryIndex
+                end
+            end
+        end
+
+        local visibleSelectionIndex = selectedIndex or fallbackIndex
+        self.selectedMediaName = visibleSelectionIndex
+            and entries[visibleSelectionIndex].name
+            or nil
+        scrollBox:SetDataProvider(_G.CreateDataProvider(entries))
+        if visibleSelectionIndex then
+            scrollBox:ScrollToElementDataIndex(
+                visibleSelectionIndex,
+                _G.ScrollBoxConstants.AlignCenter
+            )
+        end
+    end
+
+    function popup:AnchorToPicker()
+        self:ClearAllPoints()
+        local pickerBottom = picker:GetBottom()
+        if pickerBottom and pickerBottom >= self:GetHeight() + TEXTURE_PICKER_PADDING then
+            self:SetPoint("TOPLEFT", picker, "BOTTOMLEFT", 0, -4)
+        else
+            self:SetPoint("BOTTOMLEFT", picker, "TOPLEFT", 0, 4)
+        end
+    end
+
+    picker:SetScript("OnClick", function()
+        if popup:IsShown() then
+            popup:Hide()
+            return
+        end
+        popup:RefreshMedia()
+        popup:AnchorToPicker()
+        popup:Show()
+    end)
+    parent:HookScript("OnHide", function()
+        popup:Hide()
+    end)
+    picker.popup = popup
+    return picker
+end
+
+local function SetFontFaceSafely(fontString, fontFace, fontSize, fontFlags, fallbackFace)
+    if type(fontFace) == "string" then
+        local callSucceeded, fontApplied = pcall(
+            fontString.SetFont,
+            fontString,
+            fontFace,
+            fontSize,
+            fontFlags
+        )
+        if callSucceeded and fontApplied ~= false then
+            return
+        end
+    end
+
+    fontString:SetFont(
+        fallbackFace or _G.STANDARD_TEXT_FONT or [[Fonts\FRIZQT__.TTF]],
+        fontSize,
+        fontFlags
+    )
+end
+
+local function CreateFontPicker(parent, ownerFrame, onSelect)
+    local picker = CreateButton(parent, "")
+    picker:SetWidth(220)
+    local pickerFontString = picker:GetFontString()
+    local pickerDefaultFont, pickerFontSize, pickerFontFlags = pickerFontString:GetFont()
+
+    local popup = _G.CreateFrame(
+        "Frame",
+        nil,
+        parent,
+        _G.BackdropTemplateMixin and "BackdropTemplate"
+    )
+    popup:SetSize(
+        FONT_PICKER_WIDTH,
+        (FONT_PICKER_VISIBLE_ROWS * FONT_PICKER_ROW_HEIGHT)
+            + (FONT_PICKER_PADDING * 2)
+    )
+    popup:SetFrameStrata(ownerFrame:GetFrameStrata())
+    popup:SetFrameLevel(ownerFrame:GetFrameLevel() + 100)
+    popup:SetClampedToScreen(true)
+    popup:EnableMouse(true)
+    popup:SetBackdrop({
+        bgFile = [[Interface\DialogFrame\UI-DialogBox-Background]],
+        edgeFile = [[Interface\Tooltips\UI-Tooltip-Border]],
+        tile = true,
+        tileSize = 16,
+        edgeSize = 12,
+        insets = { left = 3, right = 3, top = 3, bottom = 3 },
+    })
+    popup:Hide()
+
+    local scrollBox = _G.CreateFrame("Frame", nil, popup, "WowScrollBoxList")
+    scrollBox:SetPoint("TOPLEFT", popup, "TOPLEFT", FONT_PICKER_PADDING, -FONT_PICKER_PADDING)
+    scrollBox:SetPoint("BOTTOMRIGHT", popup, "BOTTOMRIGHT", -28, FONT_PICKER_PADDING)
+    scrollBox:SetFrameLevel(popup:GetFrameLevel() + 1)
+    scrollBox:EnableMouseWheel(true)
+
+    local scrollBar = _G.CreateFrame("EventFrame", nil, popup, "MinimalScrollBar")
+    scrollBar:SetPoint("TOPLEFT", scrollBox, "TOPRIGHT", 4, 0)
+    scrollBar:SetPoint("BOTTOMLEFT", scrollBox, "BOTTOMRIGHT", 4, 0)
+    scrollBar:SetFrameLevel(popup:GetFrameLevel() + 1)
+
+    local view = _G.CreateScrollBoxListLinearView()
+    view:SetElementExtent(FONT_PICKER_ROW_HEIGHT)
+    view:SetElementInitializer("Button", function(row, elementData)
+        if not row.fontPickerInitialized then
+            row.fontPickerInitialized = true
+            row:RegisterForClicks("LeftButtonUp")
+
+            row.selectionIcon = row:CreateTexture(nil, "ARTWORK")
+            row.selectionIcon:SetSize(18, 18)
+            row.selectionIcon:SetPoint("LEFT", row, "LEFT", 2, 0)
+            row.selectionIcon:SetTexture([[Interface\Buttons\UI-CheckBox-Check]])
+
+            row.mediaNameText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+            row.mediaNameText:SetPoint("LEFT", row, "LEFT", 24, 0)
+            row.mediaNameText:SetPoint("RIGHT", row, "RIGHT", -4, 0)
+            row.mediaNameText:SetJustifyH("LEFT")
+            row.mediaNameText:SetWordWrap(false)
+            row.mediaNameText:SetMaxLines(1)
+            row.defaultFontFace = row.mediaNameText:GetFont()
+
+            local highlight = row:CreateTexture(nil, "HIGHLIGHT")
+            highlight:SetAllPoints()
+            highlight:SetColorTexture(1, 1, 1, 0.12)
+
+            row:SetScript("OnClick", function(clickedRow)
+                popup:Hide()
+                onSelect(clickedRow.mediaName)
+            end)
+        end
+
+        row.mediaName = elementData.name
+        row.selectionIcon:SetShown(elementData.name == popup.selectedMediaName)
+        row.mediaNameText:SetText(elementData.name)
+        SetFontFaceSafely(
+            row.mediaNameText,
+            elementData.font,
+            FONT_PICKER_PREVIEW_SIZE,
+            "",
+            row.defaultFontFace
+        )
+    end)
+    _G.ScrollUtil.InitScrollBoxListWithScrollBar(scrollBox, scrollBar, view)
+
+    function popup:RefreshMedia()
+        local libSharedMedia = _G.LibStub
+            and _G.LibStub:GetLibrary("LibSharedMedia-3.0", true)
+        local mediaType = libSharedMedia
+            and libSharedMedia.MediaType
+            and libSharedMedia.MediaType.FONT
+        local mediaNames = mediaType and libSharedMedia:List(mediaType) or {}
+        local defaultMediaName = libSharedMedia
+            and libSharedMedia.DefaultMedia
+            and libSharedMedia.DefaultMedia.font
+            or "Friz Quadrata TT"
+        local entries = {}
+        local selectedIndex
+        local fallbackIndex
+
+        for _, mediaName in ipairs(mediaNames) do
+            entries[#entries + 1] = {
+                name = mediaName,
+                font = libSharedMedia:Fetch(mediaType, mediaName, true),
+            }
+            local entryIndex = #entries
+            if mediaName == OBB.db.font then
+                selectedIndex = entryIndex
+            elseif mediaName == defaultMediaName then
+                fallbackIndex = entryIndex
+            end
+        end
+
+        local visibleSelectionIndex = selectedIndex or fallbackIndex
+        self.selectedMediaName = visibleSelectionIndex
+            and entries[visibleSelectionIndex].name
+            or nil
+        scrollBox:SetDataProvider(_G.CreateDataProvider(entries))
+        if visibleSelectionIndex then
+            scrollBox:ScrollToElementDataIndex(
+                visibleSelectionIndex,
+                _G.ScrollBoxConstants.AlignCenter
+            )
+        end
+    end
+
+    function popup:AnchorToPicker()
+        self:ClearAllPoints()
+        local pickerBottom = picker:GetBottom()
+        if pickerBottom and pickerBottom >= self:GetHeight() + FONT_PICKER_PADDING then
+            self:SetPoint("TOPLEFT", picker, "BOTTOMLEFT", 0, -4)
+        else
+            self:SetPoint("BOTTOMLEFT", picker, "TOPLEFT", 0, 4)
+        end
+    end
+
+    function picker:RefreshSelection(mediaName)
+        self:SetText(mediaName)
+        local libSharedMedia = _G.LibStub
+            and _G.LibStub:GetLibrary("LibSharedMedia-3.0", true)
+        local mediaType = libSharedMedia
+            and libSharedMedia.MediaType
+            and libSharedMedia.MediaType.FONT
+        local resolvedFont = mediaType
+            and libSharedMedia:Fetch(mediaType, mediaName, true)
+        if not resolvedFont then
+            local defaultMediaName = libSharedMedia
+                and libSharedMedia.DefaultMedia
+                and libSharedMedia.DefaultMedia.font
+                or "Friz Quadrata TT"
+            resolvedFont = mediaType
+                and libSharedMedia:Fetch(mediaType, defaultMediaName, true)
+        end
+        SetFontFaceSafely(
+            pickerFontString,
+            resolvedFont,
+            pickerFontSize,
+            pickerFontFlags,
+            pickerDefaultFont
+        )
+    end
+
+    picker:SetScript("OnClick", function()
+        if popup:IsShown() then
+            popup:Hide()
+            return
+        end
+        popup:RefreshMedia()
+        popup:AnchorToPicker()
+        popup:Show()
+    end)
+    parent:HookScript("OnHide", function()
+        popup:Hide()
+    end)
+    picker.popup = popup
+    return picker
 end
 
 local function CreateEditBox(parent)
@@ -1199,8 +1555,37 @@ function Config:BuildGeneralPage(page)
     end)
     hideBlizzard:SetPoint("TOPLEFT", syncBars, "BOTTOMLEFT", 0, -4)
 
+    local textureLabel = CreateLabel(page, "Status-bar texture")
+    textureLabel:SetPoint("TOPLEFT", hideBlizzard, "BOTTOMLEFT", 4, -14)
+
+    local texturePicker = CreateStatusBarTexturePicker(page, self.frame, function(value)
+        if self:IsCombatLocked() then
+            self:WarnCombat()
+            self:RefreshActivePage()
+            return
+        end
+        OBB.db.statusBarTexture = value
+        self:Apply()
+    end)
+    texturePicker:SetPoint("LEFT", textureLabel, "RIGHT", 4, 0)
+
+    local fontLabel = CreateLabel(page, "Font")
+    fontLabel:SetPoint("TOPLEFT", textureLabel, "BOTTOMLEFT", 0, -18)
+    fontLabel:SetWidth(textureLabel:GetStringWidth())
+
+    local fontPicker = CreateFontPicker(page, self.frame, function(value)
+        if self:IsCombatLocked() then
+            self:WarnCombat()
+            self:RefreshActivePage()
+            return
+        end
+        OBB.db.font = value
+        self:Apply()
+    end)
+    fontPicker:SetPoint("LEFT", fontLabel, "RIGHT", 4, 0)
+
     local refresh = CreateButton(page, "Refresh Auras")
-    refresh:SetPoint("TOPLEFT", hideBlizzard, "BOTTOMLEFT", 0, -12)
+    refresh:SetPoint("TOPLEFT", fontLabel, "BOTTOMLEFT", -4, -18)
     refresh:SetWidth(130)
     refresh:SetScript("OnClick", function()
         if self:IsCombatLocked() then
@@ -1257,6 +1642,8 @@ function Config:BuildGeneralPage(page)
         lock:SetChecked(OBB.db.locked)
         syncBars:SetChecked(OBB.db.syncGroupBars)
         hideBlizzard:SetChecked(OBB.db.hideBlizzardFrames)
+        texturePicker:SetText(OBB.db.statusBarTexture)
+        fontPicker:RefreshSelection(OBB.db.font)
         if compatibilityState.active then
             local summary = OBB.Managed
                 and OBB.Managed.GetCompatibilitySummary
@@ -1273,6 +1660,8 @@ function Config:BuildGeneralPage(page)
         Config:SetControlEnabled(lock, enabled)
         Config:SetControlEnabled(syncBars, enabled)
         Config:SetControlEnabled(hideBlizzard, enabled)
+        Config:SetControlEnabled(texturePicker, enabled)
+        Config:SetControlEnabled(fontPicker, enabled)
         Config:SetControlEnabled(refresh, enabled)
         Config:SetControlEnabled(anchors, enabled)
         Config:SetControlEnabled(resetPositions, enabled)

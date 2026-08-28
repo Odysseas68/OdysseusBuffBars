@@ -6,6 +6,8 @@ This changelog records repository history beginning with the creation of the sta
 
 ### Added
 
+- Added one global LibSharedMedia status-bar texture setting and one global font-face setting shared by BUFFS, DEBUFFS, and ENCHANTMENTS.
+- Added compact bounded General-page texture and font pickers using Retail ScrollBox/MinimalScrollBar lists, actual media previews, and the verified Blizzard checkbox asset for selection state.
 - Standalone repository.
 - Managed AuraContainer Player BUFFS implementation.
 - Dynamic self-sizing.
@@ -20,6 +22,7 @@ This changelog records repository history beginning with the creation of the sta
 
 ### Changed
 
+- Global media changes now apply immediately through the existing Config refresh path. Missing registered media falls back safely without rewriting its saved media name; global font selection changes face only while independent per-group font sizes and existing count-size behavior remain authoritative.
 - Updated bundled LibSharedMedia-3.0; path-based media is now validated before registration.
 - Retired the isolated `DumpKnownAuraTooltips` developer/research inspector and its four private metadata/tooltip printing helpers. The three fixed historical research spell IDs no longer occur in production Lua; historical research evidence remains documented. Production routing, lifecycle, recovery, Config, SavedVariables, native enchants, Fishing Lure, refresh behavior, retained operational diagnostics, compatibility reporting, and fatal failure reporting are unchanged.
 - Removed the permanently disabled automatic-routing debug gate, dead trace helper/calls, obsolete unchanged-synchronization plumbing, and undocumented module-table mirrors for callback generation and the automatic-discovery/Fishing Lure event frames. The production lifecycle owners remain local and unchanged; manual helpful-enhancement, Fishing Lure, and tooltip/spell metadata diagnostics plus unexpected routing failure, compatibility, and fatal failure reporting remain. Focused runtime validation passed `/reload`, normal B/D/E presentation, automatic routing, the manual diagnostic, and `/obb refresh`; it classified `1234969` Ethereal Augmentation as `AUGMENT_RUNE` and `432021` Flask of Alchemical Chaos as `FLASK_PHIAL`, found two routed IDs, reported the set already synchronized, and observed no regression.

@@ -43,7 +43,7 @@ The TOC must load only this addon's active files and bundled libraries. The old 
 - No profiles for now.
 - No LibQTip for now.
 - No LibDBIcon/minimap launcher yet.
-- LibSharedMedia is intentionally retained. It is currently optional and used only for status bar textures; future managed Config work may add font and status-bar texture selection.
+- LibSharedMedia-3.0 is the media source for the root-level `statusBarTexture` and `font` settings. Both persist registered media names, apply globally across BUFFS/DEBUFFS/ENCHANTMENTS, and fall back safely without rewriting a temporarily unavailable saved name. The font setting controls face only; per-group `fontSize` and count-size behavior remain independent, and headers retain their existing font path.
 - Default groups:
   - player buffs: `HELPFUL`
   - player debuffs: `HARMFUL`
@@ -88,7 +88,8 @@ The TOC must load only this addon's active files and bundled libraries. The old 
 - Managed Config constrains Anchor choices to BUFFS SCREEN, DEBUFFS SCREEN/BUFFS, and ENCHANTMENTS SCREEN/DEBUFFS. Parented D/E offer only BELOW/LEFT/RIGHT; ABOVE and arbitrary targets are not offered.
 - Dropdowns should be preferred over cycle buttons for multi-choice position settings.
 - While a group title is being dragged, aura refresh/layout updates skip reapplying that group's position so it does not fight the mouse.
-- General includes `Sync Group Bars`; when enabled, group bar settings sync across all groups except Anchor, Place, Offset X, and Offset Y.
+- General includes compact bounded LibSharedMedia texture/font preview pickers backed by the Retail ScrollBox/MinimalScrollBar pattern. Texture rows preview the actual media and font rows render their names with the actual face; both use `Interface\Buttons\UI-CheckBox-Check` for the selected row and apply immediately through the existing Config refresh path.
+- General includes `Sync Group Bars`; when enabled, group bar settings sync across all groups except Anchor, Place, Offset X, and Offset Y. The global `statusBarTexture` and `font` settings are intentionally not Sync fields because all three groups already share them.
 - General includes `Hide default Blizzard frames`; this is a best-effort legacy convenience toggle that hides/shows Blizzard aura frames out of combat without replacing Blizzard update logic. Blizzard Edit Mode remains the supported owner of default aura-frame visibility.
 - Hide default Blizzard frames is reapplied when Blizzard Edit Mode closes, with short delayed retries, because Edit Mode can show the default aura frames again after applying its layout.
 - General includes `Override Settings`; overrides are keyed by numeric `spellID`, can hide matching auras, and can route HELPFUL auras between BUFFS and ENCHANTMENTS.

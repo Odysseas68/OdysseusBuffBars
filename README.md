@@ -23,6 +23,7 @@ A standalone World of Warcraft Retail addon implementing a modern managed AuraCo
 - ✅ Successful-path Config refresh deduplication with failure fallbacks retained
 - ✅ Dormant renderer-era defaults retirement with historical SavedVariables preservation
 - ✅ Atomic managed production file/namespace rename to `OdysseusBuffBars_Managed.lua` / `OBB.Managed`
+- ✅ Global LibSharedMedia status-bar texture and font-face controls with compact preview pickers
 
 The managed Player BUFFS implementation has been validated across its historical PTR milestone and current Retail production work for the AuraContainer lifecycle, dynamic self-sizing, native sorting, native whitelist/blacklist filtering, automatic configuration synchronization, native tooltips, native right-click cancellation, and combat operation.
 
@@ -77,4 +78,5 @@ Startup preserves intentional independent DEBUFFS/ENCHANTMENTS SCREEN roots acro
 - Terminology cleanup — The production file/namespace and internal managed-renderer Lua terminology cleanups are complete and runtime validated without SavedVariables, schema, API, or behavior changes; six global runtime frame names containing `Prototype` remain intentionally unchanged
 - Sort-control cleanup — The redundant BUFFS/DEBUFFS header Sort buttons are removed; Config remains the sole sorting control, saved B/D sort values still apply through the managed renderer, and ENCHANTMENTS remains fixed `TIMELEFT`
 - Diagnostic cleanup — The retention/removal audit is complete; the permanently disabled automatic-routing trace gate, unused module-table lifecycle mirrors, and obsolete fixed-ID tooltip/spell metadata inspector are removed while production-local lifecycle state, unexpected failure reporting, manual helpful-enhancement/Fishing Lure operational diagnostics, and compatibility/fatal reporting remain
-- Deferred cleanup — Reconsider the six protected runtime frame names only with a concrete compatibility need; Config polish, media/library work, licensing, OdysseusDebugConsole, and release preparation remain separate
+- Media integration — One root-level LibSharedMedia status-bar texture and one root-level font-face setting are shared by BUFFS/DEBUFFS/ENCHANTMENTS and applied immediately through the managed refresh path. Compact ScrollBox pickers preview real textures and fonts; per-group font sizes remain independent, Sync excludes both global settings, and unavailable media falls back without rewriting the saved media name.
+- Deferred cleanup — Reconsider the six protected runtime frame names only with a concrete compatibility need; remaining Config polish, library/licensing review, OdysseusDebugConsole, and release preparation remain separate

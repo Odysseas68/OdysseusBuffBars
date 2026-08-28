@@ -6,6 +6,8 @@ Historical development prior to the creation of this document is intentionally n
 
 ### Added
 
+- Added global LibSharedMedia status-bar texture and font-face settings shared by BUFFS, DEBUFFS, and ENCHANTMENTS.
+- Added compact bounded General-page texture/font pickers using Retail ScrollBox/MinimalScrollBar lists, actual media previews, and the verified Blizzard checkbox asset.
 - Established the initial project documentation structure.
 - Added an isolated parallel player-BUFFS `CustomAuraContainer` prototype with container-owned AuraButtons.
 - Added managed bar presentation for icon, spell name, application count, duration text, duration StatusBar, timeless auras, native tooltip, and native right-click cancellation.
@@ -19,6 +21,7 @@ Historical development prior to the creation of this document is intentionally n
 
 ### Changed
 
+- Global media changes apply immediately through the existing managed configuration/refresh path. Missing media falls back safely without rewriting its saved name, while global font selection changes face only and preserves independent per-group font sizes and count-size behavior.
 - Retired the isolated `DumpKnownAuraTooltips` developer/research inspector and its four private metadata/tooltip printing helpers. The three fixed historical research spell IDs no longer occur in production Lua; historical research evidence remains documented. Production routing, lifecycle, recovery, Config, SavedVariables, native enchants, Fishing Lure, refresh behavior, retained operational diagnostics, compatibility reporting, and fatal failure reporting are unchanged.
 - Removed the permanently disabled automatic-routing debug gate, dead trace helper/calls, obsolete unchanged-synchronization plumbing, and undocumented module-table mirrors for callback generation and the automatic-discovery/Fishing Lure event frames. The production lifecycle owners remain local and unchanged; manual helpful-enhancement, Fishing Lure, and tooltip/spell metadata diagnostics plus unexpected routing failure, compatibility, and fatal failure reporting remain. Focused runtime validation passed `/reload`, normal B/D/E presentation, automatic routing, the manual diagnostic, and `/obb refresh`; it classified `1234969` Ethereal Augmentation as `AUGMENT_RUNE` and `432021` Flask of Alchemical Chaos as `FLASK_PHIAL`, found two routed IDs, reported the set already synchronized, and observed no regression.
 - Removed the redundant visible BUFFS/DEBUFFS managed-header Sort buttons and their button-only cycle, label, and reference plumbing. Config remains the sole B/D sorting control: existing SavedVariables sort values still flow through `ApplyConfiguration()` to the managed sort setter, while ENCHANTMENTS retains fixed `TIMELEFT` behavior. Focused runtime validation confirmed both buttons absent, Config-controlled sorting functional, normal managed presentation correct, fixed ENCHANTMENTS sorting intact, and no observed regression; no SavedVariables/default/schema/API, version, or build change was introduced.

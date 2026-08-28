@@ -9,6 +9,52 @@ OBB.ENABLE_MANAGED_AURA_RENDERER = true
 local Managed = {}
 OBB.Managed = Managed
 
+local DEFAULT_STATUS_BAR_TEXTURE_NAME = "Blizzard"
+local DEFAULT_STATUS_BAR_TEXTURE_PATH = [[Interface\TargetingFrame\UI-StatusBar]]
+local DEFAULT_FONT_MEDIA_NAME = "Friz Quadrata TT"
+local DEFAULT_FONT_PATH = [[Fonts\FRIZQT__.TTF]]
+
+local function ResolveStatusBarTexture()
+    local libSharedMedia = _G.LibStub
+        and _G.LibStub:GetLibrary("LibSharedMedia-3.0", true)
+    local mediaType = libSharedMedia
+        and libSharedMedia.MediaType
+        and libSharedMedia.MediaType.STATUSBAR
+    local savedMediaName = OBB.db and OBB.db.statusBarTexture
+    local resolvedTexture = mediaType
+        and libSharedMedia:Fetch(mediaType, savedMediaName, true)
+    if resolvedTexture then
+        return resolvedTexture
+    end
+
+    return mediaType
+        and libSharedMedia:Fetch(mediaType, DEFAULT_STATUS_BAR_TEXTURE_NAME, true)
+        or DEFAULT_STATUS_BAR_TEXTURE_PATH
+end
+
+local function ResolveManagedFont()
+    local libSharedMedia = _G.LibStub
+        and _G.LibStub:GetLibrary("LibSharedMedia-3.0", true)
+    local mediaType = libSharedMedia
+        and libSharedMedia.MediaType
+        and libSharedMedia.MediaType.FONT
+    local savedMediaName = OBB.db and OBB.db.font
+    local resolvedFont = mediaType
+        and libSharedMedia:Fetch(mediaType, savedMediaName, true)
+    if resolvedFont then
+        return resolvedFont
+    end
+
+    local defaultMediaName = libSharedMedia
+        and libSharedMedia.DefaultMedia
+        and libSharedMedia.DefaultMedia.font
+        or DEFAULT_FONT_MEDIA_NAME
+    return mediaType
+        and libSharedMedia:Fetch(mediaType, defaultMediaName, true)
+        or _G.STANDARD_TEXT_FONT
+        or DEFAULT_FONT_PATH
+end
+
 local BUFF_BAR_SPACING = 3
 local BUFF_BAR_STYLE = {
     width = 260,
@@ -2210,19 +2256,20 @@ local function TrackManagedPresentation(groupKey, owner, presentation)
     owners[owner] = presentation
 end
 
-local function SetManagedFontSize(fontString, fontSize, fallbackFlags)
-    local fontFace, _, fontFlags = fontString:GetFont()
+local function SetManagedFont(fontString, fontFace, fontSize, fallbackFlags)
+    local _, _, fontFlags = fontString:GetFont()
     fontString:SetFont(
-        fontFace or _G.STANDARD_TEXT_FONT or [[Fonts\FRIZQT__.TTF]],
+        fontFace,
         fontSize,
         fontFlags or fallbackFlags
     )
 end
 
-local function ApplyManagedPresentationStyle(presentation, style)
-    SetManagedFontSize(presentation.nameText, style.fontSize, "")
-    SetManagedFontSize(presentation.durationText, style.fontSize, "")
-    SetManagedFontSize(presentation.countText, style.countFontSize, style.countFontFlags)
+local function ApplyManagedPresentationStyle(presentation, style, statusBarTexture, fontFace)
+    SetManagedFont(presentation.nameText, fontFace, style.fontSize, "")
+    SetManagedFont(presentation.durationText, fontFace, style.fontSize, "")
+    SetManagedFont(presentation.countText, fontFace, style.countFontSize, style.countFontFlags)
+    presentation.durationBar:SetStatusBarTexture(statusBarTexture)
     presentation.durationBar:SetStatusBarColor(
         style.fillColor[1],
         style.fillColor[2],
@@ -2481,6 +2528,8 @@ function Managed:ApplyConfiguration(_reason)
     end
 
     RefreshManagedCompatibilityState(self)
+    self.currentStatusBarTexture = ResolveStatusBarTexture()
+    self.currentFontFace = ResolveManagedFont()
 
     for _, group in ipairs(MANAGED_GROUPS) do
         local currentStyle = self.currentBarStyles[group.key]
@@ -2552,7 +2601,12 @@ function Managed:ApplyConfiguration(_reason)
             if iconSideChanged then
                 ApplyManagedRowIconSide(owner, presentation, currentStyle, previousIconSide)
             end
-            ApplyManagedPresentationStyle(presentation, currentStyle)
+            ApplyManagedPresentationStyle(
+                presentation,
+                currentStyle,
+                self.currentStatusBarTexture,
+                self.currentFontFace
+            )
         end
         if widthChanged or heightChanged or spacingChanged then
             ApplyManagedLayoutState(self, group.key, currentStyle, widthChanged)
@@ -2613,7 +2667,7 @@ local function InitializeManagedBarPresentation(auraButton, style, groupKey)
 
     local durationBar = CreateFrame("StatusBar", nil, auraButton)
     durationBar:SetFrameLevel(auraButton:GetFrameLevel() + 1)
-    durationBar:SetStatusBarTexture([[Interface\TargetingFrame\UI-StatusBar]])
+    durationBar:SetStatusBarTexture(Managed.currentStatusBarTexture)
     durationBar:SetStatusBarColor(
         style.fillColor[1],
         style.fillColor[2],
@@ -2635,7 +2689,7 @@ local function InitializeManagedBarPresentation(auraButton, style, groupKey)
     textLayer:SetAllPoints()
     textLayer:SetFrameLevel(durationBar:GetFrameLevel() + 1)
 
-    local font = _G.STANDARD_TEXT_FONT or [[Fonts\FRIZQT__.TTF]]
+    local font = Managed.currentFontFace
     local nameText = textLayer:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     nameText:SetFont(font, style.fontSize, "")
     nameText:SetPoint("LEFT", background, "LEFT", style.namePadding, 0)
@@ -2725,7 +2779,7 @@ local function CreateFishingLureRow(host, container)
 
     local durationBar = _G.CreateFrame("StatusBar", nil, row)
     durationBar:SetFrameLevel(row:GetFrameLevel() + 1)
-    durationBar:SetStatusBarTexture([[Interface\TargetingFrame\UI-StatusBar]])
+    durationBar:SetStatusBarTexture(Managed.currentStatusBarTexture)
     durationBar:SetStatusBarColor(
         style.fillColor[1],
         style.fillColor[2],
@@ -2747,7 +2801,7 @@ local function CreateFishingLureRow(host, container)
     textLayer:SetAllPoints()
     textLayer:SetFrameLevel(durationBar:GetFrameLevel() + 1)
 
-    local font = _G.STANDARD_TEXT_FONT or [[Fonts\FRIZQT__.TTF]]
+    local font = Managed.currentFontFace
     local nameText = textLayer:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     nameText:SetFont(font, style.fontSize, "")
     nameText:SetPoint("LEFT", background, "LEFT", style.namePadding, 0)
@@ -3419,6 +3473,8 @@ function Managed:Initialize()
         end
 
         self.startupConfig = startupConfig
+        self.currentStatusBarTexture = ResolveStatusBarTexture()
+        self.currentFontFace = ResolveManagedFont()
         self.currentBarStyles = BuildCurrentBarStyles(startupConfig)
         self.currentGroupAlphas = BuildCurrentGroupAlphas(startupConfig)
         self.currentGroupScales = BuildCurrentGroupScales(startupConfig)

@@ -5,11 +5,20 @@ _G.OdysseusBuffBars = OBB
 OBB.addonName = addonName
 OBB.version = "0.1.0"
 
+local libSharedMedia = _G.LibStub
+    and _G.LibStub:GetLibrary("LibSharedMedia-3.0", true)
+local defaultFontMediaName = libSharedMedia
+    and libSharedMedia.DefaultMedia
+    and libSharedMedia.DefaultMedia.font
+    or "Friz Quadrata TT"
+
 local defaults = {
     locked = false,
     anchorsShown = true,
     syncGroupBars = false,
     hideBlizzardFrames = false,
+    statusBarTexture = "Blizzard",
+    font = defaultFontMediaName,
     overrides = {},
     groups = {
         {
