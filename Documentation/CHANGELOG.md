@@ -9,6 +9,7 @@ reconstructed.
 
 ### Added
 
+- Prepared the canonical public `OdysseusBuffBars v1.0.0` changelog entry dated 2026-08-28 as a fuller first-release overview for Retail users.
 - Added global LibSharedMedia status-bar texture and font-face settings shared by BUFFS, DEBUFFS, and ENCHANTMENTS.
 - Added compact bounded General-page texture/font pickers using Retail ScrollBox/MinimalScrollBar lists, actual media previews, and the verified Blizzard checkbox asset.
 - Established the initial project documentation structure.
@@ -24,6 +25,10 @@ reconstructed.
 
 ### Changed
 
+- Completed v1.0.0 metadata preparation with version `1.0.0`, build date `2026-08-28`, TOC-backed runtime version authority, and read-only Config release information.
+- Final static v1.0.0 release validation passed with no blocker: every established LuaCheck warning/error baseline matched, `git diff --check` passed, and release metadata, documentation, source, and Git state were coherent. No tag, ZIP, or GitHub Release existed.
+- The final v1.0.0 in-game sanity test passed on LIVE only. The addon was reported working correctly with no release-blocking runtime issue; no PTR release-gate test was required.
+- Prepared this final documentation-only release commit. The annotated `v1.0.0` tag and push, curated installable ZIP and GitHub Release, and post-release verification remain pending.
 - Global media changes apply immediately through the existing managed configuration/refresh path. Missing media falls back safely without rewriting its saved name, while global font selection changes face only and preserves independent per-group font sizes and count-size behavior.
 - Retired the isolated `DumpKnownAuraTooltips` developer/research inspector and its four private metadata/tooltip printing helpers. The three fixed historical research spell IDs no longer occur in production Lua; historical research evidence remains documented. Production routing, lifecycle, recovery, Config, SavedVariables, native enchants, Fishing Lure, refresh behavior, retained operational diagnostics, compatibility reporting, and fatal failure reporting are unchanged.
 - Removed the permanently disabled automatic-routing debug gate, dead trace helper/calls, obsolete unchanged-synchronization plumbing, and undocumented module-table mirrors for callback generation and the automatic-discovery/Fishing Lure event frames. The production lifecycle owners remain local and unchanged; manual helpful-enhancement, Fishing Lure, and tooltip/spell metadata diagnostics plus unexpected routing failure, compatibility, and fatal failure reporting remain. Focused runtime validation passed `/reload`, normal B/D/E presentation, automatic routing, the manual diagnostic, and `/obb refresh`; it classified `1234969` Ethereal Augmentation as `AUGMENT_RUNE` and `432021` Flask of Alchemical Chaos as `FLASK_PHIAL`, found two routed IDs, reported the set already synchronized, and observed no regression.

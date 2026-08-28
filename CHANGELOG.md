@@ -1,129 +1,84 @@
 # Changelog
 
-This root file is the canonical public release changelog for OdysseusBuffBars.
-`Documentation/CHANGELOG.md` retains the more detailed historical and
-development chronology. Earlier development performed before repository
-creation is intentionally not reconstructed.
+This is the canonical public release changelog for OdysseusBuffBars. Detailed
+development chronology is preserved separately in
+`Documentation/CHANGELOG.md`.
 
-## Unreleased
+## OdysseusBuffBars v1.0.0
 
-### Added
+**Release date:** 2026-08-28
 
-- Added an MIT license for OdysseusBuffBars-owned code and a factual notice
-  separating bundled third-party components from that license.
-- Added one global LibSharedMedia status-bar texture setting and one global font-face setting shared by BUFFS, DEBUFFS, and ENCHANTMENTS.
-- Added compact bounded General-page texture and font pickers using Retail ScrollBox/MinimalScrollBar lists, actual media previews, and the verified Blizzard checkbox asset for selection state.
-- Standalone repository.
-- Managed AuraContainer Player BUFFS implementation.
-- Dynamic self-sizing.
-- Native sorting.
-- Native filtering.
-- Automatic filter synchronization.
-- Retail 12.1 PTR validation.
-- Isolated managed player-DEBUFFS prototype and Retail 12.1 Live validation.
-- Dynamic managed BUFFS-to-DEBUFFS anchoring.
-- Isolated managed ENCHANTMENTS prototype with MainHand/OffHand registrations and validated MainHand quiet-turn cold-login recovery on Retail 12.1 Live.
-- Project documentation.
+### Overview
 
-### Changed
+OdysseusBuffBars is a configurable aura-bar addon for World of Warcraft
+Retail. It presents the player's helpful auras, harmful auras, and enhancements
+as three focused BUFFS, DEBUFFS, and ENCHANTMENTS groups while retaining
+Blizzard's managed aura behavior for supported rows, including native updates,
+timers, tooltips, sorting, and supported cancellation.
 
-- Set the addon metadata to version `1.0.0` with build date `2026-08-28` and
-  exposed both values as read-only information on the Config General page.
-- Prepared public-facing metadata, installation guidance, limitations, and the
-  manual GitHub Release packaging procedure without changing the addon version
-  or production runtime.
-- Global media changes now apply immediately through the existing Config refresh path. Missing registered media falls back safely without rewriting its saved media name; global font selection changes face only while independent per-group font sizes and existing count-size behavior remain authoritative.
-- Updated bundled LibSharedMedia-3.0; path-based media is now validated before registration.
-- Retired the isolated `DumpKnownAuraTooltips` developer/research inspector and its four private metadata/tooltip printing helpers. The three fixed historical research spell IDs no longer occur in production Lua; historical research evidence remains documented. Production routing, lifecycle, recovery, Config, SavedVariables, native enchants, Fishing Lure, refresh behavior, retained operational diagnostics, compatibility reporting, and fatal failure reporting are unchanged.
-- Removed the permanently disabled automatic-routing debug gate, dead trace helper/calls, obsolete unchanged-synchronization plumbing, and undocumented module-table mirrors for callback generation and the automatic-discovery/Fishing Lure event frames. The production lifecycle owners remain local and unchanged; manual helpful-enhancement, Fishing Lure, and tooltip/spell metadata diagnostics plus unexpected routing failure, compatibility, and fatal failure reporting remain. Focused runtime validation passed `/reload`, normal B/D/E presentation, automatic routing, the manual diagnostic, and `/obb refresh`; it classified `1234969` Ethereal Augmentation as `AUGMENT_RUNE` and `432021` Flask of Alchemical Chaos as `FLASK_PHIAL`, found two routed IDs, reported the set already synchronized, and observed no regression.
-- Removed the redundant visible BUFFS/DEBUFFS managed-header Sort buttons and their button-only cycle, label, and reference plumbing. Config remains the sole B/D sorting control: existing SavedVariables sort values still flow through `ApplyConfiguration()` to the managed sort setter, while ENCHANTMENTS retains fixed `TIMELEFT` behavior. Focused runtime validation confirmed both buttons absent, Config-controlled sorting functional, normal managed presentation correct, fixed ENCHANTMENTS sorting intact, and no observed regression; no SavedVariables/default/schema/API, version, or build change was introduced.
-- Normalized internal managed-renderer Lua terminology for the capability gate, default aura-sort constant, lifecycle mutation guard, B/D/E construction helpers, scoped runtime parameters, two current-state comments, and two internal strings without changing behavior. The six named runtime frames containing `Prototype` remain intentionally unchanged; no SavedVariables, schema, API, compatibility-shim, version, or build change was introduced. Focused in-game validation passed `/reload`, retained correctly positioned B/D/E and normal managed behavior, and confirmed Config sorting plus the existing BUFFS/DEBUFFS Sort-button label synchronization with no observed runtime regression.
-- Renamed the production managed implementation from `OdysseusBuffBars_ManagedPrototype.lua` / `OBB.ManagedPrototype` to `OdysseusBuffBars_Managed.lua` / `OBB.Managed`, retired the undocumented `OBB.managedAuraPrototype` alias, and retained no compatibility shim. TOC load position, SavedVariables/schema, and runtime behavior are unchanged. Static validation and focused runtime validation passed, including namespace proof, normal managed behavior, filters, automatic refresh/lifecycle activity, combat/loading transitions, screen-root dragging, anchored-group drag refusal without a required chat warning, `/obb refresh`, and the renamed semantic-routing diagnostic, with no observed duplicate, OBB Lua, taint, blocked-action, or restricted-layout error.
-- Retired the obsolete renderer-era `showLegacyBars` and `legacyComparisonMode` defaults. New/default databases no longer receive them; existing serialized copies remain preserved and ignored, with no migration, purge, schema change, or destructive SavedVariables rewrite.
-- Focused runtime validation retained this user's historical `showLegacyBars=false` and `legacyComparisonMode=true` while `/reload`, normal managed B/D/E presentation, Config, and `/obb refresh` passed without a reported duplicate, Lua, or restricted-layout regression. No clean/new-database runtime test is claimed; source/default inspection proves the keys are no longer seeded.
-- Retired STAGED/LEGACY runtime authority, per-group authority, mutable mode state, transition transactions, legacy pre-scan/preparation, and direct-scanner fallback. MANAGED is now the sole production renderer; the temporary immutable `GetRendererAuthorityMode()` Config façade always returns `"MANAGED"`, while both former authority setters are removed.
-- Made startup READY-or-FAILED. Core preserves existing SavedVariables/default/normalization behavior, initializes and checks the protected managed backend, initializes Config regardless of readiness, never initializes Bars, and fails closed without attempting another renderer. `/reload` is the only reconstruction attempt after terminal FAILED state.
-- Retained strict copied effective B/D/E topology/duration validation inside protected managed initialization after removing the former authority-preflight transition API. Successful readiness now performs one unconditional managed presentation commit; failed initialization leaves hosts, containers, headers, and Fishing Lure presentation hidden/inert.
-- Converted `RefreshAll()`/`RefreshAuras()` to managed-only compatibility façades for unchanged Config/slash callers. Removed production legacy Engine scanning, Bars calls, and Core `UNIT_AURA`/weapon-enchantment renderer events while leaving Blizzard's managed lifecycle authoritative in combat.
-- Removed managed-drag synchronization to dormant legacy Bars. SCREEN dragging still persists inverse-translated shared coordinates, copied managed applied state, user-placed ownership cleanup, synthetic-fallback refusal, anchored-group behavior, and combat-interruption restoration.
-- Runtime-validated fresh login, `/reload`, normal managed B/D/E presentation, many World Quests and Delves, heavy simultaneous aura populations, correct routing, no duplicate legacy presentation, and no observed OBB Lua errors. An unrelated XML/Lua error encountered during testing was traced to CraftSim.
-- Runtime-validated the final fail-closed contract with one temporary CAPABILITY injection: exactly one managed-renderer ERROR, retained FAILED reason, immutable MANAGED façade, no managed or legacy aura UI, Config availability, removed authority setters, and no observed OBB Lua errors. Removed the hook completely, restored exact production blobs, and confirmed a final clean `/reload` returned normal managed presentation.
-- Extracted managed Fishing Lure time formatting into a private ManagedPrototype helper while preserving the historical 1.5-unit thresholds, upward rounding, exact suffixes, protected call, and empty-string degradation. Lure discovery, events, timer cadence, expiration, combat deferral, and readiness are unchanged; production MANAGED runtime no longer depends on `OBB.Engine`.
-- Runtime-validated fresh login, normal managed B/D/E presentation, an applied approximately 10-minute Fishing Lure countdown, row removal when the fishing pole was removed from profession equipment, and correct restoration when the pole was restored. No duplicate/stale lure or Lua error was observed. The 90-second, 5400-second, and 129600-second boundaries were verified statically against the previous formatter rather than claimed as natural runtime tests.
-- Retired the dormant legacy Bars backend and removed its TOC entry after a read-only reachability and secure-overlay audit found no production, managed, Config, or supported external dependency. This removes the legacy ordinary group/header/bar construction, row timers/tooltips, and addon-owned secure `cancelaura`/target-slot overlays without changing Core, Auras, Config, ManagedPrototype, SavedVariables, schema, libraries, version, or build metadata.
-- Runtime-validated the Bars deletion after a fresh `/reload`: MANAGED B/D/E, normal routing/presentation, native cancellation, placement, and refresh remained functional; `OdysseusBuffBars.Bars` was nil; and no duplicate, Lua error, taint, blocked action, or restricted-layout error was observed. `OdysseusBuffBars_Auras.lua` remains loaded and unchanged with all `OBB.Engine`, scan, and formatter references self-contained there and isolated from active MANAGED runtime; a read-only Auras/Engine retirement audit is the next backend-cleanup boundary.
-- Retired the dormant Auras/Engine backend and removed its TOC entry after a read-only audit proved no production Engine caller, required load-time action, active Config dependency, or migration requirement. This removes `OBB.Engine`, direct legacy aura scanning, private legacy scan caches/formatters, filter-row cache writes, and synthetic legacy weapon-enchantment scanning without changing Core, Config, ManagedPrototype, SavedVariables, schema, libraries, version, or build metadata. Core's empty `OBB.auraData` compatibility table and Config's guarded fallback reads remain temporarily unchanged; `OBB.filterAuraRows` now has no production writer and may remain nil. Fresh-`/reload` validation passed normal MANAGED operation and B/D/E presentation with no legacy presentation or observed OBB Lua error; the deletion proofs returned `Engine: nil`, `auraData: table nil`, and `filterAuraRows: nil`.
-- Retired the remaining legacy runtime-cache scaffolding by removing the obsolete Core `OBB.groups`, `OBB.bars`, and `OBB.auraData` tables plus Config's guarded `OBB.filterAuraRows`/`OBB.auraData` current-row fallback and its private display helper. Managed ID 1/3 current-row discovery, persistent filters, candidate-filter application, overrides, SavedVariables, and the temporary renderer-authority façade remain unchanged. Focused validation after `/reload` confirmed `groups`, `bars`, `auraData`, and `filterAuraRows` were all nil; no regression was reported.
-- Retired the final renderer-authority query façade by removing `GetRendererAuthorityMode()` and deriving ENCHANTMENTS' fixed managed Sort/Max Config state directly from group 3. No replacement query, constant, state table, or compatibility shim was added; preserved historical E sort/max SavedVariables remain ignored by managed E. After `/reload`, all three former authority APIs were nil, normal managed B/D/E presentation and `/obb refresh` remained correct, ENCHANTMENTS Sort remained fixed/disabled with both Max Bars inputs disabled, and no regression was reported.
-- Retired the redundant `RefreshAuras()` compatibility alias while retaining `RefreshAll()` unchanged as the central managed refresh coordinator. Slash refresh and the Config `Refresh Auras` button now call `RefreshAll()` directly with their existing reason strings; Config Apply, filter/override sequencing, direct candidate-filter calls, and ManagedPrototype remain unchanged. Runtime validation confirmed `RefreshAll` was a function, `RefreshAuras` was nil, normal managed B/D/E presentation, both direct refresh paths, ordinary Config Apply, and the in-combat framework-owned no-op remained correct; no regression was reported.
-- Removed redundant successful-path Config refresh work while preserving the existing failure retry paths. The six Config Apply/filter/override sequences now skip their direct managed follow-up only when `RefreshAll()` succeeds; failed transactions retain `ApplyConfiguration("config apply")` or the existing candidate-filter call as before. Focused runtime validation passed with normal managed presentation, refresh, Config Apply, filter/override mutation, and semantic routing behavior; no regression was reported. SavedVariables, schema, and migrations are unchanged.
-- At the preceding formatter-extraction checkpoint, left `OdysseusBuffBars_Auras.lua` and `OdysseusBuffBars_Bars.lua` loaded but dormant for separate cleanup. Remaining `OBB.Engine` dependencies were confined to those dormant files; Bars was never initialized by production Core but retained Engine formatter calls, so Bars/secure-overlay retirement required review before isolated Auras deletion. No schema, defaults, Config, TOC, version, or build metadata changed in that checkpoint.
-- Hardened the managed backend with explicit uninitialized/initializing/ready/failed lifecycle state and `ManagedPrototype:IsReady()`. FAILED retains its reason, is terminal for the session, rejects same-session reconstruction and MANAGED/STAGED authority, and requires `/reload`.
-- Added startup capability validation for the required Retail managed sort/direction, FlowLayout, item-enchantment, safety, timer, HELPFUL-discovery, spell-metadata, and temporary-enchantment surfaces. Template/object methods are validated after hidden protected construction rather than through unsupported template introspection.
-- Wrapped complete managed construction, initial AuraButton batches, required-method checks, and the initial paired BUFFS/ENCHANTMENTS descriptor application in one protected hidden initialization transaction. Managed hosts/headers/containers/lure remain unexposed and containers disabled until a complete paired snapshot and presentation commit succeed.
-- Added terminal managed-failure containment that invalidates delayed callbacks, unregisters/gates addon-owned managed event work, stops dragging, clears Fishing Lure timer/presentation state, and disables/hides surviving constructed containers and hosts as best effort without claiming frame destruction.
-- Made core startup consume managed `Initialize()` and `IsReady()`. Fatal managed initialization now enters temporary runtime-only LEGACY with fresh B/D/E data, prints one ERROR, preserves SavedVariables, and leaves MANAGED/STAGED unavailable for the session; this rollback policy remains temporary pending final authority retirement and fail-closed behavior.
-- Required the initial paired BUFFS/ENCHANTMENTS descriptor application and a complete applied paired snapshot before READY. Later paired-update failure remains nonfatal when compensation succeeds; failed update plus failed compensation is fatal and contained. Routing/filter/classifier precedence did not change.
-- Runtime-validated normal MANAGED reload and three controlled fatal paths: missing capability, failure after provisional DEBUFFS construction, and initial ENCHANTMENTS descriptor failure. Each injected path produced one managed-renderer ERROR, retained FAILED readiness, rejected MANAGED/STAGED, entered LEGACY, and produced no reported unexpected Lua/taint/blocked-action errors or visible partial/duplicate managed presentation.
-- Removed every temporary failure-injection selector, helper, branch, API, and diagnostic string before checkpointing; restored the exact tested production hardening blobs and confirmed clean `/reload` returned to MANAGED.
-- Completed post-cutover cleanup Phase 2 with a runtime-only managed compatibility evaluator. Raw SavedVariables remain the historical/Config authority; managed duration, placement, startup, preflight, and live apply consume copied effective B/D/E settings without adding or mutating persistent compatibility state.
-- Constrained BUFF duration Config to ALL/TIMED_ONLY. Historical TIMELESS_ONLY/NONE remains stored unchanged and is interpreted as runtime-only ALL until explicit user correction.
-- Constrained managed placement Config to BUFFS SCREEN; DEBUFFS SCREEN or BELOW/LEFT/RIGHT of BUFFS; and ENCHANTMENTS SCREEN or BELOW/LEFT/RIGHT of DEBUFFS. ABOVE, arbitrary parents, and cycle-producing graphs are no longer offered.
-- Added compact General/group compatibility status plus one chat warning per session. Invalid historical B placement executes as SCREEN with usable saved numeric coordinates; invalid D/E execute through canonical BELOW `0,-8` fallbacks; managed drag persistence is refused for synthetic fallback placement.
-- Changed the retained legacy Bars cycle guard to use a local safe presentation fallback without rewriting `anchorTo` or `placement`.
-- Runtime-validated the supported Config path, ALL/TIMED_ONLY choices, constrained B/D/E topology, MANAGED/LEGACY/STAGED transitions, independent position behavior, managed-to-legacy rollback-position synchronization, combat, loading, ordinary BUFF/DEBUFF, Food/Rune routing, and available native enchant/Fishing Lure behavior without reported duplicates or addon Lua/taint/blocked-action errors. Deliberate historical invalid-state injection remains unperformed.
-- Completed post-cutover cleanup Phase 1 by removing the `Show Legacy BuffBars (Development)` and `Legacy Comparison Mode (Development)` Config controls, their UI handling, and the legacy SCREEN comparison offset/save compensation. The defaulted SavedVariables remain preserved but dormant; LEGACY/STAGED rollback, transaction suspension, and authority-aware presentation remain intact.
-- Preserved intentional DEBUFFS/ENCHANTMENTS SCREEN roots across startup by recording explicit raw placements without parents before recursive defaults and restoring the intentional nil parent during normalization. No schema field, generic `CopyDefaults` change, managed-preflight repair, or unsupported-topology remap was added.
-- Runtime-validated Phase 1 mode presentation and position synchronization plus D SCREEN, E SCREEN, both SCREEN, D BELOW B, E BELOW D, and Reset Positions across reload. Valid tested states remain/start MANAGED without the former unsupported-DEBUFFS fallback; no separate LEFT/RIGHT reload test is claimed.
-- Completed the production all-managed renderer cutover. Supported startup now enters runtime-only `MANAGED` authority for BUFFS, DEBUFFS, and ENCHANTMENTS through the validated preflight/transaction path; unsupported saved configuration remains safely `STAGED` without SavedVariables rewriting.
-- Added exactly three legal session modes: `STAGED` (legacy B, managed D, legacy E), `MANAGED` (managed B/D/E), and `LEGACY` (legacy B/D/E). Independent per-group mutation and unsafe B/E or D/E split states are rejected.
-- Made `/obb refresh` and Config `Refresh Auras` mode-aware through one managed semantic/native/lure recovery coordinator, while leaving Blizzard-owned managed aura lifecycle framework-driven.
-- Made MANAGED Config state truthful: ENCHANTMENTS Sort displays `Fixed (Managed)`, ENCHANTMENTS Sort/Maximum Bars are disabled, and comparison cannot resurrect legacy-authoritative rows.
-- Runtime-validated supported MANAGED startup, ordinary and semantic HELPFUL routing, managed D/E behavior in available scenarios, immediate Config state, both refresh paths, combat behavior and switch refusal, LEGACY/STAGED rollback, return to MANAGED, reload-after-rollback, and safe STAGED fallback for BUFF duration NONE followed by successful MANAGED restoration after returning to ALL.
-- Established the earlier player-DEBUFFS checkpoint with runtime defaults BUFFS `LEGACY`, DEBUFFS `MANAGED`, and ENCHANTMENTS `LEGACY`; this historical staged default is superseded by the all-managed startup transaction above, without a SavedVariables authority field or migration.
-- In that earlier staged checkpoint, skipped the legacy DEBUFFS scan/render path while managed D authority was active, cleared stale legacy bars and cancel-overlay state, and prevented comparison from re-showing legacy DEBUFFS.
-- In that earlier staged checkpoint, added the DEBUFFS-only out-of-combat switch lifecycle that retained managed structures across rollback. The complete-mode lifecycle above now owns production rollback and restoration.
-- Preserved the staged mixed-topology invariant: managed BUFFS stays enabled and layout-active as the geometry source for chained managed DEBUFFS while STAGED leaves legacy BUFFS authoritative.
-- Runtime-validated the DEBUFFS cutover across login/reload, combat aura churn, sorting and maximum count, managed presentation settings, SCREEN dragging and persistence, BELOW/RIGHT/LEFT chaining, anchor visibility, reset, loading transitions, rollback in both directions, comparison, and reload-after-rollback without reported Lua, taint, or blocked-action errors. Targeted private-HARMFUL coverage remains a separate optional test.
-- Corrected the shared group-page layout so the DEBUFFS and ENCHANTMENTS Icon dropdown sits below Sort with normal spacing instead of overlapping Offset Y; the already-correct BUFFS side-by-side Sort/Icon layout and all control behavior remain unchanged.
-- Added runtime-validated live out-of-combat managed synchronization for font size, complete bar/background colors, width, height, and row spacing through the existing configuration apply path.
-- Preserved managed self-sizing while synchronizing AuraGroup and native item-enchantment layouts, row/icon geometry, headers, future/reused rows, and fishing-lure spacing.
-- Silenced routine automatic managed-routing diagnostics by default while retaining manual diagnostic helpers and unexpected failure output.
-- At the preceding checkpoint, kept managed icon-side changes reload-only and retained scale/alpha, growth, placement/position, remaining behavior/filter settings, and production cutover as pending work.
-- Advanced live out-of-combat configuration synchronization with LEFT/RIGHT icon reanchoring, ordinary-host scale/alpha, BUFFS/DEBUFFS saved sorting, managed maximum counts, and BUFFS/DEBUFFS FlowLayout growth direction.
-- Established the managed ENCHANTMENTS 7+2+1 policy: seven `HelpfulEnhancements`, MainHand/OffHand native providers placed after aura groups in Slot/Normal order, and one fixed ordinary Fishing Lure footer.
-- Added bounded native item-enchantment recovery after every world/loading transition by coalescing player inventory activity to one container refresh, with epoch protection and one post-combat completion when required.
-- Runtime-validated live icon/scale/alpha/sort/maximum-count synchronization, BUFFS growth direction, and MainHand transition recovery across portals, Home teleport, Hearthstone, dungeon entry/exit, Delve/no-loading-screen behavior, legitimate no-enchant state, and fresh reapplication.
-- Documented current native-enchantment runtime coverage: a real MainHand oil passed `/reload`, loading/portal recovery, Fishing Lure coexistence, UP growth, correct duration, native weapon tooltip, and non-combat right-click cancellation without manual refresh. Its observed enchant ID `8051` and PaperDoll values remain evidence only.
-- Reclassified OffHand from an implementation gap to opportunistic runtime coverage: it shares the source-validated MainHand registration/recovery path, but no suitable active OffHand test enchant was available and simultaneous-slot behavior remains untested.
-- Recorded that supported public temporary-enchantment data does not expose a clean enchant-effect name; tooltip scraping, private-provider inspection, AuraButton enumeration, and hardcoded ID-name maps remain intentionally rejected.
-- Completed the Retail `12.1.0.69404` temporary-enchantment naming audit: `enchantID` is an internal item-enchantment identifier with no supported public spell/item/name mapping, while the localized temporary name is exposed only as generic inventory-tooltip text. Native weapon/slot naming plus Blizzard tooltip context is now the final policy rather than an unresolved parity item.
-- Removed temporary transition trace instrumentation after diagnosis; normal runtime remains silent.
-- Completed live out-of-combat managed ENCHANTMENTS `growUp` synchronization through the shared FlowLayout helper while retaining its separate 7+2+1, Slot/Normal, and legacy-sort/`maxBars` policies.
-- Runtime-validated ENCHANTMENTS DOWN/UP switching, reload persistence, mixed managed sources, geometry/icon interactions while UP, loading transitions and native recovery while UP, no-enchant and combat behavior, and the fixed Fishing Lure footer without reported Lua, taint, tooltip, or cancellation regressions.
-- Added startup and live out-of-combat managed placement synchronization for saved BUFFS `SCREEN` coordinates and the exact default `BUFFS SCREEN -> DEBUFFS BELOW -> ENCHANTMENTS BELOW` graph. Ordinary hosts are reanchored against actual managed-container bounds; AuraContainers remain self-sizing and externally untouched.
-- Routed `Reset Positions` through the existing single `Config:Apply()` bridge after preserving its SavedVariables reset semantics, so legacy refresh, managed apply, and active-page refresh occur together.
-- Runtime-validated saved BUFFS placement, DEBUFFS/ENCHANTMENTS offsets, reset, repeated apply, mixed growth/scale, empty managed bounds, combat sizing/chaining, and native weapon-transition recovery. Arbitrary roots/anchors/directions, drag persistence, lock/anchor visibility, and full ENCHANTMENTS bounds remain deferred.
-- Expanded managed placement to runtime-validated DEBUFFS and ENCHANTMENTS SCREEN roots while retaining their supported BELOW dependencies, exact SCREEN/BELOW translations, ordinary-host ownership, and out-of-combat-only mutation.
-- Added runtime-validated independent dragging and shared-coordinate persistence for all effective managed SCREEN roots, including anchored-child following, anchored-group refusal, lock handling, reload/reset behavior, and combat-interruption restoration without a general placement retry queue.
-- Added the development-only `Show Legacy BuffBars` presentation gate and `Legacy Comparison Mode`. The legacy backend stays active; comparison temporarily offsets only effective legacy SCREEN roots by group width plus 24 UI units and never stores the comparison offset in shared placement.
-- Runtime-validated managed-only, synchronized overlapping, and side-by-side comparison workflows across supported mixed topologies, dragging, configuration, reset, reload, and combat behavior.
-- Extended the existing `anchorsShown` toggle to the three addon-owned managed headers without moving hosts, changing reserved header geometry, or affecting managed containers, aura bars, growth, placement, scale, or development visibility controls.
-- Made OBB SavedVariables the sole persistent managed-host position authority by clearing WoW user-placed ownership only after each host is movable, again after successful SCREEN-root drag persistence, and at safe restoration. This fixes stale cached screen anchors replacing saved BELOW dependencies after a full login.
-- Runtime-validated managed header visibility and two full exit/login cycles with all three managed hosts reporting `userPlaced=false`; BUFFS dragging immediately carried the configured DEBUFFS/ENCHANTMENTS BELOW chain without anchor-dropdown cycling.
-- Added runtime-validated managed RIGHT placement for DEBUFFS relative to BUFFS and ENCHANTMENTS relative to DEBUFFS. RIGHT uses the applied parent logical width rather than an empty managed container's approximately `1 x 1` physical width, so aura appearance/disappearance and live parent-width changes do not cause lateral jumps.
-- Added runtime-validated managed LEFT placement for the same supported parent chain. LEFT uses the applied child logical width, keeping the child's logical right edge stable across empty state and live child-width changes without physical width reads or manual container sizing.
-- Completed the ABOVE source/architecture decision: managed ABOVE is intentionally unsupported for the prototype/migration period and will retire with the legacy renderer. Existing `ABOVE` values remain preserved rather than silently remapped; explicit cutover handling remains future work.
-- At the intermediate behavior/filter checkpoint, centralized complete BUFFS + `HelpfulEnhancements` descriptor composition across semantic routes, overrides, then-active destination filters, and BUFF duration policy.
-- At that checkpoint, enforced route-before-destination-filter precedence so destination whitelist membership could not establish ownership.
-- At that intermediate checkpoint, applied ENCHANTMENTS spell-ID filters only to `HelpfulEnhancements`; the final policy below subsequently removes managed E destination filtering entirely.
-- Added managed BUFF duration policies for ALL and TIMED_ONLY through omission of `maxDuration` or `maxDuration = math.huge`, respectively, without addon-side duration reads. Unsupported TIMELESS_ONLY/NONE combinations retain the last successfully applied supported managed state, with ALL as the fresh-session baseline.
-- Made managed DEBUFFS and ENCHANTMENTS intentionally duration-inclusive, removed their Timed/Timeless controls, kept BUFFS controls group-local, and removed both duration flags from `Sync Group Bars` fan-out without migrating or rewriting saved values.
-- At the current-ownership checkpoint, replaced historical B/E ownership with a runtime-only readable HELPFUL projection using the shared resolver.
-- At that checkpoint, made B/E ownership react immediately to override save/delete and remain independent from then-active destination filtering.
-- Kept native MainHand/OffHand and Fishing Lure outside HELPFUL ownership; the final policy below subsequently removes the D/E filter controls.
-- Finalized managed destination filtering as BUFFS-only. Managed DEBUFFS and ENCHANTMENTS are intentionally broad/unfiltered, while HELPFUL semantic routing, B/E group overrides, and hidden overrides remain ownership rules rather than destination filters.
-- Removed Whitelist/Blacklist controls from D/E and positioned Grow Up directly below Max Bars. Stored D/E filter tables remain unchanged for the legacy renderer, rollback, and historical compatibility.
-- Stopped managed `HelpfulEnhancements` eligibility and effective ownership from consuming or being seeded by stored ENCHANTMENTS whitelist/blacklist data; native providers and Fishing Lure remain unaffected.
-- Closed the historical transient `classification=nil` HELPFUL-to-ENCHANTMENTS investigation after focused current-architecture diagnostics could not reproduce it across ordinary and semantic aura churn, combat deferral/retry, empty-set reconstruction, descriptor equality, setter application, and a portal/loading transition. The original cause remains unknown, but no current managed-routing implementation blocker was observed.
-- Removed the temporary focused HELPFUL-routing instrumentation completely and restored `OdysseusBuffBars_ManagedPrototype.lua` to its exact pre-diagnostic production blob before recording this documentation checkpoint.
+### Aura groups and controls
+
+- **BUFFS** displays helpful player auras with All or Timed Only duration
+  modes, configurable sorting and maximum bar count, and Spell ID-based
+  whitelist or blacklist filtering.
+- **DEBUFFS** displays eligible harmful player auras. It is intentionally broad
+  so important harmful effects are not removed by BUFFS-style destination
+  filters.
+- **ENCHANTMENTS** combines automatically routed helpful enhancements, native
+  temporary Main Hand and Off Hand weapon enchantments, and a separate Fishing
+  Lure row. Its managed enhancement sources are intentionally broad.
+
+Each group provides configurable bar dimensions, spacing, font size, colors,
+background opacity, icon side, scale, alpha, and growth direction, with sorting
+and maximum-count controls where supported. Shared-group synchronization can
+apply common bar settings while preserving each group's position. One global
+LibSharedMedia status-bar texture and one global LibSharedMedia font face apply
+across all three groups, with previews available in the General configuration
+page.
+
+### Routing, filtering, and enhancements
+
+OdysseusBuffBars automatically routes readable food, flask or phial, augment
+rune, and fishing-bobber effects into ENCHANTMENTS. Manual numeric Spell ID
+overrides can hide a helpful aura or route it between BUFFS and ENCHANTMENTS.
+BUFFS also provides manual Spell ID whitelist and blacklist entries, including
+entries for auras that are not currently active.
+
+Automatic semantic recognition is designed and tested around readable English
+aura and spell text. It may not classify equivalent effects correctly on
+non-English clients; manual Spell ID routing and overrides remain the fallback
+when automatic recognition does not classify a helpful aura correctly.
+
+Native temporary weapon-enchantment rows retain Blizzard's equipped-slot
+presentation, inventory tooltip, duration handling, and supported non-combat
+right-click cancellation. Fishing Lure tracking is presented separately for an
+equipped fishing profession tool and does not provide a cancellation action.
+
+### Positioning and persistence
+
+BUFFS is positioned as a screen-root group. DEBUFFS can be placed on screen or
+below, left, or right of BUFFS; ENCHANTMENTS can be placed on screen or below,
+left, or right of DEBUFFS. Screen-root groups can be dragged by their title bars
+while anchors are unlocked and the player is out of combat. Positions, group
+settings, media selections, filters, and overrides persist through
+`OdysseusBuffBarsDB` SavedVariables.
+
+Blizzard Edit Mode remains the supported owner of the default Aura Frame's
+visibility. Use Edit Mode's Aura Frame **Hidden** setting for persistent control
+of Blizzard's icons. The addon's own default-frame visibility option is a
+best-effort out-of-combat convenience and does not replace Blizzard's policy.
+
+### Commands
+
+- `/obb`, `/buffbars`, `/obb config`, or `/obb options` opens configuration
+  while out of combat.
+- `/obb anchors` toggles the draggable group title bars while out of combat.
+- `/obb refresh` reapplies the current managed configuration out of combat and
+  safely leaves Blizzard's managed aura lifecycle authoritative in combat.
+
+Configuration changes and dragging are protected during combat. This release
+supports World of Warcraft Retail only. BUFFS is the only group with destination
+whitelist/blacklist filtering; DEBUFFS and ENCHANTMENTS intentionally remain
+broad. Temporary weapon-enchantment effect names are limited to Blizzard's
+supported equipped-slot presentation and tooltip context. Profiles and a
+minimap launcher are not included in v1.0.0.
