@@ -1,6 +1,9 @@
 # Changelog
 
-Historical development prior to the creation of this document is intentionally not reconstructed. Future project changes should be recorded here from this point forward.
+This file preserves detailed historical and development chronology. The root
+`CHANGELOG.md` is the canonical public release changelog. Historical
+development prior to the creation of this document is intentionally not
+reconstructed.
 
 ## Unreleased
 

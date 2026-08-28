@@ -1,11 +1,16 @@
 # Changelog
 
-This changelog records repository history beginning with the creation of the standalone OdysseusBuffBars repository. Earlier development performed before repository creation is intentionally not reconstructed.
+This root file is the canonical public release changelog for OdysseusBuffBars.
+`Documentation/CHANGELOG.md` retains the more detailed historical and
+development chronology. Earlier development performed before repository
+creation is intentionally not reconstructed.
 
 ## Unreleased
 
 ### Added
 
+- Added an MIT license for OdysseusBuffBars-owned code and a factual notice
+  separating bundled third-party components from that license.
 - Added one global LibSharedMedia status-bar texture setting and one global font-face setting shared by BUFFS, DEBUFFS, and ENCHANTMENTS.
 - Added compact bounded General-page texture and font pickers using Retail ScrollBox/MinimalScrollBar lists, actual media previews, and the verified Blizzard checkbox asset for selection state.
 - Standalone repository.
@@ -22,6 +27,9 @@ This changelog records repository history beginning with the creation of the sta
 
 ### Changed
 
+- Prepared public-facing metadata, installation guidance, limitations, and the
+  manual GitHub Release packaging procedure without changing the addon version
+  or production runtime.
 - Global media changes now apply immediately through the existing Config refresh path. Missing registered media falls back safely without rewriting its saved media name; global font selection changes face only while independent per-group font sizes and existing count-size behavior remain authoritative.
 - Updated bundled LibSharedMedia-3.0; path-based media is now validated before registration.
 - Retired the isolated `DumpKnownAuraTooltips` developer/research inspector and its four private metadata/tooltip printing helpers. The three fixed historical research spell IDs no longer occur in production Lua; historical research evidence remains documented. Production routing, lifecycle, recovery, Config, SavedVariables, native enchants, Fishing Lure, refresh behavior, retained operational diagnostics, compatibility reporting, and fatal failure reporting are unchanged.

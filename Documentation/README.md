@@ -63,7 +63,7 @@ Only BUFFS exposes the managed Whitelist/Blacklist editor. Its `Current group au
 - Keep the addon small and focused on Retail aura research.
 - Preserve verified behavior and distinguish PTR evidence from shipped Live behavior.
 - Do not treat the legacy scanner's Retail 12.1 limitations as managed-frame failures.
-- Treat MANAGED-only authority plus legacy Bars, Auras/Engine, runtime-cache scaffolding, the renderer-authority query façade, and the dormant renderer-era defaults as retired. The next clean OBB architectural task is the managed production rename/terminology cleanup. Updated Live AuraContainer/private-aura source review remains separate BlizzardResearch work; do not modify OBB unless that source diff demonstrates a real compatibility impact. Release metadata remains separate work.
+- Treat MANAGED-only authority plus legacy Bars, Auras/Engine, runtime-cache scaffolding, the renderer-authority query façade, and the dormant renderer-era defaults as retired. The managed production rename/terminology cleanup and updated Live AuraContainer/private-aura source review are complete. First public-release repository housekeeping is complete without production changes; final version, build-date, tag, curated ZIP, and GitHub Release work remain separate.
 - Do not add Classic support or unrelated addon systems.
 
 ## Repository layout
@@ -72,8 +72,10 @@ Only BUFFS exposes the managed Whitelist/Blacklist editor. Its `Current group au
 - `OdysseusBuffBars.lua` — bootstrap, settings, events, and refresh coordination.
 - `OdysseusBuffBars_Config.lua` — native configuration interface and existing filter editor.
 - `OdysseusBuffBars_Managed.lua` — production-critical managed BUFFS, DEBUFFS, and ENCHANTMENTS architecture, shared static presentation, semantic HELPFUL routing, native weapon enchantments, and the self-contained fishing-lure exception/formatter. It exposes the current runtime module at `OBB.Managed`.
-- `Reference/` — frozen local reference material; it is not loaded by the addon.
 - `Documentation/` — project overview, architecture, roadmap, migration history, and changelog.
+- `README.md` — public user guide.
+- `CHANGELOG.md` — canonical public release changelog.
+- `LICENSE` and `THIRD_PARTY_NOTICES.md` — OBB-owned code license and bundled-component boundary.
 
 ## Reference material
 
@@ -86,3 +88,54 @@ The local Blizzard source reference is:
 `D:\WowDEV\Reference\Blizzard\wow-ui-source\`
 
 These locations are read-only reference material for addon work.
+
+## Manual GitHub release package
+
+OdysseusBuffBars is not packaged through CurseForge or WowAce. For the first
+GitHub release, create a clean ZIP manually and attach it separately to the
+GitHub Release. GitHub's automatically generated repository source archives
+are not the curated installable addon package.
+
+The ZIP must contain one top-level `OdysseusBuffBars/` directory with every
+runtime file and dependency required by `OdysseusBuffBars.toc`:
+
+```text
+OdysseusBuffBars/
+    OdysseusBuffBars.toc
+    OdysseusBuffBars.lua
+    OdysseusBuffBars_Config.lua
+    OdysseusBuffBars_Managed.lua
+    Libs/
+    README.md
+    LICENSE
+    THIRD_PARTY_NOTICES.md
+```
+
+Exclude repository and development material, including `AGENTS.md`,
+`Documentation/`, `.agents/`, `.codex/`, `.git/`, `.gitignore`, and any local
+notes or artifacts not required by users. Before attaching the ZIP, inspect
+its file list, extract it into a temporary directory, confirm the top-level
+folder and TOC paths, and verify that every TOC-loaded library and Lua file is
+present. Do not substitute a GitHub-generated source archive.
+
+## Release changelog convention
+
+The root `CHANGELOG.md` is the canonical public release changelog;
+`Documentation/CHANGELOG.md` remains the detailed development chronology. Do
+not finalize the first release entry until the version/build release task.
+
+The first public release uses a fuller overview headed:
+
+```text
+OdysseusBuffBars v1.0.0
+```
+
+Later releases use concise sections as applicable:
+
+```text
+⭐ Added
+🔄 Changed
+🐛 Fixed
+```
+
+Empty categories may be omitted.

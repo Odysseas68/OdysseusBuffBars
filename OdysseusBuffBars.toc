@@ -1,7 +1,7 @@
 ## Interface: 120007, 120100
 ## Title: Odysseus Buff Bars
-## Notes: Standalone Retail aura bar research addon for Midnight.
-## Author: nkats / Codex
+## Notes: Configurable aura bars for World of Warcraft Retail.
+## Author: Odysseus68 / ChatGPT / Codex
 ## Version: 0.1.0
 ## IconTexture: Interface\Icons\Spell_Holy_BlessingOfProtection
 ## Category: Buffs & Debuffs
