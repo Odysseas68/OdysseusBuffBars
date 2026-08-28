@@ -1539,6 +1539,12 @@ function Config:BuildGeneralPage(page)
     local title = CreateLabel(page, "General", "large")
     title:SetPoint("TOPLEFT", page, "TOPLEFT", 0, 0)
 
+    local releaseInfo = page:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    releaseInfo:SetJustifyH("RIGHT")
+    releaseInfo:SetJustifyV("TOP")
+    releaseInfo:SetPoint("TOPRIGHT", page, "TOPRIGHT", 0, -2)
+    releaseInfo:SetText("Version: " .. OBB.version .. "\nBuild Date: " .. OBB.buildDate)
+
     local lock = CreateCheck(page, "Lock anchors", function(value)
         OBB.db.locked = value
     end)

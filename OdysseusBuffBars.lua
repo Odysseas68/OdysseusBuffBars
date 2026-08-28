@@ -3,7 +3,8 @@ local addonName, OBB = ...
 _G.OdysseusBuffBars = OBB
 
 OBB.addonName = addonName
-OBB.version = "0.1.0"
+OBB.version = _G.C_AddOns.GetAddOnMetadata(addonName, "Version")
+OBB.buildDate = "2026-08-28"
 
 local libSharedMedia = _G.LibStub
     and _G.LibStub:GetLibrary("LibSharedMedia-3.0", true)

@@ -63,7 +63,7 @@ Only BUFFS exposes the managed Whitelist/Blacklist editor. Its `Current group au
 - Keep the addon small and focused on Retail aura research.
 - Preserve verified behavior and distinguish PTR evidence from shipped Live behavior.
 - Do not treat the legacy scanner's Retail 12.1 limitations as managed-frame failures.
-- Treat MANAGED-only authority plus legacy Bars, Auras/Engine, runtime-cache scaffolding, the renderer-authority query façade, and the dormant renderer-era defaults as retired. The managed production rename/terminology cleanup and updated Live AuraContainer/private-aura source review are complete. First public-release repository housekeeping is complete without production changes; final version, build-date, tag, curated ZIP, and GitHub Release work remain separate.
+- Treat MANAGED-only authority plus legacy Bars, Auras/Engine, runtime-cache scaffolding, the renderer-authority query façade, and the dormant renderer-era defaults as retired. The managed production rename/terminology cleanup, updated Live AuraContainer/private-aura source review, first public-release repository housekeeping, and v1.0.0 version/build metadata are complete. The final tag, curated ZIP, release notes, and GitHub Release remain separate.
 - Do not add Classic support or unrelated addon systems.
 
 ## Repository layout
@@ -122,7 +122,7 @@ present. Do not substitute a GitHub-generated source archive.
 
 The root `CHANGELOG.md` is the canonical public release changelog;
 `Documentation/CHANGELOG.md` remains the detailed development chronology. Do
-not finalize the first release entry until the version/build release task.
+not finalize the first release entry until the final release-note and tag task.
 
 The first public release uses a fuller overview headed:
 

@@ -27,6 +27,8 @@ creation is intentionally not reconstructed.
 
 ### Changed
 
+- Set the addon metadata to version `1.0.0` with build date `2026-08-28` and
+  exposed both values as read-only information on the Config General page.
 - Prepared public-facing metadata, installation guidance, limitations, and the
   manual GitHub Release packaging procedure without changing the addon version
   or production runtime.
