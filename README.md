@@ -40,6 +40,10 @@ Other user commands:
 - `/obb refresh` reapplies the current managed configuration out of combat. In
   combat it safely leaves Blizzard's managed aura lifecycle authoritative.
 
+Configuration can also be opened from the minimap launcher or the Retail
+Addon Compartment. These launcher entry points open the existing configuration
+window and retain its combat restriction.
+
 Configuration changes and anchor dragging are protected during combat.
 
 The General page provides one global LibSharedMedia status-bar texture and one
@@ -84,7 +88,7 @@ reassert its own visibility policy.
   enchant ID to a clean effect name, so native weapon rows retain their
   equipped-slot presentation and tooltip context.
 - Fishing Lure cancellation is not provided.
-- Profiles and a minimap launcher are not currently included.
+- Profiles are not currently included.
 
 Broader localization, additional class/effect/lure coverage, opportunistic
 Off Hand and dual-slot validation, private-harmful-aura testing, and further

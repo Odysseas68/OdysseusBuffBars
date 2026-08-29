@@ -18,6 +18,10 @@ local defaults = {
     anchorsShown = true,
     syncGroupBars = false,
     hideBlizzardFrames = false,
+    minimap = {
+        hide = false,
+        minimapPos = 225,
+    },
     statusBarTexture = "Blizzard",
     font = defaultFontMediaName,
     overrides = {},
@@ -138,6 +142,45 @@ function OBB:GetSettings()
     return self.db
 end
 
+function OBB:OpenConfig()
+    if not self.Config or not self.Config.Open then
+        return false
+    end
+    return self.Config:Open()
+end
+
+local MINIMAP_ICON = [[Interface\AddOns\OdysseusBuffBars\Media\OBB_MinimapIcon.tga]]
+local LDB_OBJECT_NAME = "OdysseusBuffBars"
+
+function OBB:InitializeLauncher()
+    if self.launcher then
+        return
+    end
+
+    local dataBroker = _G.LibStub:GetLibrary("LibDataBroker-1.1")
+    local dbIcon = _G.LibStub:GetLibrary("LibDBIcon-1.0")
+    local launcher = dataBroker:NewDataObject(LDB_OBJECT_NAME, {
+        type = "launcher",
+        icon = MINIMAP_ICON,
+        OnClick = function(_, button)
+            if button == "LeftButton" then
+                OBB:OpenConfig()
+            end
+        end,
+        OnTooltipShow = function(tooltip)
+            tooltip:SetText("Odysseus Buff Bars")
+            tooltip:AddLine("Click to open configuration.", 1, 1, 1)
+        end,
+    })
+
+    dbIcon:Register(LDB_OBJECT_NAME, launcher, self.db.minimap)
+    self.launcher = launcher
+end
+
+_G.OdysseusBuffBars_OnAddonCompartmentClick = function()
+    OBB:OpenConfig()
+end
+
 function OBB:ReportManagedRendererFailure(reason)
     if self.managedRendererFailureReported then
         return
@@ -248,6 +291,13 @@ function OBB:OnAddonLoaded(name)
     end
 
     local savedDB = OdysseusBuffBarsDB
+    local savedMinimap = type(savedDB) == "table" and savedDB.minimap
+    if type(savedMinimap) == "table" then
+        if savedMinimap.minimapPos == nil and type(savedMinimap.position) == "number" then
+            savedMinimap.minimapPos = savedMinimap.position
+        end
+        savedMinimap.position = nil
+    end
     local explicitUnparentedPlacements = {}
     local savedGroups = type(savedDB) == "table" and savedDB.groups
     if type(savedGroups) == "table" then
@@ -337,6 +387,7 @@ function OBB:OnAddonLoaded(name)
     if self.Config then
         self.Config:Initialize()
     end
+    self:InitializeLauncher()
     self:HookEditModeVisibilityRefresh()
     if not managedStartupReady then
         self:ReportManagedRendererFailure(

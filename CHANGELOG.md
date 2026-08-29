@@ -4,6 +4,14 @@ This is the canonical public release changelog for OdysseusBuffBars. Detailed
 development chronology is preserved separately in
 `Documentation/CHANGELOG.md`.
 
+## Unreleased
+
+### ⭐ Added
+
+- Added a minimap launcher for opening OdysseusBuffBars configuration.
+- Added a Retail Addon Compartment entry for opening configuration.
+- Added new OdysseusBuffBars production artwork and icon assets.
+
 ## OdysseusBuffBars v1.0.0
 
 **Release date:** 2026-08-28

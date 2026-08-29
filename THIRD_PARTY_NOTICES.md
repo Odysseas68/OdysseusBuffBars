@@ -3,6 +3,8 @@
 OdysseusBuffBars bundles third-party components, including:
 
 - LibSharedMedia-3.0
+- LibDataBroker-1.1
+- LibDBIcon-1.0
 - LibStub
 - CallbackHandler-1.0
 

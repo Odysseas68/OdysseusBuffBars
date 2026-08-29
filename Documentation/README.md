@@ -16,6 +16,8 @@ The diagnostic retention/removal audit and behavior-neutral cleanups are complet
 
 LibSharedMedia-3.0 now supplies one root-level persisted status-bar texture media name and one root-level persisted font media name shared by BUFFS, DEBUFFS, and ENCHANTMENTS. Missing registrations fall back safely without rewriting the saved unavailable name. The global font changes face only: per-group font sizes and existing count-size behavior remain independent, while headers retain their separate font path. Both settings apply immediately through the existing Config/`RefreshAll()`/managed configuration path and are intentionally absent from Sync because they are already global. General exposes compact bounded Retail ScrollBox/MinimalScrollBar pickers that preview actual textures and render each font name in its actual face, with the verified Blizzard checkbox asset marking selection. Runtime validation passed picker display, scrolling, selection, immediate B/D/E application, independent group font sizes, Edit Mode and normal/ENCHANTMENTS presentation, `/reload` persistence, and showed no Lua/runtime regression.
 
+Configuration can also be opened through an `OdysseusBuffBars` LibDataBroker/LibDBIcon minimap launcher or the independent Retail Addon Compartment entry. Both use the production minimap icon and converge on the shared open-only Config path with the existing combat guard. The user tested the implementation in WoW Retail and reported that everything worked correctly.
+
 Final production testing passed fresh login, `/reload`, normal managed B/D/E presentation, many World Quests and Delves, simultaneous buffs/debuffs, correct routing, and no duplicate legacy presentation or observed OBB Lua errors. An unrelated XML/Lua error was traced to CraftSim. Both retired authority setters were verified absent. A temporary CAPABILITY injection then produced exactly one fail-closed startup ERROR, retained FAILED readiness, exposed no managed or legacy aura UI, kept Config available, and produced no observed OBB Lua errors. The hook was removed completely, both tested production blobs were restored exactly, and a final clean `/reload` restored normal managed presentation without failure, legacy display, duplicates, or errors.
 
 The production player-BUFFS implementation uses `CustomAuraContainer` with container-owned AuraButtons. Its managed lifecycle and presentation, dynamic self-sizing, native sorting, whitelist/blacklist filtering, automatic synchronization with the existing filter editor, native tooltip and right-click cancellation, combat updates, reload behavior, timeless auras, and application counts have passed the recorded historical PTR and current production validation.
@@ -63,7 +65,7 @@ Only BUFFS exposes the managed Whitelist/Blacklist editor. Its `Current group au
 - Keep the addon small and focused on Retail aura research.
 - Preserve verified behavior and distinguish PTR evidence from shipped Live behavior.
 - Do not treat the legacy scanner's Retail 12.1 limitations as managed-frame failures.
-- Treat MANAGED-only authority plus legacy Bars, Auras/Engine, runtime-cache scaffolding, the renderer-authority query façade, and the dormant renderer-era defaults as retired. The managed production rename/terminology cleanup, updated Live AuraContainer/private-aura source review, first public-release repository housekeeping, v1.0.0 version/build metadata, final static release validation, and final LIVE v1.0.0 sanity test are complete. The annotated tag and push, curated installable ZIP and GitHub Release, and post-release verification remain separate.
+- Treat MANAGED-only authority plus legacy Bars, Auras/Engine, runtime-cache scaffolding, the renderer-authority query façade, and the dormant renderer-era defaults as retired. The managed production rename/terminology cleanup, updated Live AuraContainer/private-aura source review, first public-release repository housekeeping, v1.0.0 version/build metadata, final static release validation, final LIVE v1.0.0 sanity test, annotated tag, curated GitHub Release, and post-release verification are complete. Minimap and Addon Compartment launchers are post-v1.0 development.
 - Do not add Classic support or unrelated addon systems.
 
 ## Repository layout
@@ -106,6 +108,7 @@ OdysseusBuffBars/
     OdysseusBuffBars_Config.lua
     OdysseusBuffBars_Managed.lua
     Libs/
+    Media/
     README.md
     LICENSE
     THIRD_PARTY_NOTICES.md
@@ -126,7 +129,7 @@ first-release entry was prepared before the final static and LIVE sanity gates;
 both passed before the final documentation-only release commit. Add future
 release entries above older releases. Any future `Unreleased` section belongs
 above all released versions. The annotated tag and push, curated ZIP and GitHub
-Release, and post-release verification remain separate steps.
+Release, and post-release verification were completed separately and remain immutable release history.
 
 The first public release uses a fuller overview headed:
 

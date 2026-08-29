@@ -12,6 +12,12 @@ OdysseusBuffBars has one production renderer authority: MANAGED. The ordinary le
 
 Startup preserves existing SavedVariables adoption/defaults/normalization, calls `OBB.Managed:Initialize()`, verifies `OBB.Managed:IsReady()`, and initializes Config regardless of managed readiness. Historical unsupported raw duration/topology is evaluated into a copied runtime-only effective state before exact managed validation and is never written back. READY commits the complete B/D/E managed presentation. FAILED leaves all aura presentation inert, reports one fail-closed ERROR, attempts no alternate renderer, and permits reconstruction only through `/reload`.
 
+### Configuration launchers
+
+The minimap entry is an `OdysseusBuffBars` LibDataBroker-1.1 launcher registered with LibDBIcon-1.0. LibDBIcon owns its ordinary minimap frame, drag behavior, and `OdysseusBuffBarsDB.minimap` persistence (`hide` and `minimapPos`). A narrow migration moves the temporary uncommitted custom `minimap.position` value to `minimap.minimapPos` when needed and removes the obsolete field.
+
+The Retail Addon Compartment entry remains independent. The TOC declares `AddonCompartmentFunc` and the supported `IconTexture`; Retail calls the named global callback, which converges with the LDB launcher's left-click at `OBB:OpenConfig()` -> `Config:Open()`. This path is open-only and retains Config's combat guard. Existing slash commands continue to use `Config:Toggle()` and retain toggle semantics. LibDBIcon's optional compartment registration is not requested, preventing a duplicate entry.
+
 ### Managed readiness and protected initialization
 
 `OBB.Managed` always exists, including on clients missing a required managed surface. `OBB.Managed:IsReady()` exposes the maintenance contract: uninitialized and initializing return false with context, ready returns true, and failed returns false with the retained fatal reason. FAILED is terminal for the session; `Initialize()` does not reconstruct the backend, public managed mutators are readiness-gated, and `/reload` is required.

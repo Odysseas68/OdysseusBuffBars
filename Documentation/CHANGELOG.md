@@ -9,6 +9,9 @@ reconstructed.
 
 ### Added
 
+- Added an `OdysseusBuffBars` LibDataBroker-1.1 launcher registered with LibDBIcon-1.0, using the production minimap icon and persistent `OdysseusBuffBarsDB.minimap` state.
+- Added the source-verified Retail `AddonCompartmentFunc` entry using TOC `IconTexture` metadata, independently of LibDBIcon's optional compartment integration.
+- Added production `OBB_MinimapIcon.tga` and `OBB_Logo.tga` artwork; the minimap icon is active while the logo remains reserved for later Config UI work.
 - Prepared the canonical public `OdysseusBuffBars v1.0.0` changelog entry dated 2026-08-28 as a fuller first-release overview for Retail users.
 - Added global LibSharedMedia status-bar texture and font-face settings shared by BUFFS, DEBUFFS, and ENCHANTMENTS.
 - Added compact bounded General-page texture/font pickers using Retail ScrollBox/MinimalScrollBar lists, actual media previews, and the verified Blizzard checkbox asset.
@@ -25,6 +28,8 @@ reconstructed.
 
 ### Changed
 
+- Factored launcher access through the shared open-only `OBB:OpenConfig()` -> `Config:Open()` path while preserving slash-command toggle semantics and the existing Config combat guard.
+- The user tested the minimap and Addon Compartment implementation in WoW Retail and reported that everything worked correctly.
 - Completed v1.0.0 metadata preparation with version `1.0.0`, build date `2026-08-28`, TOC-backed runtime version authority, and read-only Config release information.
 - Final static v1.0.0 release validation passed with no blocker: every established LuaCheck warning/error baseline matched, `git diff --check` passed, and release metadata, documentation, source, and Git state were coherent. No tag, ZIP, or GitHub Release existed.
 - The final v1.0.0 in-game sanity test passed on LIVE only. The addon was reported working correctly with no release-blocking runtime issue; no PTR release-gate test was required.

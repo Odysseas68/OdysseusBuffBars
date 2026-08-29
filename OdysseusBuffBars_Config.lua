@@ -1352,15 +1352,27 @@ function Config:RefreshManagedHelpfulFilterEditor()
     end
 end
 
+function Config:Open()
+    self:Initialize()
+    if self:IsCombatLocked() then
+        self:WarnCombat()
+        return false
+    end
+    self.frame:Show()
+    self:SelectPage(OBB.db.config.page or "general")
+    return true
+end
+
 function Config:Toggle()
     self:Initialize()
     if self:IsCombatLocked() then
         self:WarnCombat()
         return
     end
-    self.frame:SetShown(not self.frame:IsShown())
     if self.frame:IsShown() then
-        self:SelectPage(OBB.db.config.page or "general")
+        self.frame:Hide()
+    else
+        self:Open()
     end
 end
 

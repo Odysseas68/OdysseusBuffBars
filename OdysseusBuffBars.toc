@@ -3,7 +3,8 @@
 ## Notes: Configurable aura bars for World of Warcraft Retail.
 ## Author: Odysseus68 / ChatGPT / Codex
 ## Version: 1.0.0
-## IconTexture: Interface\Icons\Spell_Holy_BlessingOfProtection
+## IconTexture: Interface\AddOns\OdysseusBuffBars\Media\OBB_MinimapIcon.tga
+## AddonCompartmentFunc: OdysseusBuffBars_OnAddonCompartmentClick
 ## Category: Buffs & Debuffs
 
 ## OptionalDeps: LibSharedMedia-3.0
@@ -12,6 +13,8 @@
 
 Libs\LibStub\LibStub.lua
 Libs\CallbackHandler-1.0\CallbackHandler-1.0.xml
+Libs\libdatabroker-1-1\LibDataBroker-1.1.lua
+Libs\LibDBIcon-1.0\lib.xml
 Libs\LibSharedMedia-3.0\LibSharedMedia-3.0.lua
 
 OdysseusBuffBars.lua
