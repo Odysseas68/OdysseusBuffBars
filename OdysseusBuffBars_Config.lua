@@ -39,8 +39,29 @@ local CONFIG_THEME = {
         navigationText = { 0.82, 0.82, 0.88, 1.00 },
         navigationHoverText = { 0.96, 0.94, 0.98, 1.00 },
         navigationSelectedText = { 1.00, 0.97, 0.92, 1.00 },
+        button = { 0.11, 0.10, 0.14, 0.98 },
+        buttonHover = { 0.17, 0.15, 0.21, 1.00 },
+        buttonPressed = { 0.12, 0.06, 0.18, 1.00 },
+        buttonBorder = { 0.32, 0.30, 0.38, 1.00 },
+        buttonHoverBorder = { 0.52, 0.46, 0.62, 1.00 },
+        buttonText = { 0.86, 0.84, 0.90, 1.00 },
+        filterSelected = { 0.25, 0.08, 0.34, 1.00 },
+        filterSelectedBorder = { 0.72, 0.52, 0.88, 1.00 },
+        filterSelectedText = { 1.00, 0.82, 0.32, 1.00 },
     },
 }
+local FILTER_FRAME_WIDTH = 430
+local FILTER_FRAME_HEIGHT = 520
+local FILTER_FRAME_GAP = 8
+local OVERRIDE_FRAME_WIDTH = 550
+local OVERRIDE_FRAME_HEIGHT = 480
+local OVERRIDE_FRAME_GAP = 8
+local OVERRIDE_VISIBLE_ROWS = 10
+local OVERRIDE_ROW_HEIGHT = 26
+local CONFIG_UI_SCALE_DEFAULT = 1
+local CONFIG_UI_SCALE_MIN = 0.75
+local CONFIG_UI_SCALE_MAX = 1.25
+local CONFIG_UI_SCALE_STEP = 0.05
 local TEXTURE_PICKER_WIDTH = 360
 local TEXTURE_PICKER_VISIBLE_ROWS = 15
 local TEXTURE_PICKER_ROW_HEIGHT = 22
@@ -127,6 +148,71 @@ local function SetNavigationButtonAppearance(button)
     end
 end
 
+local function SetMidnightButtonAppearance(button)
+    local colors = CONFIG_THEME.colors
+    local enabled = button:IsEnabled()
+    local backgroundColor = colors.button
+    local borderColor = colors.buttonBorder
+    local textColor = colors.buttonText
+
+    if button.selected then
+        backgroundColor = colors.filterSelected
+        borderColor = colors.filterSelectedBorder
+        textColor = colors.filterSelectedText
+    elseif enabled and button.pressed then
+        backgroundColor = colors.buttonPressed
+        borderColor = colors.buttonHoverBorder
+    elseif enabled and button.hovered then
+        backgroundColor = colors.buttonHover
+        borderColor = colors.buttonHoverBorder
+    end
+
+    button.solidVisual:SetColors(backgroundColor, borderColor)
+    button.text:SetTextColor(
+        textColor[1],
+        textColor[2],
+        textColor[3],
+        (enabled or button.selected) and textColor[4] or 0.45
+    )
+end
+
+local function CreateMidnightButton(parent, text)
+    local colors = CONFIG_THEME.colors
+    local button = CreateFrame("Button", nil, parent)
+    button:SetHeight(24)
+    CreateSolidFrameVisual(button, colors.button, colors.buttonBorder, 1)
+
+    button.text = button:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    button.text:SetPoint("CENTER")
+    button.text:SetText(text)
+
+    button:SetScript("OnEnter", function(selfButton)
+        selfButton.hovered = true
+        SetMidnightButtonAppearance(selfButton)
+    end)
+    button:SetScript("OnLeave", function(selfButton)
+        selfButton.hovered = nil
+        selfButton.pressed = nil
+        SetMidnightButtonAppearance(selfButton)
+    end)
+    button:SetScript("OnMouseDown", function(selfButton)
+        selfButton.pressed = true
+        SetMidnightButtonAppearance(selfButton)
+    end)
+    button:SetScript("OnMouseUp", function(selfButton)
+        selfButton.pressed = nil
+        SetMidnightButtonAppearance(selfButton)
+    end)
+    button:SetScript("OnEnable", function(selfButton)
+        SetMidnightButtonAppearance(selfButton)
+    end)
+    button:SetScript("OnDisable", function(selfButton)
+        SetMidnightButtonAppearance(selfButton)
+    end)
+    SetMidnightButtonAppearance(button)
+    return button
+end
+
 local function CreateScrollablePageContent(page)
     local scrollFrame = CreateFrame("ScrollFrame", nil, page, "ScrollFrameTemplate")
     scrollFrame:SetPoint("TOPLEFT", page, "TOPLEFT", 0, 0)
@@ -210,6 +296,16 @@ local function CreateDropdown(parent, width, itemsProvider, onSelect)
     return dropdown
 end
 
+local function NormalizeConfigUIScale(value)
+    local scale = tonumber(value) or CONFIG_UI_SCALE_DEFAULT
+    local percent = Clamp(
+        Round(scale * 100, CONFIG_UI_SCALE_STEP * 100),
+        CONFIG_UI_SCALE_MIN * 100,
+        CONFIG_UI_SCALE_MAX * 100
+    )
+    return percent / 100
+end
+
 local function CreateStatusBarTexturePicker(parent, ownerFrame, onSelect)
     local picker = CreateButton(parent, "")
     picker:SetWidth(220)
@@ -230,13 +326,19 @@ local function CreateStatusBarTexturePicker(parent, ownerFrame, onSelect)
     popup:SetClampedToScreen(true)
     popup:EnableMouse(true)
     popup:SetBackdrop({
-        bgFile = [[Interface\DialogFrame\UI-DialogBox-Background]],
+        bgFile = [[Interface\Buttons\WHITE8X8]],
         edgeFile = [[Interface\Tooltips\UI-Tooltip-Border]],
         tile = true,
         tileSize = 16,
         edgeSize = 12,
         insets = { left = 3, right = 3, top = 3, bottom = 3 },
     })
+    popup:SetBackdropColor(
+        CONFIG_THEME.colors.window[1],
+        CONFIG_THEME.colors.window[2],
+        CONFIG_THEME.colors.window[3],
+        1
+    )
     popup:Hide()
 
     local scrollBox = _G.CreateFrame("Frame", nil, popup, "WowScrollBoxList")
@@ -399,13 +501,19 @@ local function CreateFontPicker(parent, ownerFrame, onSelect)
     popup:SetClampedToScreen(true)
     popup:EnableMouse(true)
     popup:SetBackdrop({
-        bgFile = [[Interface\DialogFrame\UI-DialogBox-Background]],
+        bgFile = [[Interface\Buttons\WHITE8X8]],
         edgeFile = [[Interface\Tooltips\UI-Tooltip-Border]],
         tile = true,
         tileSize = 16,
         edgeSize = 12,
         insets = { left = 3, right = 3, top = 3, bottom = 3 },
     })
+    popup:SetBackdropColor(
+        CONFIG_THEME.colors.window[1],
+        CONFIG_THEME.colors.window[2],
+        CONFIG_THEME.colors.window[3],
+        1
+    )
     popup:Hide()
 
     local scrollBox = _G.CreateFrame("Frame", nil, popup, "WowScrollBoxList")
@@ -598,9 +706,12 @@ local function CreateFilterCheck(parent)
     return check
 end
 
-local function CreateSlider(parent, labelText, minValue, maxValue, step, onValueChanged)
+local function CreateSlider(parent, labelText, minValue, maxValue, step, onValueChanged, options)
     local box = CreateFrame("Frame", nil, parent)
     box:SetHeight(46)
+
+    local formatValue = options and options.formatValue or tostring
+    local parseValue = options and options.parseValue or tonumber
 
     local label = CreateLabel(box, labelText)
     label:SetPoint("TOPLEFT", box, "TOPLEFT", 0, 0)
@@ -620,10 +731,10 @@ local function CreateSlider(parent, labelText, minValue, maxValue, step, onValue
     local stepCount = math.max(1, math.floor(rawStepCount + 0.5))
     local formatters = {
         [minimalSliderMixin.Label.Min] = function()
-            return tostring(minValue)
+            return formatValue(minValue)
         end,
         [minimalSliderMixin.Label.Max] = function()
-            return tostring(maxValue)
+            return formatValue(maxValue)
         end,
     }
     slider:Init(minValue, minValue, maxValue, stepCount, formatters)
@@ -638,7 +749,7 @@ local function CreateSlider(parent, labelText, minValue, maxValue, step, onValue
             return
         end
         value = Clamp(Round(value, step), minValue, maxValue)
-        valueBox:SetText(tostring(value))
+        valueBox:SetText(formatValue(value))
         onValueChanged(value)
     end)
 
@@ -648,26 +759,27 @@ local function CreateSlider(parent, labelText, minValue, maxValue, step, onValue
             Config:RefreshActivePage()
             return
         end
-        local value = tonumber(self:GetText())
+        local value = parseValue(self:GetText())
         if value then
             value = Clamp(Round(value, step), minValue, maxValue)
             slider:SetValue(value)
-            self:SetText(tostring(value))
+            self:SetText(formatValue(value))
         else
-            self:SetText(tostring(Clamp(Round(slider.Slider:GetValue(), step), minValue, maxValue)))
+            self:SetText(formatValue(Clamp(Round(slider.Slider:GetValue(), step), minValue, maxValue)))
         end
         self:ClearFocus()
     end)
     valueBox:SetScript("OnEscapePressed", function(self)
-        self:SetText(tostring(Clamp(Round(slider.Slider:GetValue(), step), minValue, maxValue)))
+        self:SetText(formatValue(Clamp(Round(slider.Slider:GetValue(), step), minValue, maxValue)))
         self:ClearFocus()
     end)
     valueBox:SetScript("OnEditFocusLost", function(self)
-        self:SetText(tostring(Clamp(Round(slider.Slider:GetValue(), step), minValue, maxValue)))
+        self:SetText(formatValue(Clamp(Round(slider.Slider:GetValue(), step), minValue, maxValue)))
     end)
 
     box.slider = slider
     box.valueBox = valueBox
+    box.formatValue = formatValue
     return box
 end
 
@@ -675,7 +787,7 @@ local function SetSliderValue(sliderBox, value)
     sliderBox.slider.suppress = true
     sliderBox.slider:SetValue(value)
     sliderBox.slider.suppress = false
-    sliderBox.valueBox:SetText(tostring(value))
+    sliderBox.valueBox:SetText(sliderBox.formatValue(value))
 end
 
 local function GetGroupName(groupSettings)
@@ -798,7 +910,7 @@ local function GetOverrideGroupLabel(group)
     return "Default"
 end
 
-local function BuildOverrideListText()
+local function GetSortedOverrideSpellIDs()
     local overrides = EnsureOverrides()
     local spellIDs = {}
     for spellID in pairs(overrides) do
@@ -807,19 +919,54 @@ local function BuildOverrideListText()
         end
     end
     table.sort(spellIDs)
+    return spellIDs
+end
 
-    if #spellIDs == 0 then
-        return "No overrides."
+local function IsReadableConfigValue(value)
+    local isSecretValue = _G.issecretvalue
+    if isSecretValue then
+        local success, secret = pcall(isSecretValue, value)
+        if not success or secret then
+            return false
+        end
     end
 
-    local lines = {}
-    for _, spellID in ipairs(spellIDs) do
-        local override = overrides[spellID]
-        local group = GetOverrideGroupLabel(override and override.group)
-        local hidden = override and override.hidden and "hidden" or "shown"
-        lines[#lines + 1] = tostring(spellID) .. " - " .. group .. " - " .. hidden
+    local canAccessValue = _G.canaccessvalue
+    if canAccessValue then
+        local success, canAccess = pcall(canAccessValue, value)
+        if not success or not canAccess then
+            return false
+        end
     end
-    return table.concat(lines, "\n")
+
+    return value ~= nil
+end
+
+local function GetOverrideSpellName(spellID)
+    local spellAPI = _G.C_Spell
+    if type(spellAPI) ~= "table" or type(spellAPI.GetSpellName) ~= "function" then
+        return nil
+    end
+
+    local success, spellName = pcall(spellAPI.GetSpellName, spellID)
+    if not success
+        or not IsReadableConfigValue(spellName)
+        or type(spellName) ~= "string"
+        or spellName == ""
+    then
+        return nil
+    end
+
+    return spellName
+end
+
+local function RefreshAfterOverrideMutation(config)
+    local refreshSuccess = OBB:RefreshAll()
+    if not refreshSuccess then
+        RefreshManagedHelpfulCandidateFilters()
+    end
+    config:RefreshManagedHelpfulFilterEditor()
+    config:RefreshOverridesFrame()
 end
 
 local function GetCurrentAuraFilterRows(settings)
@@ -836,6 +983,43 @@ local function GetCurrentAuraFilterRows(settings)
     return {}
 end
 
+local function GetCurrentOverrideCandidateRows()
+    local overrides = EnsureOverrides()
+    local rowsBySpellID = {}
+    for _, settings in ipairs(OBB.db and OBB.db.groups or {}) do
+        for _, row in ipairs(GetCurrentAuraFilterRows(settings)) do
+            local spellID = row.spellID
+            if type(spellID) == "number"
+                and not overrides[spellID]
+                and not rowsBySpellID[spellID]
+            then
+                rowsBySpellID[spellID] = {
+                    spellID = spellID,
+                    name = row.name,
+                }
+            end
+        end
+    end
+
+    local rows = {}
+    for _, row in pairs(rowsBySpellID) do
+        rows[#rows + 1] = row
+    end
+    table.sort(rows, function(left, right)
+        return left.spellID < right.spellID
+    end)
+    return rows
+end
+
+local function GetCurrentSpellEntryText(row)
+    local spellID = row.spellID
+    local spellName = row.name
+    if type(spellName) ~= "string" or spellName == "" then
+        spellName = GetOverrideSpellName(spellID) or tostring(spellID)
+    end
+    return spellName .. " (" .. tostring(spellID) .. ")"
+end
+
 function Config:Initialize()
     if self.initialized then
         return
@@ -850,6 +1034,7 @@ function Config:Initialize()
     OBB.db.config.x = OBB.db.config.x or 0
     OBB.db.config.y = OBB.db.config.y or 0
     OBB.db.config.page = OBB.db.config.page or "general"
+    OBB.db.config.uiScale = NormalizeConfigUIScale(OBB.db.config.uiScale)
 
     self:CreateFrame()
     self:BuildPages()
@@ -863,6 +1048,7 @@ function Config:CreateFrame()
     _G[FRAME_NAME] = frame
     frame:SetSize(OBB.db.config.width, OBB.db.config.height)
     frame:SetPoint("CENTER", UIParent, "CENTER", OBB.db.config.x, OBB.db.config.y)
+    frame:SetScale(OBB.db.config.uiScale)
     frame:SetFrameStrata("DIALOG")
     frame:SetMovable(true)
     frame:SetResizable(true)
@@ -1208,8 +1394,42 @@ function Config:SaveFramePlacement()
     if self:IsCombatLocked() then
         return
     end
-    OBB.db.config.x = Round(self.frame:GetLeft() + self.frame:GetWidth() / 2 - UIParent:GetWidth() / 2, 1)
-    OBB.db.config.y = Round(self.frame:GetBottom() + self.frame:GetHeight() / 2 - UIParent:GetHeight() / 2, 1)
+    local frameLeft, frameBottom, frameWidth, frameHeight = self.frame:GetScaledRect()
+    local parentLeft, parentBottom, parentWidth, parentHeight = UIParent:GetScaledRect()
+    local parentScale = UIParent:GetEffectiveScale()
+    if not frameLeft or not parentLeft or not parentScale or parentScale <= 0 then
+        return
+    end
+
+    OBB.db.config.x = Round(
+        ((frameLeft + frameWidth / 2) - (parentLeft + parentWidth / 2)) / parentScale,
+        1
+    )
+    OBB.db.config.y = Round(
+        ((frameBottom + frameHeight / 2) - (parentBottom + parentHeight / 2)) / parentScale,
+        1
+    )
+end
+
+function Config:ApplyUIScale(value)
+    if not OBB.db or not OBB.db.config then
+        return
+    end
+
+    local uiScale = NormalizeConfigUIScale(value)
+    OBB.db.config.uiScale = uiScale
+    if self.frame then
+        local parent = self.frame:GetParent()
+        self.frame:SetScale(uiScale)
+        self.frame:ClearAllPoints()
+        self.frame:SetPoint(
+            "CENTER",
+            parent,
+            "CENTER",
+            OBB.db.config.x,
+            OBB.db.config.y
+        )
+    end
 end
 
 function Config:CreateNavButton(pageID, text, index)
@@ -1339,7 +1559,19 @@ function Config:ToggleFiltersFrame(settings)
     self:CreateFiltersFrame()
     self.filtersFrame.settings = settings
     self.filtersFrame.activeList = self.filtersFrame.activeList or "whitelist"
-    self.filtersFrame:SetShown(not self.filtersFrame:IsShown())
+    self.filtersFrame:ClearAllPoints()
+    self.filtersFrame:SetPoint(
+        "TOPLEFT",
+        self.frame,
+        "TOPRIGHT",
+        FILTER_FRAME_GAP,
+        0
+    )
+    local showFilters = not self.filtersFrame:IsShown()
+    if showFilters and self.overridesFrame and self.overridesFrame:IsShown() then
+        self.overridesFrame:Hide()
+    end
+    self.filtersFrame:SetShown(showFilters)
     if self.filtersFrame:IsShown() then
         self:RefreshFiltersFrame()
     end
@@ -1350,54 +1582,35 @@ function Config:CreateFiltersFrame()
         return
     end
 
-    local frame = CreateFrame(
-        "Frame",
-        "OdysseusBuffBarsFiltersFrame",
-        UIParent,
-        BackdropTemplateMixin and "BackdropTemplate"
-    )
-    frame:SetSize(420, 420)
-    frame:SetPoint("CENTER", UIParent, "CENTER", 70, 20)
-    frame:SetFrameStrata("DIALOG")
-    frame:SetMovable(true)
+    local theme = CONFIG_THEME
+    local colors = theme.colors
+    local frame = CreateFrame("Frame", "OdysseusBuffBarsFiltersFrame", self.frame)
+    frame:SetSize(FILTER_FRAME_WIDTH, FILTER_FRAME_HEIGHT)
+    frame:SetPoint("TOPLEFT", self.frame, "TOPRIGHT", FILTER_FRAME_GAP, 0)
+    frame:SetFrameStrata(self.frame:GetFrameStrata())
+    frame:SetFrameLevel(self.frame:GetFrameLevel() + 20)
     frame:EnableMouse(true)
-    frame:SetClampedToScreen(true)
-    frame:SetBackdrop({
-        bgFile = [[Interface\DialogFrame\UI-DialogBox-Background]],
-        edgeFile = [[Interface\DialogFrame\UI-DialogBox-Border]],
-        tile = true,
-        tileSize = 32,
-        edgeSize = 32,
-        insets = { left = 11, right = 12, top = 12, bottom = 11 },
-    })
+    CreateSolidFrameVisual(frame, colors.window, colors.outerBorder, theme.borderSize)
     frame:Hide()
     table.insert(UISpecialFrames, "OdysseusBuffBarsFiltersFrame")
 
-    frame.title = CreateLabel(frame, "Filters", "large")
-    frame.title:SetPoint("TOPLEFT", frame, "TOPLEFT", 18, -16)
+    frame.header = CreateFrame("Frame", nil, frame)
+    frame.header:SetPoint("TOPLEFT", frame, "TOPLEFT", theme.outerPadding, -theme.outerPadding)
+    frame.header:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -theme.outerPadding, -theme.outerPadding)
+    frame.header:SetHeight(theme.headerHeight)
+    CreateSolidFrameVisual(frame.header, colors.header, colors.divider, 1)
 
-    frame.titleBar = CreateFrame("Frame", nil, frame)
-    frame.titleBar:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -8)
-    frame.titleBar:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -34, -8)
-    frame.titleBar:SetHeight(34)
-    frame.titleBar:EnableMouse(true)
-    frame.titleBar:SetScript("OnMouseDown", function()
-        if self:IsCombatLocked() then
-            self:WarnCombat()
-            return
-        end
-        frame:StartMoving()
-    end)
-    frame.titleBar:SetScript("OnMouseUp", function()
-        frame:StopMovingOrSizing()
-    end)
+    frame.title = CreateLabel(frame.header, "Filters", "large")
+    frame.title:SetPoint("LEFT", frame.header, "LEFT", 12, 0)
+    frame.title:SetTextColor(1.00, 0.82, 0.32)
 
     frame.close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
     frame.close:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -5, -5)
+    frame.close:SetFrameLevel(frame:GetFrameLevel() + 2)
 
-    frame.whitelist = CreateButton(frame, "Whitelist")
-    frame.whitelist:SetPoint("TOPLEFT", frame, "TOPLEFT", 18, -52)
-    frame.whitelist:SetWidth(100)
+    frame.whitelist = CreateMidnightButton(frame, "Whitelist")
+    frame.whitelist:SetPoint("TOPLEFT", frame.header, "BOTTOMLEFT", 12, -10)
+    frame.whitelist:SetSize(120, 28)
     frame.whitelist:SetScript("OnClick", function()
         if self:IsCombatLocked() then
             self:WarnCombat()
@@ -1407,9 +1620,9 @@ function Config:CreateFiltersFrame()
         self:RefreshFiltersFrame()
     end)
 
-    frame.blacklist = CreateButton(frame, "Blacklist")
+    frame.blacklist = CreateMidnightButton(frame, "Blacklist")
     frame.blacklist:SetPoint("LEFT", frame.whitelist, "RIGHT", 8, 0)
-    frame.blacklist:SetWidth(100)
+    frame.blacklist:SetSize(120, 28)
     frame.blacklist:SetScript("OnClick", function()
         if self:IsCombatLocked() then
             self:WarnCombat()
@@ -1420,15 +1633,15 @@ function Config:CreateFiltersFrame()
     end)
 
     frame.inputLabel = CreateLabel(frame, "Spell ID")
-    frame.inputLabel:SetPoint("TOPLEFT", frame.whitelist, "BOTTOMLEFT", 0, -18)
+    frame.inputLabel:SetPoint("TOPLEFT", frame.whitelist, "BOTTOMLEFT", 0, -20)
 
     frame.input = CreateEditBox(frame)
     frame.input:SetPoint("LEFT", frame.inputLabel, "RIGHT", 10, 0)
-    frame.input:SetWidth(110)
+    frame.input:SetWidth(116)
 
-    frame.add = CreateButton(frame, "Add")
+    frame.add = CreateMidnightButton(frame, "Add")
     frame.add:SetPoint("LEFT", frame.input, "RIGHT", 10, 0)
-    frame.add:SetWidth(70)
+    frame.add:SetWidth(68)
     frame.add:SetScript("OnClick", function()
         if self:IsCombatLocked() then
             self:WarnCombat()
@@ -1449,9 +1662,9 @@ function Config:CreateFiltersFrame()
         self:RefreshFiltersFrame()
     end)
 
-    frame.remove = CreateButton(frame, "Remove")
+    frame.remove = CreateMidnightButton(frame, "Remove")
     frame.remove:SetPoint("LEFT", frame.add, "RIGHT", 8, 0)
-    frame.remove:SetWidth(80)
+    frame.remove:SetWidth(76)
     frame.remove:SetScript("OnClick", function()
         if self:IsCombatLocked() then
             self:WarnCombat()
@@ -1472,12 +1685,19 @@ function Config:CreateFiltersFrame()
         self:RefreshFiltersFrame()
     end)
 
+    frame.divider = frame:CreateTexture(nil, "ARTWORK")
+    frame.divider:SetPoint("TOPLEFT", frame.inputLabel, "BOTTOMLEFT", 0, -18)
+    frame.divider:SetPoint("RIGHT", frame, "RIGHT", -12, 0)
+    frame.divider:SetHeight(1)
+    SetTextureColor(frame.divider, colors.divider)
+
     frame.listHeader = CreateLabel(frame, "Current group auras")
-    frame.listHeader:SetPoint("TOPLEFT", frame.inputLabel, "BOTTOMLEFT", 0, -18)
+    frame.listHeader:SetPoint("TOPLEFT", frame.divider, "BOTTOMLEFT", 0, -12)
 
     frame.listBox = CreateFrame("Frame", nil, frame)
     frame.listBox:SetPoint("TOPLEFT", frame.listHeader, "BOTTOMLEFT", 0, -6)
-    frame.listBox:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -34, 18)
+    frame.listBox:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -38, 16)
+    CreateSolidFrameVisual(frame.listBox, colors.panel, colors.panelBorder, 1)
     frame.listBox:EnableMouseWheel(true)
     frame.listBox:SetScript("OnMouseWheel", function(_, delta)
         local _, maxValue = frame.scrollBar:GetMinMaxValues()
@@ -1490,8 +1710,9 @@ function Config:CreateFiltersFrame()
     end)
 
     frame.scrollBar = CreateFrame("Slider", nil, frame, "UIPanelScrollBarTemplate")
-    frame.scrollBar:SetPoint("TOPLEFT", frame.listBox, "TOPRIGHT", 6, -16)
-    frame.scrollBar:SetPoint("BOTTOMLEFT", frame.listBox, "BOTTOMRIGHT", 6, 16)
+    frame.scrollBar:SetPoint("TOPLEFT", frame.listBox, "TOPRIGHT", 7, -16)
+    frame.scrollBar:SetPoint("BOTTOMLEFT", frame.listBox, "BOTTOMRIGHT", 7, 16)
+    frame.scrollBar:SetFrameLevel(frame:GetFrameLevel() + 2)
     frame.scrollBar:SetMinMaxValues(0, 0)
     frame.scrollBar:SetValueStep(1)
     frame.scrollBar:SetObeyStepOnDrag(true)
@@ -1503,14 +1724,14 @@ function Config:CreateFiltersFrame()
     frame.emptyText = frame:CreateFontString(nil, "OVERLAY")
     frame.emptyText:SetFontObject(GameFontHighlight)
     frame.emptyText:SetJustifyH("LEFT")
-    frame.emptyText:SetPoint("TOPLEFT", frame.listBox, "TOPLEFT", 4, -4)
+    frame.emptyText:SetPoint("TOPLEFT", frame.listBox, "TOPLEFT", 10, -10)
     frame.emptyText:SetText("No current readable spell IDs. Use manual entry.")
 
     frame.rows = {}
     for index = 1, 12 do
         local row = CreateFilterCheck(frame.listBox)
         if index == 1 then
-            row:SetPoint("TOPLEFT", frame.listBox, "TOPLEFT", -4, 0)
+            row:SetPoint("TOPLEFT", frame.listBox, "TOPLEFT", 8, -6)
         else
             row:SetPoint("TOPLEFT", frame.rows[index - 1], "BOTTOMLEFT", 0, -4)
         end
@@ -1548,9 +1769,16 @@ function Config:RefreshFiltersFrame()
     local filters = EnsureGroupFilters(frame.settings)
     local activeList = frame.activeList or "whitelist"
     frame.activeList = activeList
-    frame.title:SetText(GetGroupName(frame.settings) .. " Filters")
+    local activeListName = activeList == "blacklist" and "Blacklist" or "Whitelist"
+    frame.title:SetText(
+        GetGroupName(frame.settings) .. " Filters (" .. activeListName .. ")"
+    )
+    frame.whitelist.selected = activeList == "whitelist"
+    frame.blacklist.selected = activeList == "blacklist"
     frame.whitelist:SetEnabled(activeList ~= "whitelist")
     frame.blacklist:SetEnabled(activeList ~= "blacklist")
+    SetMidnightButtonAppearance(frame.whitelist)
+    SetMidnightButtonAppearance(frame.blacklist)
     local rows = GetCurrentAuraFilterRows(frame.settings)
     local maxOffset = math.max(0, #rows - #frame.rows)
     local offset = math.min(frame.filterOffset or 0, maxOffset)
@@ -1619,7 +1847,19 @@ function Config:ToggleOverridesFrame()
     end
 
     self:CreateOverridesFrame()
-    self.overridesFrame:SetShown(not self.overridesFrame:IsShown())
+    self.overridesFrame:ClearAllPoints()
+    self.overridesFrame:SetPoint(
+        "TOPLEFT",
+        self.frame,
+        "TOPRIGHT",
+        OVERRIDE_FRAME_GAP,
+        0
+    )
+    local showOverrides = not self.overridesFrame:IsShown()
+    if showOverrides and self.filtersFrame and self.filtersFrame:IsShown() then
+        self.filtersFrame:Hide()
+    end
+    self.overridesFrame:SetShown(showOverrides)
     if self.overridesFrame:IsShown() then
         self:RefreshOverridesFrame()
     end
@@ -1630,54 +1870,74 @@ function Config:CreateOverridesFrame()
         return
     end
 
-    local frame = CreateFrame("Frame", "OdysseusBuffBarsOverridesFrame", UIParent, BackdropTemplateMixin and "BackdropTemplate")
-    frame:SetSize(420, 340)
-    frame:SetPoint("CENTER", UIParent, "CENTER", 100, 40)
-    frame:SetFrameStrata("DIALOG")
-    frame:SetMovable(true)
+    local theme = CONFIG_THEME
+    local colors = theme.colors
+    local frame = CreateFrame("Frame", "OdysseusBuffBarsOverridesFrame", self.frame)
+    frame:SetSize(OVERRIDE_FRAME_WIDTH, OVERRIDE_FRAME_HEIGHT)
+    frame:SetPoint("TOPLEFT", self.frame, "TOPRIGHT", OVERRIDE_FRAME_GAP, 0)
+    frame:SetFrameStrata(self.frame:GetFrameStrata())
+    frame:SetFrameLevel(self.frame:GetFrameLevel() + 20)
     frame:EnableMouse(true)
-    frame:SetClampedToScreen(true)
-    frame:SetBackdrop({
-        bgFile = [[Interface\DialogFrame\UI-DialogBox-Background]],
-        edgeFile = [[Interface\DialogFrame\UI-DialogBox-Border]],
-        tile = true,
-        tileSize = 32,
-        edgeSize = 32,
-        insets = { left = 11, right = 12, top = 12, bottom = 11 },
-    })
+    CreateSolidFrameVisual(frame, colors.window, colors.outerBorder, theme.borderSize)
     frame:Hide()
     table.insert(UISpecialFrames, "OdysseusBuffBarsOverridesFrame")
 
-    frame.title = CreateLabel(frame, "Override Settings", "large")
-    frame.title:SetPoint("TOPLEFT", frame, "TOPLEFT", 18, -16)
+    frame.header = CreateFrame("Frame", nil, frame)
+    frame.header:SetPoint("TOPLEFT", frame, "TOPLEFT", theme.outerPadding, -theme.outerPadding)
+    frame.header:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -theme.outerPadding, -theme.outerPadding)
+    frame.header:SetHeight(theme.headerHeight)
+    CreateSolidFrameVisual(frame.header, colors.header, colors.divider, 1)
 
-    frame.titleBar = CreateFrame("Frame", nil, frame)
-    frame.titleBar:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -8)
-    frame.titleBar:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -34, -8)
-    frame.titleBar:SetHeight(34)
-    frame.titleBar:EnableMouse(true)
-    frame.titleBar:SetScript("OnMouseDown", function()
-        if self:IsCombatLocked() then
-            self:WarnCombat()
-            return
-        end
-        frame:StartMoving()
-    end)
-    frame.titleBar:SetScript("OnMouseUp", function()
-        frame:StopMovingOrSizing()
-    end)
+    frame.title = CreateLabel(frame.header, "Override Settings", "large")
+    frame.title:SetPoint("LEFT", frame.header, "LEFT", 12, 0)
+    frame.title:SetTextColor(1.00, 0.82, 0.32)
 
     frame.close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
     frame.close:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -5, -5)
+    frame.close:SetFrameLevel(frame:GetFrameLevel() + 2)
 
     frame.inputLabel = CreateLabel(frame, "Spell ID")
-    frame.inputLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 18, -58)
+    frame.inputLabel:SetPoint("TOPLEFT", frame.header, "BOTTOMLEFT", 12, -10)
 
     frame.input = CreateEditBox(frame)
-    frame.input:SetPoint("LEFT", frame.inputLabel, "RIGHT", 10, 0)
-    frame.input:SetWidth(110)
+    frame.input:SetPoint("TOPLEFT", frame.inputLabel, "BOTTOMLEFT", 0, -4)
+    frame.input:SetWidth(78)
 
-    frame.group = CreateDropdown(frame, 150, function()
+    frame.currentSpellLabel = CreateLabel(frame, "Current Spell")
+    frame.currentSpellLabel:SetPoint("TOPLEFT", frame.header, "BOTTOMLEFT", 106, -10)
+
+    frame.currentSpell = CreateDropdown(frame, 145, function()
+        local items = {}
+        for _, row in ipairs(GetCurrentOverrideCandidateRows()) do
+            items[#items + 1] = {
+                text = GetCurrentSpellEntryText(row),
+                value = row.spellID,
+                checked = frame.currentSpellID == row.spellID,
+            }
+        end
+        return items
+    end, function(spellID)
+        if self:IsCombatLocked() then
+            self:WarnCombat()
+            self:RefreshOverridesFrame()
+            return
+        end
+        frame.currentSpellID = spellID
+        frame.input:SetText(tostring(spellID))
+        self:RefreshOverridesFrame()
+    end)
+    frame.currentSpell:SetPoint(
+        "TOPLEFT",
+        frame.currentSpellLabel,
+        "BOTTOMLEFT",
+        -16,
+        -2
+    )
+
+    frame.groupLabel = CreateLabel(frame, "Group")
+    frame.groupLabel:SetPoint("TOPLEFT", frame.header, "BOTTOMLEFT", 286, -10)
+
+    frame.group = CreateDropdown(frame, 105, function()
         local group = frame.selectedGroup
         return {
             { text = "Default", value = nil, checked = group == nil },
@@ -1693,15 +1953,15 @@ function Config:CreateOverridesFrame()
         frame.selectedGroup = value
         self:RefreshOverridesFrame()
     end)
-    frame.group:SetPoint("TOPLEFT", frame.inputLabel, "BOTTOMLEFT", -16, -14)
+    frame.group:SetPoint("TOPLEFT", frame.groupLabel, "BOTTOMLEFT", -16, -2)
 
     frame.hidden = CreateCheck(frame, "Hidden", function(value)
         frame.hiddenValue = value
     end)
-    frame.hidden:SetPoint("LEFT", frame.group, "RIGHT", 10, 2)
+    frame.hidden:SetPoint("TOPLEFT", frame.header, "BOTTOMLEFT", 438, -27)
 
-    frame.save = CreateButton(frame, "Save")
-    frame.save:SetPoint("TOPLEFT", frame.group, "BOTTOMLEFT", 16, -12)
+    frame.save = CreateMidnightButton(frame, "Save")
+    frame.save:SetPoint("TOPLEFT", frame.input, "BOTTOMLEFT", 0, -14)
     frame.save:SetWidth(80)
     frame.save:SetScript("OnClick", function()
         if self:IsCombatLocked() then
@@ -1723,54 +1983,148 @@ function Config:CreateOverridesFrame()
                 hidden = hidden,
             }
         end
-        local refreshSuccess = OBB:RefreshAll()
-        if not refreshSuccess then
-            RefreshManagedHelpfulCandidateFilters()
-        end
-        self:RefreshManagedHelpfulFilterEditor()
-        self:RefreshOverridesFrame()
+        frame.currentSpellID = nil
+        RefreshAfterOverrideMutation(self)
     end)
 
-    frame.remove = CreateButton(frame, "Remove")
-    frame.remove:SetPoint("LEFT", frame.save, "RIGHT", 10, 0)
-    frame.remove:SetWidth(90)
-    frame.remove:SetScript("OnClick", function()
-        if self:IsCombatLocked() then
-            self:WarnCombat()
-            return
+    frame.divider = frame:CreateTexture(nil, "ARTWORK")
+    frame.divider:SetPoint("TOPLEFT", frame.save, "BOTTOMLEFT", 0, -14)
+    frame.divider:SetPoint("RIGHT", frame, "RIGHT", -12, 0)
+    frame.divider:SetHeight(1)
+    SetTextureColor(frame.divider, colors.divider)
+
+    frame.listHeader = CreateFrame("Frame", nil, frame)
+    frame.listHeader:SetPoint("TOPLEFT", frame.divider, "BOTTOMLEFT", 0, -10)
+    frame.listHeader:SetPoint("RIGHT", frame, "RIGHT", -38, 0)
+    frame.listHeader:SetHeight(20)
+
+    frame.idHeader = CreateLabel(frame.listHeader, "Spell ID")
+    frame.idHeader:SetPoint("LEFT", frame.listHeader, "LEFT", 8, 0)
+    frame.idHeader:SetWidth(70)
+    frame.nameHeader = CreateLabel(frame.listHeader, "Spell Name")
+    frame.nameHeader:SetPoint("LEFT", frame.idHeader, "RIGHT", 6, 0)
+    frame.nameHeader:SetWidth(185)
+    frame.groupHeader = CreateLabel(frame.listHeader, "Group")
+    frame.groupHeader:SetPoint("LEFT", frame.nameHeader, "RIGHT", 6, 0)
+    frame.groupHeader:SetWidth(100)
+    frame.attributeHeader = CreateLabel(frame.listHeader, "Attribute")
+    frame.attributeHeader:SetPoint("LEFT", frame.groupHeader, "RIGHT", 6, 0)
+    frame.attributeHeader:SetWidth(65)
+
+    frame.listBox = CreateFrame("Frame", nil, frame)
+    frame.listBox:SetPoint("TOPLEFT", frame.listHeader, "BOTTOMLEFT", 0, -4)
+    frame.listBox:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -38, 16)
+    CreateSolidFrameVisual(frame.listBox, colors.panel, colors.panelBorder, 1)
+    frame.listBox:EnableMouseWheel(true)
+    frame.listBox:SetScript("OnMouseWheel", function(_, delta)
+        local _, maxValue = frame.scrollBar:GetMinMaxValues()
+        local value = frame.scrollBar:GetValue()
+        if delta < 0 then
+            frame.scrollBar:SetValue(math.min(maxValue, value + 1))
+        else
+            frame.scrollBar:SetValue(math.max(0, value - 1))
         end
-        local spellID = tonumber(frame.input:GetText())
-        if not spellID then
-            return
-        end
-        EnsureOverrides()[spellID] = nil
-        frame.selectedGroup = nil
-        frame.hiddenValue = false
-        local refreshSuccess = OBB:RefreshAll()
-        if not refreshSuccess then
-            RefreshManagedHelpfulCandidateFilters()
-        end
-        self:RefreshManagedHelpfulFilterEditor()
-        self:RefreshOverridesFrame()
     end)
 
-    frame.list = frame:CreateFontString(nil, "OVERLAY")
-    frame.list:SetFontObject(GameFontHighlight)
-    frame.list:SetJustifyH("LEFT")
-    frame.list:SetJustifyV("TOP")
-    frame.list:SetPoint("TOPLEFT", frame.save, "BOTTOMLEFT", 0, -18)
-    frame.list:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -18, 18)
+    frame.scrollBar = CreateFrame("Slider", nil, frame, "UIPanelScrollBarTemplate")
+    frame.scrollBar:SetPoint("TOPLEFT", frame.listBox, "TOPRIGHT", 7, -16)
+    frame.scrollBar:SetPoint("BOTTOMLEFT", frame.listBox, "BOTTOMRIGHT", 7, 16)
+    frame.scrollBar:SetFrameLevel(frame:GetFrameLevel() + 2)
+    frame.scrollBar:SetMinMaxValues(0, 0)
+    frame.scrollBar:SetValueStep(1)
+    frame.scrollBar:SetObeyStepOnDrag(true)
+    frame.scrollBar:SetScript("OnValueChanged", function(_, value)
+        frame.overrideOffset = math.floor((value or 0) + 0.5)
+        Config:RefreshOverridesFrame()
+    end)
+
+    frame.emptyText = frame:CreateFontString(nil, "OVERLAY")
+    frame.emptyText:SetFontObject(GameFontHighlight)
+    frame.emptyText:SetPoint("TOPLEFT", frame.listBox, "TOPLEFT", 10, -10)
+    frame.emptyText:SetText("No saved overrides.")
+
+    frame.rows = {}
+    for index = 1, OVERRIDE_VISIBLE_ROWS do
+        local row = CreateFrame("Frame", nil, frame.listBox)
+        row:SetHeight(OVERRIDE_ROW_HEIGHT)
+        row:SetPoint("LEFT", frame.listBox, "LEFT", 8, 0)
+        row:SetPoint("RIGHT", frame.listBox, "RIGHT", -8, 0)
+        if index == 1 then
+            row:SetPoint("TOP", frame.listBox, "TOP", 0, -6)
+        else
+            row:SetPoint("TOP", frame.rows[index - 1], "BOTTOM", 0, 0)
+        end
+
+        row.idText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        row.idText:SetPoint("LEFT", row, "LEFT", 0, 0)
+        row.idText:SetWidth(70)
+        row.idText:SetJustifyH("LEFT")
+        row.nameText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        row.nameText:SetPoint("LEFT", row.idText, "RIGHT", 6, 0)
+        row.nameText:SetWidth(185)
+        row.nameText:SetJustifyH("LEFT")
+        row.nameText:SetWordWrap(false)
+        row.nameText:SetMaxLines(1)
+        row.groupText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        row.groupText:SetPoint("LEFT", row.nameText, "RIGHT", 6, 0)
+        row.groupText:SetWidth(100)
+        row.groupText:SetJustifyH("LEFT")
+        row.attributeText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        row.attributeText:SetPoint("LEFT", row.groupText, "RIGHT", 6, 0)
+        row.attributeText:SetWidth(65)
+        row.attributeText:SetJustifyH("LEFT")
+        row.remove = CreateMidnightButton(row, "X")
+        row.remove:SetSize(20, 20)
+        row.remove:SetPoint("RIGHT", row, "RIGHT", 0, 0)
+        row.remove:SetScript("OnClick", function()
+            Config:RemoveOverride(row.spellID)
+        end)
+        frame.rows[index] = row
+    end
 
     frame.input:SetScript("OnEnterPressed", function(editBox)
         local spellID = tonumber(editBox:GetText())
         local override = spellID and EnsureOverrides()[spellID] or nil
+        frame.currentSpellID = nil
         frame.selectedGroup = override and override.group or nil
         frame.hiddenValue = override and override.hidden or false
         editBox:ClearFocus()
         self:RefreshOverridesFrame()
     end)
 
+    frame.input:SetScript("OnTextChanged", function(editBox)
+        if frame.currentSpellID
+            and tonumber(editBox:GetText()) ~= frame.currentSpellID
+        then
+            frame.currentSpellID = nil
+            frame.currentSpell:RefreshText("Select current")
+        end
+    end)
+
     self.overridesFrame = frame
+end
+
+function Config:RemoveOverride(spellID)
+    if self:IsCombatLocked() then
+        self:WarnCombat()
+        return
+    end
+    if type(spellID) ~= "number" then
+        return
+    end
+
+    EnsureOverrides()[spellID] = nil
+    local frame = self.overridesFrame
+    if frame then
+        if frame.currentSpellID == spellID then
+            frame.currentSpellID = nil
+        end
+        if tonumber(frame.input:GetText()) == spellID then
+            frame.selectedGroup = nil
+            frame.hiddenValue = false
+        end
+    end
+    RefreshAfterOverrideMutation(self)
 end
 
 function Config:RefreshOverridesFrame()
@@ -1778,9 +2132,47 @@ function Config:RefreshOverridesFrame()
     if not frame then
         return
     end
-    frame.group:RefreshText("Group: " .. GetOverrideGroupLabel(frame.selectedGroup))
+    local overrides = EnsureOverrides()
+    local currentCandidate
+    for _, row in ipairs(GetCurrentOverrideCandidateRows()) do
+        if row.spellID == frame.currentSpellID then
+            currentCandidate = row
+            break
+        end
+    end
+    frame.currentSpellID = currentCandidate and currentCandidate.spellID or nil
+
+    frame.currentSpell:RefreshText(
+        currentCandidate
+            and GetCurrentSpellEntryText(currentCandidate)
+            or "Select current"
+    )
+    frame.group:RefreshText(GetOverrideGroupLabel(frame.selectedGroup))
     frame.hidden:SetChecked(frame.hiddenValue and true or false)
-    frame.list:SetText(BuildOverrideListText())
+
+    local spellIDs = GetSortedOverrideSpellIDs()
+    local maxOffset = math.max(0, #spellIDs - #frame.rows)
+    local offset = math.min(frame.overrideOffset or 0, maxOffset)
+    frame.overrideOffset = offset
+    frame.scrollBar:SetMinMaxValues(0, maxOffset)
+    frame.scrollBar:SetValueStep(1)
+    frame.scrollBar:SetShown(maxOffset > 0)
+    if math.floor((frame.scrollBar:GetValue() or 0) + 0.5) ~= offset then
+        frame.scrollBar:SetValue(offset)
+    end
+    frame.emptyText:SetShown(#spellIDs == 0)
+    for index, row in ipairs(frame.rows) do
+        local spellID = spellIDs[index + offset]
+        local override = spellID and overrides[spellID]
+        row.spellID = spellID
+        row:SetShown(override ~= nil)
+        if override then
+            row.idText:SetText(tostring(spellID))
+            row.nameText:SetText(GetOverrideSpellName(spellID) or tostring(spellID))
+            row.groupText:SetText(GetOverrideGroupLabel(override.group))
+            row.attributeText:SetText(override.hidden and "Hidden" or "Shown")
+        end
+    end
 end
 
 function Config:BuildGeneralPage(page)
@@ -1856,8 +2248,22 @@ function Config:BuildGeneralPage(page)
     end)
     fontPicker:SetPoint("LEFT", fontLabel, "RIGHT", 4, 0)
 
+    local uiScale = CreateSlider(content, "Config UI Scale", 75, 125, 5, function(value)
+        self:ApplyUIScale(value / 100)
+    end, {
+        formatValue = function(value)
+            return string.format("%d%%", math.floor(value + 0.5))
+        end,
+        parseValue = function(value)
+            local text = string.gsub(value or "", "%%", "")
+            return tonumber(text)
+        end,
+    })
+    uiScale:SetPoint("TOPLEFT", fontLabel, "BOTTOMLEFT", 0, -12)
+    uiScale:SetWidth(200)
+
     local refresh = CreateButton(content, "Refresh Auras")
-    refresh:SetPoint("TOPLEFT", fontLabel, "BOTTOMLEFT", -4, -18)
+    refresh:SetPoint("TOPLEFT", uiScale, "BOTTOMLEFT", -4, -12)
     refresh:SetWidth(130)
     refresh:SetScript("OnClick", function()
         if self:IsCombatLocked() then
@@ -1929,6 +2335,7 @@ function Config:BuildGeneralPage(page)
         hideBlizzard:SetChecked(OBB.db.hideBlizzardFrames)
         texturePicker:SetText(OBB.db.statusBarTexture)
         fontPicker:RefreshSelection(OBB.db.font)
+        SetSliderValue(uiScale, Round(OBB.db.config.uiScale * 100, 5))
         if compatibilityState.active then
             local summary = OBB.Managed
                 and OBB.Managed.GetCompatibilitySummary
@@ -1948,6 +2355,8 @@ function Config:BuildGeneralPage(page)
         Config:SetControlEnabled(hideBlizzard, enabled)
         Config:SetControlEnabled(texturePicker, enabled)
         Config:SetControlEnabled(fontPicker, enabled)
+        Config:SetControlEnabled(uiScale.slider, enabled)
+        Config:SetControlEnabled(uiScale.valueBox, enabled)
         Config:SetControlEnabled(refresh, enabled)
         Config:SetControlEnabled(anchors, enabled)
         Config:SetControlEnabled(resetPositions, enabled)

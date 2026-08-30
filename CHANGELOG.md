@@ -16,6 +16,15 @@ development chronology is preserved separately in
 
 ### Changed
 
+- Synchronized the BUFFS filter editor and Override Settings with the Midnight
+  Config theme in the same fixed right-side companion slot. Override Settings
+  now has a compact editor with a current-spell candidate selector and a
+  structured, scrollable saved-override list with direct row removal. Texture
+  and Font picker popups now use solid Midnight backgrounds. Added an immediate
+  Config-only UI Scale control from 75% through 125% in 5% increments; the
+  Config and its companion/popup descendants inherit that scale without
+  changing aura bars or anchors. Filtering and override semantics remain
+  unchanged. Retail LIVE testing accepted the complete cumulative Config polish.
 - Replaced the interim Config slider arrows with Blizzard's native minimal
   sliders and steppers, retained 46-pixel same-row numeric inputs, and corrected
   the minimum Config size so the full BUFFS page remains visible. Tightened the
