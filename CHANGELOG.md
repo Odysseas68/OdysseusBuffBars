@@ -11,6 +11,19 @@ development chronology is preserved separately in
 - Added a minimap launcher for opening OdysseusBuffBars configuration.
 - Added a Retail Addon Compartment entry for opening configuration.
 - Added new OdysseusBuffBars production artwork and icon assets.
+- Added the first Midnight-style configuration shell and placed the production
+  logo at the top of the scrollable General page.
+
+### Changed
+
+- Replaced the interim Config slider arrows with Blizzard's native minimal
+  sliders and steppers, retained 46-pixel same-row numeric inputs, and corrected
+  the minimum Config size so the full BUFFS page remains visible. Tightened the
+  General-page top spacing and placed its three primary checkboxes on one row.
+  LIVE visual testing finalized the minimum window at `680 x 610`, and the
+  General scroll extent now ends 20 pixels below its bottom-most visible content.
+  Retail LIVE testing accepted the native slider rendering, dragging, steppers,
+  same-row value boxes, compact General layout, and scrollbar auto-hide behavior.
 
 ## OdysseusBuffBars v1.0.0
 

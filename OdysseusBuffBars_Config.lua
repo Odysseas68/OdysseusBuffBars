@@ -4,8 +4,43 @@ local Config = {}
 OBB.Config = Config
 
 local FRAME_NAME = "OdysseusBuffBarsConfigFrame"
-local PANEL_WIDTH = 150
-local PADDING = 14
+local CONFIG_THEME = {
+    frameWidth = 700,
+    frameHeight = 610,
+    minWidth = 680,
+    minHeight = 610,
+    maxWidth = 900,
+    maxHeight = 720,
+    outerPadding = 6,
+    borderSize = 2,
+    headerHeight = 36,
+    panelGap = 8,
+    navigationWidth = 150,
+    pagePadding = 14,
+    navigationButtonHeight = 32,
+    navigationButtonGap = 4,
+    generalLogoSize = 240,
+    generalContentBottomPadding = 20,
+    colors = {
+        window = { 0.07, 0.05, 0.10, 0.98 },
+        outerBorder = { 0.50, 0.30, 0.70, 1.00 },
+        header = { 0.18, 0.07, 0.28, 0.96 },
+        panel = { 0.05, 0.05, 0.07, 0.88 },
+        content = { 0.07, 0.05, 0.10, 0.58 },
+        panelBorder = { 0.24, 0.22, 0.30, 0.95 },
+        divider = { 0.56, 0.38, 0.78, 0.65 },
+        navigation = { 0.13, 0.13, 0.16, 0.94 },
+        navigationHover = { 0.16, 0.16, 0.20, 0.96 },
+        navigationSelected = { 0.18, 0.18, 0.22, 0.96 },
+        navigationBorder = { 0.30, 0.30, 0.36, 1.00 },
+        navigationHoverBorder = { 0.48, 0.48, 0.56, 1.00 },
+        navigationSelectedBorder = { 0.62, 0.60, 0.68, 1.00 },
+        navigationAccent = { 0.84, 0.80, 0.92, 1.00 },
+        navigationText = { 0.82, 0.82, 0.88, 1.00 },
+        navigationHoverText = { 0.96, 0.94, 0.98, 1.00 },
+        navigationSelectedText = { 1.00, 0.97, 0.92, 1.00 },
+    },
+}
 local TEXTURE_PICKER_WIDTH = 360
 local TEXTURE_PICKER_VISIBLE_ROWS = 15
 local TEXTURE_PICKER_ROW_HEIGHT = 22
@@ -17,6 +52,104 @@ local FONT_PICKER_VISIBLE_ROWS = 15
 local FONT_PICKER_ROW_HEIGHT = 24
 local FONT_PICKER_PADDING = 8
 local FONT_PICKER_PREVIEW_SIZE = 14
+
+local function SetTextureColor(texture, color)
+    texture:SetColorTexture(color[1], color[2], color[3], color[4])
+end
+
+local function CreateSolidFrameVisual(frame, backgroundColor, borderColor, borderSize)
+    local visual = {}
+    visual.background = frame:CreateTexture(nil, "BACKGROUND")
+    visual.background:SetAllPoints()
+
+    visual.top = frame:CreateTexture(nil, "BORDER")
+    visual.top:SetPoint("TOPLEFT")
+    visual.top:SetPoint("TOPRIGHT")
+    visual.top:SetHeight(borderSize)
+
+    visual.bottom = frame:CreateTexture(nil, "BORDER")
+    visual.bottom:SetPoint("BOTTOMLEFT")
+    visual.bottom:SetPoint("BOTTOMRIGHT")
+    visual.bottom:SetHeight(borderSize)
+
+    visual.left = frame:CreateTexture(nil, "BORDER")
+    visual.left:SetPoint("TOPLEFT", visual.top, "BOTTOMLEFT")
+    visual.left:SetPoint("BOTTOMLEFT", visual.bottom, "TOPLEFT")
+    visual.left:SetWidth(borderSize)
+
+    visual.right = frame:CreateTexture(nil, "BORDER")
+    visual.right:SetPoint("TOPRIGHT", visual.top, "BOTTOMRIGHT")
+    visual.right:SetPoint("BOTTOMRIGHT", visual.bottom, "TOPRIGHT")
+    visual.right:SetWidth(borderSize)
+
+    function visual:SetColors(newBackgroundColor, newBorderColor)
+        SetTextureColor(self.background, newBackgroundColor)
+        SetTextureColor(self.top, newBorderColor)
+        SetTextureColor(self.bottom, newBorderColor)
+        SetTextureColor(self.left, newBorderColor)
+        SetTextureColor(self.right, newBorderColor)
+    end
+
+    visual:SetColors(backgroundColor, borderColor)
+    frame.solidVisual = visual
+    return visual
+end
+
+local function SetNavigationButtonAppearance(button)
+    local colors = CONFIG_THEME.colors
+    if button.selected then
+        button.solidVisual:SetColors(colors.navigationSelected, colors.navigationSelectedBorder)
+        button.text:SetTextColor(
+            colors.navigationSelectedText[1],
+            colors.navigationSelectedText[2],
+            colors.navigationSelectedText[3],
+            colors.navigationSelectedText[4]
+        )
+        button.accent:Show()
+    elseif button.hovered and button:IsEnabled() then
+        button.solidVisual:SetColors(colors.navigationHover, colors.navigationHoverBorder)
+        button.text:SetTextColor(
+            colors.navigationHoverText[1],
+            colors.navigationHoverText[2],
+            colors.navigationHoverText[3],
+            colors.navigationHoverText[4]
+        )
+        button.accent:Show()
+    else
+        button.solidVisual:SetColors(colors.navigation, colors.navigationBorder)
+        button.text:SetTextColor(
+            colors.navigationText[1],
+            colors.navigationText[2],
+            colors.navigationText[3],
+            button:IsEnabled() and colors.navigationText[4] or 0.45
+        )
+        button.accent:Hide()
+    end
+end
+
+local function CreateScrollablePageContent(page)
+    local scrollFrame = CreateFrame("ScrollFrame", nil, page, "ScrollFrameTemplate")
+    scrollFrame:SetPoint("TOPLEFT", page, "TOPLEFT", 0, 0)
+    scrollFrame:SetPoint("BOTTOMRIGHT", page, "BOTTOMRIGHT", -18, 0)
+    scrollFrame:EnableMouseWheel(true)
+    scrollFrame.ScrollBar:SetHideIfUnscrollable(true)
+    scrollFrame.ScrollBar:SetHideTrackIfThumbExceedsTrack(true)
+
+    local content = CreateFrame("Frame", nil, scrollFrame)
+    content:SetSize(1, 1)
+    scrollFrame:SetScrollChild(content)
+    scrollFrame:HookScript("OnSizeChanged", function(_, width)
+        content:SetWidth(math.max(1, width))
+    end)
+    page:HookScript("OnShow", function()
+        content:SetWidth(math.max(1, scrollFrame:GetWidth()))
+        scrollFrame:SetVerticalScroll(0)
+    end)
+
+    page.scrollFrame = scrollFrame
+    page.scrollContent = content
+    return content
+end
 
 local function Round(value, step)
     step = step or 1
@@ -84,7 +217,7 @@ local function CreateStatusBarTexturePicker(parent, ownerFrame, onSelect)
     local popup = _G.CreateFrame(
         "Frame",
         nil,
-        parent,
+        ownerFrame,
         _G.BackdropTemplateMixin and "BackdropTemplate"
     )
     popup:SetSize(
@@ -253,7 +386,7 @@ local function CreateFontPicker(parent, ownerFrame, onSelect)
     local popup = _G.CreateFrame(
         "Frame",
         nil,
-        parent,
+        ownerFrame,
         _G.BackdropTemplateMixin and "BackdropTemplate"
     )
     popup:SetSize(
@@ -473,22 +606,30 @@ local function CreateSlider(parent, labelText, minValue, maxValue, step, onValue
     label:SetPoint("TOPLEFT", box, "TOPLEFT", 0, 0)
 
     local valueBox = CreateFrame("EditBox", nil, box, "InputBoxTemplate")
-    valueBox:SetSize(54, 20)
-    valueBox:SetPoint("TOPRIGHT", box, "TOPRIGHT", 0, 2)
+    valueBox:SetSize(46, 20)
+    valueBox:SetPoint("RIGHT", box, "RIGHT", 0, -8)
     valueBox:SetAutoFocus(false)
 
-    local slider = CreateFrame("Slider", nil, box, "OptionsSliderTemplate")
-    slider:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 4, -8)
-    slider:SetPoint("RIGHT", box, "RIGHT", -4, 0)
-    slider:SetMinMaxValues(minValue, maxValue)
-    slider:SetValueStep(step)
-    slider:SetObeyStepOnDrag(true)
-    slider.Low:SetText(tostring(minValue))
-    slider.High:SetText(tostring(maxValue))
-    slider.Text:SetText("")
+    local slider = CreateFrame("Frame", nil, box, "MinimalSliderWithSteppersTemplate")
+    slider:SetPoint("LEFT", box, "LEFT", 0, -8)
+    slider:SetPoint("RIGHT", valueBox, "LEFT", -6, 0)
+    slider:SetHeight(40)
 
-    slider:SetScript("OnValueChanged", function(self, value)
-        if self.suppress then
+    local minimalSliderMixin = _G.MinimalSliderWithSteppersMixin
+    local rawStepCount = (maxValue - minValue) / step
+    local stepCount = math.max(1, math.floor(rawStepCount + 0.5))
+    local formatters = {
+        [minimalSliderMixin.Label.Min] = function()
+            return tostring(minValue)
+        end,
+        [minimalSliderMixin.Label.Max] = function()
+            return tostring(maxValue)
+        end,
+    }
+    slider:Init(minValue, minValue, maxValue, stepCount, formatters)
+
+    slider:RegisterCallback(minimalSliderMixin.Event.OnValueChanged, function(_, value)
+        if slider.suppress then
             return
         end
         if Config:IsCombatLocked() then
@@ -513,16 +654,16 @@ local function CreateSlider(parent, labelText, minValue, maxValue, step, onValue
             slider:SetValue(value)
             self:SetText(tostring(value))
         else
-            self:SetText(tostring(Clamp(Round(slider:GetValue(), step), minValue, maxValue)))
+            self:SetText(tostring(Clamp(Round(slider.Slider:GetValue(), step), minValue, maxValue)))
         end
         self:ClearFocus()
     end)
     valueBox:SetScript("OnEscapePressed", function(self)
-        self:SetText(tostring(Clamp(Round(slider:GetValue(), step), minValue, maxValue)))
+        self:SetText(tostring(Clamp(Round(slider.Slider:GetValue(), step), minValue, maxValue)))
         self:ClearFocus()
     end)
     valueBox:SetScript("OnEditFocusLost", function(self)
-        self:SetText(tostring(Clamp(Round(slider:GetValue(), step), minValue, maxValue)))
+        self:SetText(tostring(Clamp(Round(slider.Slider:GetValue(), step), minValue, maxValue)))
     end)
 
     box.slider = slider
@@ -702,10 +843,10 @@ function Config:Initialize()
     self.initialized = true
 
     OBB.db.config = OBB.db.config or {}
-    OBB.db.config.width = OBB.db.config.width or 700
-    OBB.db.config.height = OBB.db.config.height or 500
-    OBB.db.config.width = Clamp(OBB.db.config.width, 660, 900)
-    OBB.db.config.height = Clamp(OBB.db.config.height, 420, 720)
+    OBB.db.config.width = OBB.db.config.width or CONFIG_THEME.frameWidth
+    OBB.db.config.height = OBB.db.config.height or CONFIG_THEME.frameHeight
+    OBB.db.config.width = Clamp(OBB.db.config.width, CONFIG_THEME.minWidth, CONFIG_THEME.maxWidth)
+    OBB.db.config.height = Clamp(OBB.db.config.height, CONFIG_THEME.minHeight, CONFIG_THEME.maxHeight)
     OBB.db.config.x = OBB.db.config.x or 0
     OBB.db.config.y = OBB.db.config.y or 0
     OBB.db.config.page = OBB.db.config.page or "general"
@@ -716,7 +857,9 @@ function Config:Initialize()
 end
 
 function Config:CreateFrame()
-    local frame = CreateFrame("Frame", FRAME_NAME, UIParent, BackdropTemplateMixin and "BackdropTemplate")
+    local theme = CONFIG_THEME
+    local colors = theme.colors
+    local frame = CreateFrame("Frame", FRAME_NAME, UIParent)
     _G[FRAME_NAME] = frame
     frame:SetSize(OBB.db.config.width, OBB.db.config.height)
     frame:SetPoint("CENTER", UIParent, "CENTER", OBB.db.config.x, OBB.db.config.y)
@@ -724,34 +867,45 @@ function Config:CreateFrame()
     frame:SetMovable(true)
     frame:SetResizable(true)
     if frame.SetResizeBounds then
-        frame:SetResizeBounds(660, 420, 900, 720)
+        frame:SetResizeBounds(theme.minWidth, theme.minHeight, theme.maxWidth, theme.maxHeight)
     else
-        frame:SetMinResize(660, 420)
-        frame:SetMaxResize(900, 720)
+        frame:SetMinResize(theme.minWidth, theme.minHeight)
+        frame:SetMaxResize(theme.maxWidth, theme.maxHeight)
     end
     frame:EnableMouse(true)
     frame:SetClampedToScreen(true)
-    frame:SetBackdrop({
-        bgFile = [[Interface\DialogFrame\UI-DialogBox-Background]],
-        edgeFile = [[Interface\DialogFrame\UI-DialogBox-Border]],
-        tile = true,
-        tileSize = 32,
-        edgeSize = 32,
-        insets = { left = 11, right = 12, top = 12, bottom = 11 },
-    })
+    CreateSolidFrameVisual(frame, colors.window, colors.outerBorder, theme.borderSize)
     frame:Hide()
     frame:RegisterEvent("PLAYER_REGEN_DISABLED")
     frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 
     table.insert(UISpecialFrames, FRAME_NAME)
 
-    frame.title = CreateLabel(frame, "Odysseus Buff Bars", "large")
-    frame.title:SetPoint("TOPLEFT", frame, "TOPLEFT", 18, -16)
+    frame.header = CreateFrame("Frame", nil, frame)
+    frame.header:SetPoint(
+        "TOPLEFT",
+        frame,
+        "TOPLEFT",
+        theme.outerPadding,
+        -theme.outerPadding
+    )
+    frame.header:SetPoint(
+        "TOPRIGHT",
+        frame,
+        "TOPRIGHT",
+        -theme.outerPadding,
+        -theme.outerPadding
+    )
+    frame.header:SetHeight(theme.headerHeight)
+    CreateSolidFrameVisual(frame.header, colors.header, colors.divider, 1)
 
-    frame.titleBar = CreateFrame("Frame", nil, frame)
-    frame.titleBar:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -8)
-    frame.titleBar:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -34, -8)
-    frame.titleBar:SetHeight(34)
+    frame.title = CreateLabel(frame.header, "Odysseus Buff Bars", "large")
+    frame.title:SetPoint("LEFT", frame.header, "LEFT", 12, 0)
+    frame.title:SetTextColor(0.95, 0.90, 1.00)
+
+    frame.titleBar = CreateFrame("Frame", nil, frame.header)
+    frame.titleBar:SetPoint("TOPLEFT", frame.header, "TOPLEFT", 0, 0)
+    frame.titleBar:SetPoint("BOTTOMRIGHT", frame.header, "BOTTOMRIGHT", -30, 0)
     frame.titleBar:EnableMouse(true)
     frame.titleBar:SetScript("OnMouseDown", function()
         if self:IsCombatLocked() then
@@ -769,13 +923,49 @@ function Config:CreateFrame()
     frame.close:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -5, -5)
 
     frame.sidebar = CreateFrame("Frame", nil, frame)
-    frame.sidebar:SetPoint("TOPLEFT", frame, "TOPLEFT", PADDING, -54)
-    frame.sidebar:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", PADDING, PADDING)
-    frame.sidebar:SetWidth(PANEL_WIDTH)
+    frame.sidebar:SetPoint(
+        "TOPLEFT",
+        frame.header,
+        "BOTTOMLEFT",
+        0,
+        -theme.panelGap
+    )
+    frame.sidebar:SetPoint(
+        "BOTTOMLEFT",
+        frame,
+        "BOTTOMLEFT",
+        theme.outerPadding,
+        theme.outerPadding
+    )
+    frame.sidebar:SetWidth(theme.navigationWidth)
+    CreateSolidFrameVisual(frame.sidebar, colors.panel, colors.panelBorder, 1)
 
     frame.content = CreateFrame("Frame", nil, frame)
-    frame.content:SetPoint("TOPLEFT", frame.sidebar, "TOPRIGHT", 14, 0)
-    frame.content:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -PADDING, PADDING)
+    frame.content:SetPoint("TOPLEFT", frame.sidebar, "TOPRIGHT", theme.panelGap, 0)
+    frame.content:SetPoint(
+        "BOTTOMRIGHT",
+        frame,
+        "BOTTOMRIGHT",
+        -theme.outerPadding,
+        theme.outerPadding
+    )
+    CreateSolidFrameVisual(frame.content, colors.content, colors.panelBorder, 1)
+
+    frame.pageHost = CreateFrame("Frame", nil, frame.content)
+    frame.pageHost:SetPoint(
+        "TOPLEFT",
+        frame.content,
+        "TOPLEFT",
+        theme.pagePadding,
+        -theme.pagePadding
+    )
+    frame.pageHost:SetPoint(
+        "BOTTOMRIGHT",
+        frame.content,
+        "BOTTOMRIGHT",
+        -theme.pagePadding,
+        theme.pagePadding
+    )
 
     frame.resize = CreateFrame("Button", nil, frame)
     frame.resize:SetSize(18, 18)
@@ -955,7 +1145,9 @@ function Config:RefreshCombatState()
         end
     end
     for id, button in pairs(self.navButtons or {}) do
+        button.selected = OBB.db and OBB.db.config and id == OBB.db.config.page
         button:SetEnabled(enabled and OBB.db and OBB.db.config and id ~= OBB.db.config.page)
+        SetNavigationButtonAppearance(button)
     end
     self:RefreshActivePage()
 end
@@ -1021,9 +1213,48 @@ function Config:SaveFramePlacement()
 end
 
 function Config:CreateNavButton(pageID, text, index)
-    local button = CreateButton(self.frame.sidebar, text)
-    button:SetPoint("TOPLEFT", self.frame.sidebar, "TOPLEFT", 0, -((index - 1) * 30))
-    button:SetPoint("RIGHT", self.frame.sidebar, "RIGHT", 0, 0)
+    local theme = CONFIG_THEME
+    local button = CreateFrame("Button", nil, self.frame.sidebar)
+    button:SetHeight(theme.navigationButtonHeight)
+    button:SetPoint(
+        "TOPLEFT",
+        self.frame.sidebar,
+        "TOPLEFT",
+        6,
+        -6 - ((index - 1) * (theme.navigationButtonHeight + theme.navigationButtonGap))
+    )
+    button:SetPoint("RIGHT", self.frame.sidebar, "RIGHT", -6, 0)
+    CreateSolidFrameVisual(
+        button,
+        theme.colors.navigation,
+        theme.colors.navigationBorder,
+        1
+    )
+
+    button.accent = button:CreateTexture(nil, "ARTWORK")
+    button.accent:SetPoint("TOPLEFT", button, "TOPLEFT", 1, -1)
+    button.accent:SetPoint("BOTTOMLEFT", button, "BOTTOMLEFT", 1, 1)
+    button.accent:SetWidth(4)
+    SetTextureColor(button.accent, theme.colors.navigationAccent)
+
+    button.text = button:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    button.text:SetPoint("CENTER")
+    button.text:SetText(text)
+
+    button:SetScript("OnEnter", function(selfButton)
+        selfButton.hovered = true
+        SetNavigationButtonAppearance(selfButton)
+    end)
+    button:SetScript("OnLeave", function(selfButton)
+        selfButton.hovered = nil
+        SetNavigationButtonAppearance(selfButton)
+    end)
+    button:SetScript("OnEnable", function(selfButton)
+        SetNavigationButtonAppearance(selfButton)
+    end)
+    button:SetScript("OnDisable", function(selfButton)
+        SetNavigationButtonAppearance(selfButton)
+    end)
     button:SetScript("OnClick", function()
         if self:IsCombatLocked() then
             self:WarnCombat()
@@ -1031,13 +1262,14 @@ function Config:CreateNavButton(pageID, text, index)
         end
         self:SelectPage(pageID)
     end)
+    SetNavigationButtonAppearance(button)
     self.navButtons[pageID] = button
     return button
 end
 
 function Config:CreatePage(pageID)
-    local page = CreateFrame("Frame", nil, self.frame.content)
-    page:SetAllPoints(self.frame.content)
+    local page = CreateFrame("Frame", nil, self.frame.pageHost)
+    page:SetAllPoints(self.frame.pageHost)
     page:Hide()
     self.pages[pageID] = page
     return page
@@ -1063,9 +1295,13 @@ function Config:SelectPage(pageID)
     OBB.db.config.page = pageID
     local enabled = not self:IsCombatLocked()
     for id, page in pairs(self.pages) do
-        page:SetShown(id == pageID)
-        if self.navButtons[id] then
-            self.navButtons[id]:SetEnabled(enabled and id ~= pageID)
+        local selected = id == pageID
+        page:SetShown(selected)
+        local button = self.navButtons[id]
+        if button then
+            button.selected = selected
+            button:SetEnabled(enabled and not selected)
+            SetNavigationButtonAppearance(button)
         end
     end
     if self.pages[pageID].Refresh then
@@ -1548,35 +1784,53 @@ function Config:RefreshOverridesFrame()
 end
 
 function Config:BuildGeneralPage(page)
-    local title = CreateLabel(page, "General", "large")
-    title:SetPoint("TOPLEFT", page, "TOPLEFT", 0, 0)
+    local content = CreateScrollablePageContent(page)
 
-    local releaseInfo = page:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    releaseInfo:SetJustifyH("RIGHT")
+    local logo = content:CreateTexture(nil, "ARTWORK")
+    logo:SetSize(CONFIG_THEME.generalLogoSize, CONFIG_THEME.generalLogoSize)
+    logo:SetPoint("TOPLEFT", content, "TOPLEFT", 12, -12)
+    logo:SetTexture([[Interface\AddOns\OdysseusBuffBars\Media\OBB_Logo.tga]])
+
+    local informationBlock = _G.CreateFrame("Frame", nil, content)
+    informationBlock:SetHeight(80)
+    informationBlock:SetPoint("LEFT", logo, "RIGHT", 20, 0)
+    informationBlock:SetPoint("RIGHT", content, "RIGHT", -12, 0)
+
+    local title = CreateLabel(informationBlock, "General", "large")
+    title:SetPoint("TOPLEFT", informationBlock, "TOPLEFT", 0, -10)
+
+    local releaseInfo = informationBlock:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    releaseInfo:SetJustifyH("LEFT")
     releaseInfo:SetJustifyV("TOP")
-    releaseInfo:SetPoint("TOPRIGHT", page, "TOPRIGHT", 0, -2)
+    releaseInfo:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -10)
     releaseInfo:SetText("Version: " .. OBB.version .. "\nBuild Date: " .. OBB.buildDate)
 
-    local lock = CreateCheck(page, "Lock anchors", function(value)
+    local lock = CreateCheck(content, "Lock anchors", function(value)
         OBB.db.locked = value
     end)
-    lock:SetPoint("TOPLEFT", title, "BOTTOMLEFT", -4, -18)
+    lock:SetPoint(
+        "TOPLEFT",
+        logo,
+        "BOTTOMLEFT",
+        -16,
+        -18
+    )
 
-    local syncBars = CreateCheck(page, "Sync Group Bars", function(value)
+    local syncBars = CreateCheck(content, "Sync Group Bars", function(value)
         OBB.db.syncGroupBars = value
     end)
-    syncBars:SetPoint("TOPLEFT", lock, "BOTTOMLEFT", 0, -4)
+    syncBars:SetPoint("LEFT", lock.label, "RIGHT", 18, 0)
 
-    local hideBlizzard = CreateCheck(page, "Hide default Blizzard frames", function(value)
+    local hideBlizzard = CreateCheck(content, "Hide default Blizzard frames", function(value)
         OBB.db.hideBlizzardFrames = value
         OBB:ApplyDefaultBlizzardFrameVisibility()
     end)
-    hideBlizzard:SetPoint("TOPLEFT", syncBars, "BOTTOMLEFT", 0, -4)
+    hideBlizzard:SetPoint("LEFT", syncBars.label, "RIGHT", 18, 0)
 
-    local textureLabel = CreateLabel(page, "Status-bar texture")
-    textureLabel:SetPoint("TOPLEFT", hideBlizzard, "BOTTOMLEFT", 4, -14)
+    local textureLabel = CreateLabel(content, "Status-bar texture")
+    textureLabel:SetPoint("TOPLEFT", lock, "BOTTOMLEFT", 4, -14)
 
-    local texturePicker = CreateStatusBarTexturePicker(page, self.frame, function(value)
+    local texturePicker = CreateStatusBarTexturePicker(content, self.frame, function(value)
         if self:IsCombatLocked() then
             self:WarnCombat()
             self:RefreshActivePage()
@@ -1587,11 +1841,11 @@ function Config:BuildGeneralPage(page)
     end)
     texturePicker:SetPoint("LEFT", textureLabel, "RIGHT", 4, 0)
 
-    local fontLabel = CreateLabel(page, "Font")
+    local fontLabel = CreateLabel(content, "Font")
     fontLabel:SetPoint("TOPLEFT", textureLabel, "BOTTOMLEFT", 0, -18)
     fontLabel:SetWidth(textureLabel:GetStringWidth())
 
-    local fontPicker = CreateFontPicker(page, self.frame, function(value)
+    local fontPicker = CreateFontPicker(content, self.frame, function(value)
         if self:IsCombatLocked() then
             self:WarnCombat()
             self:RefreshActivePage()
@@ -1602,7 +1856,7 @@ function Config:BuildGeneralPage(page)
     end)
     fontPicker:SetPoint("LEFT", fontLabel, "RIGHT", 4, 0)
 
-    local refresh = CreateButton(page, "Refresh Auras")
+    local refresh = CreateButton(content, "Refresh Auras")
     refresh:SetPoint("TOPLEFT", fontLabel, "BOTTOMLEFT", -4, -18)
     refresh:SetWidth(130)
     refresh:SetScript("OnClick", function()
@@ -1613,7 +1867,7 @@ function Config:BuildGeneralPage(page)
         OBB:RefreshAll("config Refresh Auras")
     end)
 
-    local anchors = CreateButton(page, "Toggle Anchors")
+    local anchors = CreateButton(content, "Toggle Anchors")
     anchors:SetPoint("LEFT", refresh, "RIGHT", 10, 0)
     anchors:SetWidth(130)
     anchors:SetScript("OnClick", function()
@@ -1625,27 +1879,27 @@ function Config:BuildGeneralPage(page)
         lock:SetChecked(OBB.db.locked)
     end)
 
-    local resetPositions = CreateButton(page, "Reset Positions")
+    local resetPositions = CreateButton(content, "Reset Positions")
     resetPositions:SetPoint("LEFT", anchors, "RIGHT", 10, 0)
     resetPositions:SetWidth(130)
     resetPositions:SetScript("OnClick", function()
         self:ResetGroupPositions()
     end)
 
-    local overrides = CreateButton(page, "Override Settings")
+    local overrides = CreateButton(content, "Override Settings")
     overrides:SetPoint("TOPLEFT", refresh, "BOTTOMLEFT", 0, -12)
     overrides:SetWidth(150)
     overrides:SetScript("OnClick", function()
         self:ToggleOverridesFrame()
     end)
 
-    local hint = page:CreateFontString(nil, "OVERLAY")
+    local hint = content:CreateFontString(nil, "OVERLAY")
     hint:SetFontObject(GameFontHighlightSmall)
     hint:SetJustifyH("LEFT")
     hint:SetPoint("TOPLEFT", overrides, "BOTTOMLEFT", 0, -18)
     hint:SetText("/obb config opens this frame. /obb anchors toggles anchors.")
 
-    local compatibilityStatus = page:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    local compatibilityStatus = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     compatibilityStatus:SetJustifyH("LEFT")
     compatibilityStatus:SetJustifyV("TOP")
     compatibilityStatus:SetWordWrap(true)
@@ -1653,6 +1907,19 @@ function Config:BuildGeneralPage(page)
     compatibilityStatus:SetPoint("TOPLEFT", hint, "BOTTOMLEFT", 0, -16)
     compatibilityStatus:SetTextColor(1, 0.65, 0.2)
     compatibilityStatus:Hide()
+
+    local function UpdateGeneralContentHeight()
+        local bottomElement = compatibilityStatus:IsShown() and compatibilityStatus or hint
+        local contentTop = content:GetTop()
+        local contentBottom = bottomElement:GetBottom()
+        if contentTop and contentBottom then
+            content:SetHeight(math.max(
+                1,
+                math.ceil(contentTop - contentBottom + CONFIG_THEME.generalContentBottomPadding)
+            ))
+        end
+    end
+    page:HookScript("OnShow", UpdateGeneralContentHeight)
 
     function page:Refresh()
         local enabled = not Config:IsCombatLocked()
@@ -1675,6 +1942,7 @@ function Config:BuildGeneralPage(page)
         else
             compatibilityStatus:Hide()
         end
+        UpdateGeneralContentHeight()
         Config:SetControlEnabled(lock, enabled)
         Config:SetControlEnabled(syncBars, enabled)
         Config:SetControlEnabled(hideBlizzard, enabled)

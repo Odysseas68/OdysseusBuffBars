@@ -11,7 +11,7 @@ reconstructed.
 
 - Added an `OdysseusBuffBars` LibDataBroker-1.1 launcher registered with LibDBIcon-1.0, using the production minimap icon and persistent `OdysseusBuffBarsDB.minimap` state.
 - Added the source-verified Retail `AddonCompartmentFunc` entry using TOC `IconTexture` metadata, independently of LibDBIcon's optional compartment integration.
-- Added production `OBB_MinimapIcon.tga` and `OBB_Logo.tga` artwork; the minimap icon is active while the logo remains reserved for later Config UI work.
+- Added production `OBB_MinimapIcon.tga` and `OBB_Logo.tga` artwork; the minimap icon is active and the logo now appears at the top of the General page.
 - Prepared the canonical public `OdysseusBuffBars v1.0.0` changelog entry dated 2026-08-28 as a fuller first-release overview for Retail users.
 - Added global LibSharedMedia status-bar texture and font-face settings shared by BUFFS, DEBUFFS, and ENCHANTMENTS.
 - Added compact bounded General-page texture/font pickers using Retail ScrollBox/MinimalScrollBar lists, actual media previews, and the verified Blizzard checkbox asset.
@@ -28,6 +28,8 @@ reconstructed.
 
 ### Changed
 
+- Replaced the interim literal slider step buttons with Retail's native `MinimalSliderWithSteppersTemplate` across all group pages. The editable numeric boxes remain, now 46 pixels wide on the same row to the right, and the Config minimum is now `680 x 610` so the complete BUFFS page stays inside the content area. Retail LIVE testing confirmed native rendering, dragging, stepper behavior, and the same-row value-box presentation.
+- Established the first post-v1.0 Config visual foundation from the legacy `/ous` shell: a fixed-texture Midnight window, header, bordered navigation/content panels, selected/hover navigation states, and a padded page host. The shell avoids `BackdropTemplate`; existing picker and auxiliary-editor backdrops remain unchanged. General alone now uses the current Retail `ScrollFrameTemplate`/`MinimalScrollBar` bridge with a 240 x 240 production logo. Its upper whitespace is tightened and the three primary checkboxes share one row; LIVE visual testing accepted the final `680 x 610` minimum and checkbox fit. The obsolete fixed 650-pixel General content extent now follows its bottom-most visible content with 20 pixels of padding; LIVE testing confirmed that excessive empty bottom scrolling is gone and the scrollbar auto-hides when unnecessary. BUFFS remains the height-limiting page.
 - Factored launcher access through the shared open-only `OBB:OpenConfig()` -> `Config:Open()` path while preserving slash-command toggle semantics and the existing Config combat guard.
 - The user tested the minimap and Addon Compartment implementation in WoW Retail and reported that everything worked correctly.
 - Completed v1.0.0 metadata preparation with version `1.0.0`, build date `2026-08-28`, TOC-backed runtime version authority, and read-only Config release information.
