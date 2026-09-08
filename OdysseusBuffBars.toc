@@ -2,7 +2,7 @@
 ## Title: Odysseus Buff Bars
 ## Notes: Configurable aura bars for World of Warcraft Retail.
 ## Author: Odysseus68 / ChatGPT / Codex
-## Version: 1.0.0
+## Version: 1.1.0
 ## IconTexture: Interface\AddOns\OdysseusBuffBars\Media\OBB_MinimapIcon.tga
 ## AddonCompartmentFunc: OdysseusBuffBars_OnAddonCompartmentClick
 ## Category: Buffs & Debuffs

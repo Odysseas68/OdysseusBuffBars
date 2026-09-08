@@ -16,6 +16,16 @@ development chronology is preserved separately in
 
 ### Changed
 
+- Replaced the Blizzard-managed MainHand/OffHand weapon-enchantment provider
+  path with OBB-owned rows driven directly by
+  `C_PaperDollInfo.GetTemporaryEnchantmentInfo`. The rows provide countdowns,
+  meaningful charge counts, non-combat right-click cancellation, Override
+  Settings integration, and a safe manual tooltip without an item-loading
+  callback dependency. Override target discovery shows each stable weapon slot
+  only while its enchant is active or a saved override exists. Repeated
+  controlled diagnostic runs remained clean after the replacement, including
+  the tested combat scenario; this does not establish a universal
+  AsyncCallbackSystem fix or root cause.
 - Synchronized the BUFFS filter editor and Override Settings with the Midnight
   Config theme in the same fixed right-side companion slot. Override Settings
   now has a compact editor with a current-spell candidate selector and a

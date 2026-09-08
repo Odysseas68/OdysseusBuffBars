@@ -910,16 +910,50 @@ local function GetOverrideGroupLabel(group)
     return "Default"
 end
 
-local function GetSortedOverrideSpellIDs()
-    local overrides = EnsureOverrides()
-    local spellIDs = {}
-    for spellID in pairs(overrides) do
-        if type(spellID) == "number" then
-            table.insert(spellIDs, spellID)
+local function GetWeaponEnchantOverrideTargets()
+    local managed = OBB.Managed
+    if not managed or type(managed.GetWeaponEnchantOverrideTargets) ~= "function" then
+        return {}
+    end
+
+    local targets = managed.GetWeaponEnchantOverrideTargets()
+    return type(targets) == "table" and targets or {}
+end
+
+local function GetWeaponEnchantOverrideTarget(overrideKey)
+    if type(overrideKey) ~= "string" then
+        return nil
+    end
+    for _, target in ipairs(GetWeaponEnchantOverrideTargets()) do
+        if target.key == overrideKey then
+            return target
         end
     end
-    table.sort(spellIDs)
-    return spellIDs
+    return nil
+end
+
+local function GetSortedOverrideKeys()
+    local overrides = EnsureOverrides()
+    local keys = {}
+    local weaponTargetOrder = {}
+    for index, target in ipairs(GetWeaponEnchantOverrideTargets()) do
+        weaponTargetOrder[target.key] = index
+    end
+    for overrideKey in pairs(overrides) do
+        if type(overrideKey) == "number" or weaponTargetOrder[overrideKey] then
+            keys[#keys + 1] = overrideKey
+        end
+    end
+    table.sort(keys, function(left, right)
+        if type(left) == type(right) then
+            if type(left) == "number" then
+                return left < right
+            end
+            return weaponTargetOrder[left] < weaponTargetOrder[right]
+        end
+        return type(left) == "number"
+    end)
+    return keys
 end
 
 local function IsReadableConfigValue(value)
@@ -994,6 +1028,7 @@ local function GetCurrentOverrideCandidateRows()
                 and not rowsBySpellID[spellID]
             then
                 rowsBySpellID[spellID] = {
+                    key = spellID,
                     spellID = spellID,
                     name = row.name,
                 }
@@ -1008,16 +1043,39 @@ local function GetCurrentOverrideCandidateRows()
     table.sort(rows, function(left, right)
         return left.spellID < right.spellID
     end)
+    for _, target in ipairs(GetWeaponEnchantOverrideTargets()) do
+        if type(target.key) == "string"
+            and type(target.name) == "string"
+            and (target.active == true or overrides[target.key] ~= nil)
+        then
+            rows[#rows + 1] = {
+                key = target.key,
+                name = target.name,
+                weaponEnchant = true,
+            }
+        end
+    end
     return rows
 end
 
-local function GetCurrentSpellEntryText(row)
+local function GetCurrentOverrideEntryText(row)
+    if row.weaponEnchant then
+        return row.name
+    end
     local spellID = row.spellID
     local spellName = row.name
     if type(spellName) ~= "string" or spellName == "" then
         spellName = GetOverrideSpellName(spellID) or tostring(spellID)
     end
     return spellName .. " (" .. tostring(spellID) .. ")"
+end
+
+local function GetOverrideTargetName(overrideKey)
+    local weaponTarget = GetWeaponEnchantOverrideTarget(overrideKey)
+    if weaponTarget then
+        return weaponTarget.name
+    end
+    return GetOverrideSpellName(overrideKey) or tostring(overrideKey)
 end
 
 function Config:Initialize()
@@ -1903,27 +1961,35 @@ function Config:CreateOverridesFrame()
     frame.input:SetPoint("TOPLEFT", frame.inputLabel, "BOTTOMLEFT", 0, -4)
     frame.input:SetWidth(78)
 
-    frame.currentSpellLabel = CreateLabel(frame, "Current Spell")
+    frame.currentSpellLabel = CreateLabel(frame, "Current Target")
     frame.currentSpellLabel:SetPoint("TOPLEFT", frame.header, "BOTTOMLEFT", 106, -10)
 
     frame.currentSpell = CreateDropdown(frame, 145, function()
         local items = {}
         for _, row in ipairs(GetCurrentOverrideCandidateRows()) do
             items[#items + 1] = {
-                text = GetCurrentSpellEntryText(row),
-                value = row.spellID,
-                checked = frame.currentSpellID == row.spellID,
+                text = GetCurrentOverrideEntryText(row),
+                value = row.key,
+                checked = frame.currentOverrideKey == row.key,
             }
         end
         return items
-    end, function(spellID)
+    end, function(overrideKey)
         if self:IsCombatLocked() then
             self:WarnCombat()
             self:RefreshOverridesFrame()
             return
         end
-        frame.currentSpellID = spellID
-        frame.input:SetText(tostring(spellID))
+        if type(overrideKey) == "number" then
+            frame.currentOverrideKey = overrideKey
+            frame.input:SetText(tostring(overrideKey))
+        else
+            frame.input:SetText("")
+            frame.currentOverrideKey = overrideKey
+            frame.selectedGroup = nil
+            local override = EnsureOverrides()[overrideKey]
+            frame.hiddenValue = override and override.hidden or false
+        end
         self:RefreshOverridesFrame()
     end)
     frame.currentSpell:SetPoint(
@@ -1968,22 +2034,23 @@ function Config:CreateOverridesFrame()
             self:WarnCombat()
             return
         end
-        local spellID = tonumber(frame.input:GetText())
-        if not spellID then
+        local overrideKey = frame.currentOverrideKey or tonumber(frame.input:GetText())
+        if type(overrideKey) ~= "number" and not GetWeaponEnchantOverrideTarget(overrideKey) then
             return
         end
         local overrides = EnsureOverrides()
-        local group = frame.selectedGroup
+        local weaponTarget = GetWeaponEnchantOverrideTarget(overrideKey)
+        local group = not weaponTarget and frame.selectedGroup or nil
         local hidden = frame.hidden:GetChecked() and true or false
         if not group and not hidden then
-            overrides[spellID] = nil
+            overrides[overrideKey] = nil
         else
-            overrides[spellID] = {
+            overrides[overrideKey] = {
                 group = group,
                 hidden = hidden,
             }
         end
-        frame.currentSpellID = nil
+        frame.currentOverrideKey = nil
         RefreshAfterOverrideMutation(self)
     end)
 
@@ -2077,7 +2144,7 @@ function Config:CreateOverridesFrame()
         row.remove:SetSize(20, 20)
         row.remove:SetPoint("RIGHT", row, "RIGHT", 0, 0)
         row.remove:SetScript("OnClick", function()
-            Config:RemoveOverride(row.spellID)
+            Config:RemoveOverride(row.overrideKey)
         end)
         frame.rows[index] = row
     end
@@ -2085,7 +2152,7 @@ function Config:CreateOverridesFrame()
     frame.input:SetScript("OnEnterPressed", function(editBox)
         local spellID = tonumber(editBox:GetText())
         local override = spellID and EnsureOverrides()[spellID] or nil
-        frame.currentSpellID = nil
+        frame.currentOverrideKey = nil
         frame.selectedGroup = override and override.group or nil
         frame.hiddenValue = override and override.hidden or false
         editBox:ClearFocus()
@@ -2093,10 +2160,11 @@ function Config:CreateOverridesFrame()
     end)
 
     frame.input:SetScript("OnTextChanged", function(editBox)
-        if frame.currentSpellID
-            and tonumber(editBox:GetText()) ~= frame.currentSpellID
-        then
-            frame.currentSpellID = nil
+        local overrideKey = frame.currentOverrideKey
+        local matchesSelectedSpell = type(overrideKey) == "number"
+            and tonumber(editBox:GetText()) == overrideKey
+        if overrideKey and not matchesSelectedSpell then
+            frame.currentOverrideKey = nil
             frame.currentSpell:RefreshText("Select current")
         end
     end)
@@ -2104,22 +2172,22 @@ function Config:CreateOverridesFrame()
     self.overridesFrame = frame
 end
 
-function Config:RemoveOverride(spellID)
+function Config:RemoveOverride(overrideKey)
     if self:IsCombatLocked() then
         self:WarnCombat()
         return
     end
-    if type(spellID) ~= "number" then
+    if type(overrideKey) ~= "number" and not GetWeaponEnchantOverrideTarget(overrideKey) then
         return
     end
 
-    EnsureOverrides()[spellID] = nil
+    EnsureOverrides()[overrideKey] = nil
     local frame = self.overridesFrame
     if frame then
-        if frame.currentSpellID == spellID then
-            frame.currentSpellID = nil
+        if frame.currentOverrideKey == overrideKey then
+            frame.currentOverrideKey = nil
         end
-        if tonumber(frame.input:GetText()) == spellID then
+        if type(overrideKey) == "number" and tonumber(frame.input:GetText()) == overrideKey then
             frame.selectedGroup = nil
             frame.hiddenValue = false
         end
@@ -2135,23 +2203,30 @@ function Config:RefreshOverridesFrame()
     local overrides = EnsureOverrides()
     local currentCandidate
     for _, row in ipairs(GetCurrentOverrideCandidateRows()) do
-        if row.spellID == frame.currentSpellID then
+        if row.key == frame.currentOverrideKey then
             currentCandidate = row
             break
         end
     end
-    frame.currentSpellID = currentCandidate and currentCandidate.spellID or nil
+    frame.currentOverrideKey = currentCandidate and currentCandidate.key or nil
 
     frame.currentSpell:RefreshText(
         currentCandidate
-            and GetCurrentSpellEntryText(currentCandidate)
+            and GetCurrentOverrideEntryText(currentCandidate)
             or "Select current"
     )
-    frame.group:RefreshText(GetOverrideGroupLabel(frame.selectedGroup))
+    local weaponTargetSelected = currentCandidate and currentCandidate.weaponEnchant
+    if weaponTargetSelected then
+        frame.selectedGroup = nil
+        frame.group:RefreshText("ENCHANTMENTS")
+    else
+        frame.group:RefreshText(GetOverrideGroupLabel(frame.selectedGroup))
+    end
+    frame.group:SetEnabled(not weaponTargetSelected)
     frame.hidden:SetChecked(frame.hiddenValue and true or false)
 
-    local spellIDs = GetSortedOverrideSpellIDs()
-    local maxOffset = math.max(0, #spellIDs - #frame.rows)
+    local overrideKeys = GetSortedOverrideKeys()
+    local maxOffset = math.max(0, #overrideKeys - #frame.rows)
     local offset = math.min(frame.overrideOffset or 0, maxOffset)
     frame.overrideOffset = offset
     frame.scrollBar:SetMinMaxValues(0, maxOffset)
@@ -2160,16 +2235,17 @@ function Config:RefreshOverridesFrame()
     if math.floor((frame.scrollBar:GetValue() or 0) + 0.5) ~= offset then
         frame.scrollBar:SetValue(offset)
     end
-    frame.emptyText:SetShown(#spellIDs == 0)
+    frame.emptyText:SetShown(#overrideKeys == 0)
     for index, row in ipairs(frame.rows) do
-        local spellID = spellIDs[index + offset]
-        local override = spellID and overrides[spellID]
-        row.spellID = spellID
+        local overrideKey = overrideKeys[index + offset]
+        local override = overrideKey and overrides[overrideKey]
+        row.overrideKey = overrideKey
         row:SetShown(override ~= nil)
         if override then
-            row.idText:SetText(tostring(spellID))
-            row.nameText:SetText(GetOverrideSpellName(spellID) or tostring(spellID))
-            row.groupText:SetText(GetOverrideGroupLabel(override.group))
+            local weaponTarget = GetWeaponEnchantOverrideTarget(overrideKey)
+            row.idText:SetText(type(overrideKey) == "number" and tostring(overrideKey) or "--")
+            row.nameText:SetText(GetOverrideTargetName(overrideKey))
+            row.groupText:SetText(weaponTarget and "ENCHANTMENTS" or GetOverrideGroupLabel(override.group))
             row.attributeText:SetText(override.hidden and "Hidden" or "Shown")
         end
     end

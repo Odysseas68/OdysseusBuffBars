@@ -11,19 +11,20 @@ groups while retaining Blizzard's managed aura behavior for supported rows.
   or blacklist filtering.
 - **DEBUFFS** displays eligible harmful player auras. It is intentionally broad
   and does not apply the BUFFS destination filters.
-- **ENCHANTMENTS** combines automatically routed enhancements, native temporary
-  Main Hand and Off Hand weapon enchantments, and Fishing Lure tracking. Its
-  managed enhancement sources are intentionally broad.
+- **ENCHANTMENTS** combines automatically routed enhancements, OBB-owned Main
+  Hand and Off Hand temporary-enchantment rows, and Fishing Lure tracking. Its
+  managed enhancement source remains intentionally broad.
 
 The addon automatically routes readable enhancement effects such as food,
 flasks or phials, augment runes, and fishing bobbers into ENCHANTMENTS. Manual
 Spell ID overrides can hide a helpful aura or route it between BUFFS and
-ENCHANTMENTS.
+ENCHANTMENTS. Override Settings also exposes active weapon slots and saved
+weapon-slot overrides; weapon rows remain fixed to ENCHANTMENTS.
 
-Native temporary weapon-enchantment rows retain Blizzard's slot presentation,
-inventory tooltip, duration handling, and supported right-click cancellation.
-Fishing Lure is tracked separately from those native rows and has no
-cancellation action.
+OBB-owned weapon-enchantment rows read Blizzard's public temporary-enchantment
+state directly and provide slot labels, icons, countdowns, meaningful charges,
+manual tooltips, and supported out-of-combat right-click cancellation. Fishing
+Lure is tracked separately and has no cancellation action.
 
 ## Configuration
 
@@ -85,8 +86,8 @@ reassert its own visibility policy.
 - BUFFS alone provides destination whitelist/blacklist filtering; DEBUFFS and
   ENCHANTMENTS intentionally remain broad.
 - Blizzard does not expose a supported public mapping from a temporary weapon
-  enchant ID to a clean effect name, so native weapon rows retain their
-  equipped-slot presentation and tooltip context.
+  enchant ID to a clean effect name, so weapon rows use stable slot labels and
+  manual state-based tooltips without item-loading callbacks.
 - Fishing Lure cancellation is not provided.
 - Profiles are not currently included.
 

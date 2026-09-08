@@ -6,11 +6,11 @@ Odysseus BuffBars is a World of Warcraft Retail aura-bar addon. The immutable
 v1.0.0 release uses version `1.0.0`, build date `2026-08-28`, release commit
 `6a7b7f7f967bc834251775b93b0aa149f7a9b5aa`, and annotated tag `v1.0.0`.
 
-The current development checkpoint is post-v1.0 **Unreleased** work:
+The current development checkpoint is a post-v1.0 **v1.1.0 candidate**:
 
-- Commit: `58331025cece26c46b70b0094253994c93d75474`
-- Subject: `Polish Config companion dialogs and UI scaling`
-- Addon metadata remains version `1.0.0`, build date `2026-08-28`.
+- Base commit: `af23eee08e83336e6df5196f0cfb4ec094befd54`
+- Subject: `Document current OdysseusBuffBars project status`
+- Candidate metadata is version `1.1.0`, build date `2026-09-08`.
 
 Current production behavior and the cumulative Config modernization through
 this checkpoint have been successfully runtime tested by the user on Retail
@@ -42,16 +42,16 @@ and anchors.
 ENCHANTMENTS combines three sources:
 
 1. A managed `HelpfulEnhancements` HELPFUL aura group, capped at seven rows.
-2. Native Main Hand and Off Hand temporary-enchantment registrations, ordered
-   by slot through Blizzard's managed item-enchantment support.
+2. OBB-owned Main Hand and Off Hand rows driven by
+   `C_PaperDollInfo.GetTemporaryEnchantmentInfo`.
 3. One visually matched ordinary Fishing Lure footer below the managed
    container because the managed provider does not register the profession-tool
    slot.
 
 This is the established `7 + 2 + 1` capacity policy. Fishing Bobber consumes a
-HELPFUL enhancement slot; Fishing Lure is the separate footer. The footer is
-outside the managed container's calculated bounds and has no cancellation
-path.
+HELPFUL enhancement slot; both weapon rows and Fishing Lure are ordinary rows
+outside the managed container's calculated bounds. Weapon rows support
+non-combat right-click cancellation; Fishing Lure has no cancellation path.
 
 Historical ENCHANTMENTS Sort and Max Bars SavedVariables remain preserved, but
 production ENCHANTMENTS intentionally uses fixed `TIMELEFT` sorting and the
@@ -72,14 +72,12 @@ fishing-bobber text. It is designed and tested around readable English aura and
 spell text; numeric Spell ID overrides remain the fallback for other locales or
 unclassified effects.
 
-Override Settings provides manual Spell ID entry, a Current Spell selector,
-Group, Hidden, and explicit Save. Its structured saved list shows Spell ID,
-available name, group, Shown/Hidden state, and a row-specific X removal action.
-Current Spell aggregates and deduplicates the same copied, current-readable OBB
-HELPFUL candidate rows used by the Filter editor; it does not add an independent
-aura scanner. Selecting a candidate fills only the editable Spell ID and does
-not save or change Group/Hidden. Manual IDs remain supported for inactive and
-future spells.
+Override Settings provides manual Spell ID entry, a Current Target selector,
+Group, Hidden, and explicit Save. The selector combines the existing copied,
+current-readable HELPFUL candidates with stable Main Hand and Off Hand weapon
+targets. A weapon target appears only while active or while its stable key has a
+saved override; its group remains fixed to ENCHANTMENTS. Manual numeric IDs
+remain supported for inactive and future spells.
 
 ## 5. Config status
 
@@ -173,8 +171,8 @@ The established static baseline at this checkpoint is:
 
 - Core: `19 warnings / 0 errors`
 - Config: `71 warnings / 0 errors`
-- Managed: `31 warnings / 0 errors`
-- Combined: `121 warnings / 0 errors`
+- Managed: `26 warnings / 0 errors`
+- Combined addon Lua: `116 warnings / 0 errors`
 - `git diff --check`: passed
 
 The LuaCheck warnings are established WoW-global/style baseline warnings; there
@@ -186,9 +184,8 @@ HEAD was successfully tested by the user on Retail LIVE.
 - v1.0.0 release commit:
   `6a7b7f7f967bc834251775b93b0aa149f7a9b5aa`
 - Annotated release tag: `v1.0.0`
-- Current post-release checkpoint:
-  `58331025cece26c46b70b0094253994c93d75474`
+- Current candidate base commit:
+  `af23eee08e83336e6df5196f0cfb4ec094befd54`
 
-The v1.0.0 release and tag are immutable. Current post-release work remains
-Unreleased; any correction to v1.0.0 would require a later version rather than
-moving the existing tag.
+The v1.0.0 release and tag are immutable. The current worktree is an uncommitted
+v1.1.0 candidate; it does not move or rewrite the existing release tag.

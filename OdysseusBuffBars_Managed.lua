@@ -159,6 +159,19 @@ local DEBUFF_AURA_GROUP_KEY = "Harmful"
 local ENHANCEMENT_AURA_GROUP_KEY = "HelpfulEnhancements"
 local FISHING_TOOL_SLOT_FALLBACK = 28
 local FISHING_LURE_TIMER_INTERVAL = 0.1
+local WEAPON_ENCHANT_TIMER_INTERVAL = 0.1
+local WEAPON_ENCHANT_OVERRIDE_TARGETS = {
+    {
+        key = "WEAPON_ENCHANT_MAIN_HAND",
+        inventorySlot = _G.INVSLOT_MAINHAND,
+        label = "Main Hand Enchant",
+    },
+    {
+        key = "WEAPON_ENCHANT_OFF_HAND",
+        inventorySlot = _G.INVSLOT_OFFHAND,
+        label = "Off Hand Enchant",
+    },
+}
 local MANAGED_DEFAULT_AURA_SORT_MODE = "TIMELEFT"
 
 local SORT_MODES = {
@@ -226,11 +239,15 @@ local activeManagedDragGroup
 local interruptedManagedDragGroup
 local automaticDiscoveryFrame
 local automaticDiscoveryPending
-local nativeEnchantmentRecoveryDeferredForCombat
+local managedTransitionRecoveryDeferredForCombat
+local weaponEnchantRefreshPending
 local fishingLureEventFrame
 local fishingLureRefreshPending
+local RefreshWeaponEnchantRows
 local RefreshFishingLureRow
+local HideWeaponEnchantRow
 local HideFishingLureRow
+local LayoutExternalEnchantmentRows
 local ContainManagedFatalFailure
 local managedCallbackGeneration = 0
 local MANAGED_BUFF_DURATION_MODE_ALL = "ALL"
@@ -265,9 +282,6 @@ local function ValidateManagedStaticCapabilities()
     local anchorUtil = _G.AnchorUtil
     local sortMethod = _G.AuraContainerSortMethod
     local sortDirection = _G.AuraContainerSortDirection
-    local enchantmentSlot = _G.AuraContainerItemEnchantmentSlot
-    local enchantmentSortMethod = _G.AuraContainerItemEnchantmentSortMethod
-    local enchantmentPlacement = _G.CustomAuraContainerItemEnchantmentPlacement
     local unitAuras = _G.C_UnitAuras
     local spellAPI = _G.C_Spell
     local paperDollAPI = _G.C_PaperDollInfo
@@ -306,16 +320,9 @@ local function ValidateManagedStaticCapabilities()
             "AnchorUtil.FlowDirection.Down",
             GetCapabilityMember(GetCapabilityMember(anchorUtil, "FlowDirection"), "Down"),
         },
-        { "AuraContainerItemEnchantmentSlot", enchantmentSlot, "table" },
-        { "AuraContainerItemEnchantmentSlot.MainHand", GetCapabilityMember(enchantmentSlot, "MainHand") },
-        { "AuraContainerItemEnchantmentSlot.OffHand", GetCapabilityMember(enchantmentSlot, "OffHand") },
-        { "AuraContainerItemEnchantmentSortMethod", enchantmentSortMethod, "table" },
-        { "AuraContainerItemEnchantmentSortMethod.Slot", GetCapabilityMember(enchantmentSortMethod, "Slot") },
-        { "CustomAuraContainerItemEnchantmentPlacement", enchantmentPlacement, "table" },
-        {
-            "CustomAuraContainerItemEnchantmentPlacement.AfterAuraGroups",
-            GetCapabilityMember(enchantmentPlacement, "AfterAuraGroups"),
-        },
+        { "INVSLOT_MAINHAND", _G.INVSLOT_MAINHAND, "number" },
+        { "INVSLOT_OFFHAND", _G.INVSLOT_OFFHAND, "number" },
+        { "GetInventoryItemTexture", _G.GetInventoryItemTexture, "function" },
         { "Enum", enum, "table" },
         { "Enum.StatusBarTimerDirection", GetCapabilityMember(enum, "StatusBarTimerDirection"), "table" },
         {
@@ -379,12 +386,6 @@ local REQUIRED_CONTAINER_METHODS = {
     "SetAuraGroupSortMethod",
     "SetAuraGroupMaxFrameCount",
     "SetAuraGroupLayout",
-}
-
-local REQUIRED_ENCHANTMENT_CONTAINER_METHODS = {
-    "SetItemEnchantmentLayout",
-    "SetItemEnchantmentSortMethod",
-    "AddItemEnchantment",
 }
 
 local REQUIRED_AURA_BUTTON_METHODS = {
@@ -1423,6 +1424,25 @@ function Managed.GetCurrentHelpfulAuraFilterRows(groupID)
     return rows
 end
 
+function Managed.GetWeaponEnchantOverrideTargets()
+    local activeTargets = {}
+    for _, row in ipairs(Managed.weaponEnchantRows or {}) do
+        if row.enchantID ~= nil then
+            activeTargets[row.overrideKey] = true
+        end
+    end
+
+    local targets = {}
+    for _, target in ipairs(WEAPON_ENCHANT_OVERRIDE_TARGETS) do
+        targets[#targets + 1] = {
+            key = target.key,
+            name = target.label,
+            active = activeTargets[target.key] == true,
+        }
+    end
+    return targets
+end
+
 function Managed:RefreshCandidateFilters(allowInitializing)
     local canMutate, readinessReason = CanMutateManagedRuntime(self, allowInitializing)
     if not canMutate then
@@ -1711,7 +1731,10 @@ local function UpdateAutomaticDiscoveryFrameRegenRegistration()
         return
     end
 
-    if automaticDiscoveryPending or nativeEnchantmentRecoveryDeferredForCombat then
+    if automaticDiscoveryPending
+        or managedTransitionRecoveryDeferredForCombat
+        or weaponEnchantRefreshPending
+    then
         automaticDiscoveryFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
     else
         automaticDiscoveryFrame:UnregisterEvent("PLAYER_REGEN_ENABLED")
@@ -1720,6 +1743,11 @@ end
 
 local function SetAutomaticHelpfulEnhancementDiscoveryPending(pending)
     automaticDiscoveryPending = pending or nil
+    UpdateAutomaticDiscoveryFrameRegenRegistration()
+end
+
+local function SetWeaponEnchantRefreshPending(pending)
+    weaponEnchantRefreshPending = pending or nil
     UpdateAutomaticDiscoveryFrameRegenRegistration()
 end
 
@@ -1935,6 +1963,32 @@ local function FormatFishingLureRemainingTime(remainingSeconds)
     return ""
 end
 
+LayoutExternalEnchantmentRows = function()
+    local container = Managed.enchantmentContainer
+    local style = Managed.currentBarStyles and Managed.currentBarStyles.ENCHANTMENTS
+    if not container or not style then
+        return false
+    end
+
+    local rows = {}
+    for _, row in ipairs(Managed.weaponEnchantRows or {}) do
+        rows[#rows + 1] = row
+    end
+    if Managed.fishingLureRow then
+        rows[#rows + 1] = Managed.fishingLureRow
+    end
+
+    local previous = container
+    for _, row in ipairs(rows) do
+        row:ClearAllPoints()
+        if row:IsShown() then
+            row:SetPoint("TOPLEFT", previous, "BOTTOMLEFT", 0, -style.spacing)
+            previous = row
+        end
+    end
+    return true
+end
+
 HideFishingLureRow = function(row)
     row.expirationRefreshGeneration = (row.expirationRefreshGeneration or 0) + 1
     row:SetScript("OnUpdate", nil)
@@ -1947,6 +2001,7 @@ HideFishingLureRow = function(row)
     row.expirationTime = nil
     row.durationSeconds = nil
     row:Hide()
+    LayoutExternalEnchantmentRows()
 end
 
 local function BestEffortManagedMethod(object, methodName, ...)
@@ -1973,7 +2028,8 @@ ContainManagedFatalFailure = function(managed, reason)
     managedCallbackGeneration = managedCallbackGeneration + 1
 
     automaticDiscoveryPending = nil
-    nativeEnchantmentRecoveryDeferredForCombat = nil
+    managedTransitionRecoveryDeferredForCombat = nil
+    weaponEnchantRefreshPending = nil
     fishingLureRefreshPending = nil
     StopManagedEventFrame(automaticDiscoveryFrame)
     StopManagedEventFrame(fishingLureEventFrame)
@@ -1985,6 +2041,9 @@ ContainManagedFatalFailure = function(managed, reason)
     activeManagedDragGroup = nil
     interruptedManagedDragGroup = nil
 
+    for _, row in ipairs(managed.weaponEnchantRows or {}) do
+        pcall(HideWeaponEnchantRow, row, true)
+    end
     if managed.fishingLureRow then
         pcall(HideFishingLureRow, managed.fishingLureRow)
     end
@@ -2125,6 +2184,7 @@ local function ShowFishingLureRow(row, inventorySlot, enchantInfo, iconTexture)
     end
 
     row:Show()
+    LayoutExternalEnchantmentRows()
     return true
 end
 
@@ -2184,6 +2244,255 @@ RefreshFishingLureRow = function(_reason, allowInitializing)
     return shown
 end
 
+local function FormatWeaponEnchantRemainingTime(remainingSeconds)
+    return FormatFishingLureRemainingTime(remainingSeconds)
+end
+
+local function ShowWeaponEnchantTooltip(row)
+    local tooltip = _G.GameTooltip
+    if not tooltip or not _G.UIParent
+        or type(tooltip.SetOwner) ~= "function"
+        or type(tooltip.ClearLines) ~= "function"
+        or type(tooltip.SetText) ~= "function"
+        or type(tooltip.AddLine) ~= "function"
+        or type(tooltip.AddDoubleLine) ~= "function"
+        or type(tooltip.Show) ~= "function"
+    then
+        return
+    end
+
+    tooltip:SetOwner(_G.UIParent, "ANCHOR_CURSOR")
+    tooltip:ClearLines()
+    tooltip:SetText(row.displayLabel, 1, 0.82, 0)
+    tooltip:AddLine("Temporary weapon enchant is active.", 0.9, 0.9, 0.9, true)
+
+    local slotLabel
+    if row.inventorySlot == _G.INVSLOT_MAINHAND then
+        slotLabel = "Main Hand"
+    elseif row.inventorySlot == _G.INVSLOT_OFFHAND then
+        slotLabel = "Off Hand"
+    end
+    if slotLabel then
+        tooltip:AddDoubleLine("Slot", slotLabel, 0.65, 0.65, 0.65, 1, 1, 1)
+    end
+    if row.hasExpirationTime
+        and type(row.expirationTime) == "number"
+        and type(_G.GetTime) == "function"
+    then
+        local remainingSeconds = math.max(0, row.expirationTime - _G.GetTime())
+        local remainingText = FormatWeaponEnchantRemainingTime(remainingSeconds)
+        if remainingSeconds > 0 and remainingText ~= "" then
+            tooltip:AddLine(remainingText .. " remaining", 1, 0.82, 0)
+        end
+    end
+    if type(row.chargesRemaining) == "number" and row.chargesRemaining > 0 then
+        tooltip:AddLine(tostring(row.chargesRemaining) .. " charges remaining", 0.9, 0.9, 0.9)
+    end
+    if type(row.enchantID) == "number" and row.enchantID > 0 then
+        tooltip:AddLine("Enchant ID: " .. tostring(row.enchantID), 0.5, 0.5, 0.5)
+    end
+    tooltip:Show()
+end
+
+local function HideWeaponEnchantTooltip()
+    if _G.GameTooltip then
+        _G.GameTooltip:Hide()
+    end
+end
+
+HideWeaponEnchantRow = function(row, skipLayout)
+    row.expirationRefreshGeneration = (row.expirationRefreshGeneration or 0) + 1
+    row:SetScript("OnUpdate", nil)
+    row.timerElapsed = nil
+    row.enchantID = nil
+    row.remainingTimeMs = nil
+    row.chargesRemaining = nil
+    row.hasExpirationTime = nil
+    row.durationSeconds = nil
+    row.expirationTime = nil
+    row.durationBar:SetMinMaxValues(0, 1)
+    row.durationBar:SetValue(0)
+    row.durationText:SetText("")
+    row.countText:SetText("")
+    row:Hide()
+    if not skipLayout then
+        LayoutExternalEnchantmentRows()
+    end
+end
+
+local function ScheduleWeaponEnchantExpirationRefresh(row, remainingSeconds)
+    row.expirationRefreshGeneration = (row.expirationRefreshGeneration or 0) + 1
+    local generation = row.expirationRefreshGeneration
+    local lifecycleGeneration = managedCallbackGeneration
+    _G.C_Timer.After(remainingSeconds + WEAPON_ENCHANT_TIMER_INTERVAL, function()
+        if lifecycleGeneration ~= managedCallbackGeneration
+            or not Managed:IsReady()
+            or row.expirationRefreshGeneration ~= generation
+            or not row:IsShown()
+        then
+            return
+        end
+        RefreshWeaponEnchantRows("expected expiration")
+    end)
+end
+
+local function UpdateWeaponEnchantTimer(row, elapsed)
+    if not Managed:IsReady() then
+        return
+    end
+    row.timerElapsed = (row.timerElapsed or 0) + elapsed
+    if row.timerElapsed < WEAPON_ENCHANT_TIMER_INTERVAL then
+        return
+    end
+    row.timerElapsed = 0
+
+    if not row.expirationTime then
+        return
+    end
+
+    local getTime = _G.GetTime
+    if type(getTime) ~= "function" then
+        return
+    end
+
+    local remainingSeconds = math.max(0, row.expirationTime - getTime())
+    row.durationBar:SetValue(remainingSeconds)
+    row.durationText:SetText(FormatWeaponEnchantRemainingTime(remainingSeconds))
+end
+
+local function ShowWeaponEnchantRow(row, enchantInfo, iconTexture)
+    local getTime = _G.GetTime
+    if type(getTime) ~= "function" then
+        return false
+    end
+
+    local enchantID = enchantInfo.enchantID
+    local remainingTimeMs = enchantInfo.remainingTimeMs
+    local chargesRemaining = enchantInfo.chargesRemaining
+    local hasExpirationTime = enchantInfo.hasExpirationTime
+    if not IsReadableDiagnosticValue(enchantID)
+        or type(enchantID) ~= "number"
+        or not IsReadableDiagnosticValue(remainingTimeMs)
+        or type(remainingTimeMs) ~= "number"
+        or remainingTimeMs < 0
+        or not IsReadableDiagnosticValue(hasExpirationTime)
+        or type(hasExpirationTime) ~= "boolean"
+    then
+        return false
+    end
+    if not IsReadableDiagnosticValue(chargesRemaining) or type(chargesRemaining) ~= "number" then
+        chargesRemaining = nil
+    end
+
+    local remainingSeconds = remainingTimeMs / 1000
+    local expirationTime = hasExpirationTime and (getTime() + remainingSeconds) or nil
+    local enchantChanged = row.enchantID ~= enchantID
+    local expirationKindChanged = row.hasExpirationTime ~= nil
+        and row.hasExpirationTime ~= hasExpirationTime
+    local remainingIncreased = row.remainingTimeMs ~= nil
+        and remainingTimeMs > row.remainingTimeMs
+    local expirationExtended = expirationTime
+        and row.expirationTime
+        and expirationTime > row.expirationTime + 1
+
+    if enchantChanged
+        or not row.durationSeconds
+        or expirationKindChanged
+        or remainingIncreased
+        or expirationExtended
+    then
+        row.durationSeconds = remainingSeconds
+    end
+
+    row.enchantID = enchantID
+    row.remainingTimeMs = remainingTimeMs
+    row.chargesRemaining = chargesRemaining
+    row.hasExpirationTime = hasExpirationTime
+    row.expirationTime = expirationTime
+    row.icon:SetTexture(iconTexture or _G.QUESTION_MARK_ICON)
+    row.countText:SetText(chargesRemaining and chargesRemaining > 0 and tostring(chargesRemaining) or "")
+
+    if expirationTime and remainingSeconds > 0 then
+        row.durationBar:SetMinMaxValues(0, math.max(row.durationSeconds, 1))
+        row.durationBar:SetValue(remainingSeconds)
+        row.durationText:SetText(FormatWeaponEnchantRemainingTime(remainingSeconds))
+        row.timerElapsed = 0
+        row:SetScript("OnUpdate", UpdateWeaponEnchantTimer)
+        ScheduleWeaponEnchantExpirationRefresh(row, remainingSeconds)
+    else
+        row.expirationRefreshGeneration = (row.expirationRefreshGeneration or 0) + 1
+        row.durationBar:SetMinMaxValues(0, 1)
+        row.durationBar:SetValue(0)
+        row.durationText:SetText("")
+        row:SetScript("OnUpdate", nil)
+    end
+
+    row:Show()
+    return true
+end
+
+local function RefreshWeaponEnchantRow(row)
+    local enchantSuccess, enchantInfo = CallDiagnosticAPI(
+        _G.C_PaperDollInfo,
+        "GetTemporaryEnchantmentInfo",
+        row.inventorySlot
+    )
+    if not enchantSuccess then
+        return false
+    end
+    if enchantInfo == nil then
+        HideWeaponEnchantRow(row, true)
+        return true
+    end
+    if not IsReadableDiagnosticValue(enchantInfo) or type(enchantInfo) ~= "table" then
+        return false
+    end
+    local overrides = OBB.db and OBB.db.overrides
+    local override = type(overrides) == "table" and overrides[row.overrideKey] or nil
+    if type(override) == "table" and override.hidden then
+        HideWeaponEnchantRow(row, true)
+        return true
+    end
+
+    local iconTexture
+    local iconSuccess, resolvedIcon = pcall(
+        _G.GetInventoryItemTexture,
+        "player",
+        row.inventorySlot
+    )
+    if iconSuccess and IsReadableDiagnosticValue(resolvedIcon) then
+        iconTexture = resolvedIcon
+    end
+
+    return ShowWeaponEnchantRow(row, enchantInfo, iconTexture)
+end
+
+RefreshWeaponEnchantRows = function(_reason, allowInitializing)
+    local canMutate = CanMutateManagedRuntime(Managed, allowInitializing)
+    if not canMutate then
+        return false
+    end
+    if _G.InCombatLockdown and _G.InCombatLockdown() then
+        SetWeaponEnchantRefreshPending(true)
+        return false
+    end
+    if type(Managed.weaponEnchantRows) ~= "table" or #Managed.weaponEnchantRows ~= 2 then
+        return false
+    end
+
+    local refreshSucceeded = true
+    for _, row in ipairs(Managed.weaponEnchantRows) do
+        if not RefreshWeaponEnchantRow(row) then
+            refreshSucceeded = false
+        end
+    end
+    LayoutExternalEnchantmentRows()
+    if refreshSucceeded then
+        SetWeaponEnchantRefreshPending(false)
+    end
+    return refreshSucceeded
+end
+
 function Managed:RefreshManagedState(reason)
     local ready, readinessReason = self:IsReady()
     if not ready then
@@ -2207,8 +2516,12 @@ function Managed:RefreshManagedState(reason)
             self.enchantmentContainer
         )
         if not nativeRefreshSuccess then
-            return false, "native enchantment refresh failed"
+            return false, "managed ENCHANTMENTS aura refresh failed"
         end
+    end
+
+    if not RefreshWeaponEnchantRows(reason or "managed refresh") then
+        return false, "weapon enchant refresh failed"
     end
 
     if not RefreshFishingLureRow(reason or "managed refresh") then
@@ -2311,15 +2624,6 @@ local function ApplyManagedRowIconSide(owner, presentation, style, previousIconS
     end
 end
 
-local function BuildManagedItemEnchantmentLayout(elementWidth, elementHeight, elementSpacing)
-    return {
-        elementWidth = elementWidth,
-        elementHeight = elementHeight,
-        elementSpacing = elementSpacing,
-        placement = CustomAuraContainerItemEnchantmentPlacement.AfterAuraGroups,
-    }
-end
-
 local function ApplyManagedLayoutState(managed, groupKey, style, widthChanged)
     local layout = {
         elementWidth = style.width,
@@ -2333,11 +2637,6 @@ local function ApplyManagedLayoutState(managed, groupKey, style, widthChanged)
         managed.debuffContainer:SetAuraGroupLayout(DEBUFF_AURA_GROUP_KEY, layout)
     else
         managed.enchantmentContainer:SetAuraGroupLayout(ENHANCEMENT_AURA_GROUP_KEY, layout)
-        managed.enchantmentContainer:SetItemEnchantmentLayout(BuildManagedItemEnchantmentLayout(
-            style.width,
-            style.height,
-            style.spacing
-        ))
     end
 
     if widthChanged then
@@ -2611,14 +2910,8 @@ function Managed:ApplyConfiguration(_reason)
         if widthChanged or heightChanged or spacingChanged then
             ApplyManagedLayoutState(self, group.key, currentStyle, widthChanged)
         end
-        if group.key == "ENCHANTMENTS" and spacingChanged then
-            self.fishingLureRow:SetPoint(
-                "TOPLEFT",
-                self.enchantmentContainer,
-                "BOTTOMLEFT",
-                0,
-                -currentStyle.spacing
-            )
+        if group.key == "ENCHANTMENTS" and (heightChanged or spacingChanged) then
+            LayoutExternalEnchantmentRows()
         end
     end
 
@@ -2761,13 +3054,112 @@ local function InitializeAuraButton(auraButton)
     InitializeManagedAuraButtonSafely(auraButton, "BUFFS", true)
 end
 
-local function CreateFishingLureRow(host, container)
+local function CreateWeaponEnchantRow(host, frameName, overrideKey, inventorySlot, displayLabel)
+    local style = Managed.currentBarStyles.ENCHANTMENTS
+    local row = _G.CreateFrame("Button", frameName, host)
+    row:Hide()
+    row:SetSize(style.width, style.height)
+    row.overrideKey = overrideKey
+    row.inventorySlot = inventorySlot
+    row.displayLabel = displayLabel
+
+    local background = row:CreateTexture(nil, "BACKGROUND")
+    background:SetColorTexture(
+        style.backgroundColor[1],
+        style.backgroundColor[2],
+        style.backgroundColor[3],
+        style.backgroundColor[4]
+    )
+
+    local durationBar = _G.CreateFrame("StatusBar", nil, row)
+    durationBar:SetFrameLevel(row:GetFrameLevel() + 1)
+    durationBar:SetStatusBarTexture(Managed.currentStatusBarTexture)
+    durationBar:SetStatusBarColor(
+        style.fillColor[1],
+        style.fillColor[2],
+        style.fillColor[3],
+        style.fillColor[4]
+    )
+
+    local icon = row:CreateTexture(nil, "ARTWORK")
+    icon:SetSize(style.height, style.height)
+    icon:SetTexCoord(
+        style.iconTexCoords[1],
+        style.iconTexCoords[2],
+        style.iconTexCoords[3],
+        style.iconTexCoords[4]
+    )
+    ApplyManagedBarGeometry(row, background, durationBar, icon, style)
+
+    local textLayer = _G.CreateFrame("Frame", nil, row)
+    textLayer:SetAllPoints()
+    textLayer:SetFrameLevel(durationBar:GetFrameLevel() + 1)
+
+    local font = Managed.currentFontFace
+    local nameText = textLayer:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    nameText:SetFont(font, style.fontSize, "")
+    nameText:SetPoint("LEFT", background, "LEFT", style.namePadding, 0)
+    nameText:SetJustifyH("LEFT")
+    nameText:SetJustifyV("MIDDLE")
+    nameText:SetWordWrap(false)
+    nameText:SetText(displayLabel)
+
+    local durationText = textLayer:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    durationText:SetFont(font, style.fontSize, "")
+    durationText:SetPoint("RIGHT", background, "RIGHT", -style.durationRightPadding, 0)
+    durationText:SetWidth(style.durationWidth)
+    durationText:SetJustifyH("RIGHT")
+    durationText:SetJustifyV("MIDDLE")
+    durationText:SetWordWrap(false)
+
+    nameText:SetPoint("RIGHT", durationText, "LEFT", -style.nameDurationGap, 0)
+
+    local countText = textLayer:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
+    countText:SetFont(font, style.countFontSize, style.countFontFlags)
+    countText:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", style.countOffsetX, style.countOffsetY)
+    countText:SetJustifyH("RIGHT")
+    countText:SetJustifyV("BOTTOM")
+
+    row.icon = icon
+    row.durationBar = durationBar
+    row.durationText = durationText
+    row.countText = countText
+    TrackManagedPresentation("ENCHANTMENTS", row, {
+        background = background,
+        durationBar = durationBar,
+        icon = icon,
+        nameText = nameText,
+        durationText = durationText,
+        countText = countText,
+    })
+
+    row:SetScript("OnEnter", ShowWeaponEnchantTooltip)
+    row:SetScript("OnLeave", HideWeaponEnchantTooltip)
+    row:RegisterForClicks("RightButtonDown")
+    row:SetScript("OnClick", function(self, button)
+        if button ~= "RightButton"
+            or _G.InCombatLockdown and _G.InCombatLockdown()
+        then
+            return
+        end
+
+        local paperDollAPI = _G.C_PaperDollInfo
+        if type(paperDollAPI) == "table"
+            and type(paperDollAPI.CancelTemporaryEnchantment) == "function"
+        then
+            pcall(paperDollAPI.CancelTemporaryEnchantment, self.inventorySlot)
+        end
+    end)
+
+    return row
+end
+
+local function CreateFishingLureRow(host)
     local style = Managed.currentBarStyles.ENCHANTMENTS
     local row = _G.CreateFrame("Button", "OdysseusBuffBarsManagedFishingLureRow", host)
     Managed.fishingLureRow = row
     row:Hide()
     row:SetSize(style.width, style.height)
-    row:SetPoint("TOPLEFT", container, "BOTTOMLEFT", 0, -style.spacing)
 
     local background = row:CreateTexture(nil, "BACKGROUND")
     background:SetColorTexture(
@@ -2882,6 +3274,7 @@ local function CreateFishingLureEventFrame()
                 ScheduleInventoryQuietTurn()
                 return
             end
+            RefreshWeaponEnchantRows("UNIT_INVENTORY_CHANGED player quiet turn")
             RefreshFishingLureRow("UNIT_INVENTORY_CHANGED player quiet turn")
         end)
     end
@@ -3179,20 +3572,21 @@ local function CreateManagedBuffGroupInfrastructure()
     local transitionInventoryCheckEpoch
     local transitionRecoveryEpoch = 0
 
-    local function CompleteNativeEnchantmentTransitionRecovery()
+    local function CompleteEnchantmentTransitionRecovery()
         if not transitionRecoveryPending then
             return
         end
 
         if _G.InCombatLockdown and _G.InCombatLockdown() then
-            nativeEnchantmentRecoveryDeferredForCombat = true
+            managedTransitionRecoveryDeferredForCombat = true
             UpdateAutomaticDiscoveryFrameRegenRegistration()
             return
         end
 
         Managed.enchantmentContainer:UpdateAllAuras()
+        RefreshWeaponEnchantRows("loading transition recovery")
         transitionRecoveryPending = nil
-        nativeEnchantmentRecoveryDeferredForCombat = nil
+        managedTransitionRecoveryDeferredForCombat = nil
         UpdateAutomaticDiscoveryFrameRegenRegistration()
     end
 
@@ -3225,11 +3619,13 @@ local function CreateManagedBuffGroupInfrastructure()
 
             filterInitFrame:UnregisterEvent("UNIT_INVENTORY_CHANGED")
             transitionInventoryGeneration = nil
-            CompleteNativeEnchantmentTransitionRecovery()
+            CompleteEnchantmentTransitionRecovery()
         end)
     end
 
     filterInitFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    filterInitFrame:RegisterEvent("WEAPON_ENCHANT_CHANGED")
+    filterInitFrame:RegisterEvent("WEAPON_SLOT_CHANGED")
     filterInitFrame:RegisterUnitEvent("UNIT_AURA", "player")
     filterInitFrame:SetScript("OnEvent", function(_, event)
         if not Managed:IsReady() then
@@ -3237,21 +3633,27 @@ local function CreateManagedBuffGroupInfrastructure()
         end
         if event == "PLAYER_ENTERING_WORLD" then
             Managed.enchantmentContainer:UpdateAllAuras()
+            RefreshWeaponEnchantRows("PLAYER_ENTERING_WORLD")
             AttemptAutomaticHelpfulEnhancementDiscovery("PLAYER_ENTERING_WORLD")
             transitionRecoveryEpoch = transitionRecoveryEpoch + 1
             transitionRecoveryPending = true
             transitionInventoryGeneration = 0
-            nativeEnchantmentRecoveryDeferredForCombat = nil
+            managedTransitionRecoveryDeferredForCombat = nil
             UpdateAutomaticDiscoveryFrameRegenRegistration()
             filterInitFrame:RegisterUnitEvent("UNIT_INVENTORY_CHANGED", "player")
+        elseif event == "WEAPON_ENCHANT_CHANGED" or event == "WEAPON_SLOT_CHANGED" then
+            RefreshWeaponEnchantRows(event)
         elseif event == "UNIT_AURA" then
             AttemptAutomaticHelpfulEnhancementDiscovery("UNIT_AURA player")
         elseif event == "PLAYER_REGEN_ENABLED" then
             if automaticDiscoveryPending then
                 AttemptAutomaticHelpfulEnhancementDiscovery("PLAYER_REGEN_ENABLED")
             end
-            if nativeEnchantmentRecoveryDeferredForCombat then
-                CompleteNativeEnchantmentTransitionRecovery()
+            if weaponEnchantRefreshPending then
+                RefreshWeaponEnchantRows("PLAYER_REGEN_ENABLED")
+            end
+            if managedTransitionRecoveryDeferredForCombat then
+                CompleteEnchantmentTransitionRecovery()
             end
         elseif event == "UNIT_INVENTORY_CHANGED" then
             if transitionInventoryGeneration ~= nil then
@@ -3392,11 +3794,6 @@ local function CreateManagedEnchantmentGroupInfrastructure()
     Managed.enchantmentContainer = container
     container:Hide()
     ValidateRequiredMethods(container, "ENCHANTMENTS AuraContainer", REQUIRED_CONTAINER_METHODS)
-    ValidateRequiredMethods(
-        container,
-        "ENCHANTMENTS AuraContainer",
-        REQUIRED_ENCHANTMENT_CONTAINER_METHODS
-    )
     container:SetPoint(
         "TOPLEFT",
         host,
@@ -3409,23 +3806,6 @@ local function CreateManagedEnchantmentGroupInfrastructure()
     container:SetUnit("player")
     container:SetFlowLayoutAxis(AnchorUtil.FlowLayoutAxis.Vertical)
     SetManagedContainerGrowUp(container, groupConfig.growUp)
-    container:SetItemEnchantmentLayout(BuildManagedItemEnchantmentLayout(
-        barStyle.width,
-        barStyle.height,
-        groupConfig.spacing
-    ))
-    container:SetItemEnchantmentSortMethod(
-        AuraContainerItemEnchantmentSortMethod.Slot,
-        AuraContainerSortDirection.Normal
-    )
-    container:AddItemEnchantment(AuraContainerItemEnchantmentSlot.MainHand, {
-        initializeFrame = InitializeEnchantmentAuraButton,
-        hidePermanent = false,
-    })
-    container:AddItemEnchantment(AuraContainerItemEnchantmentSlot.OffHand, {
-        initializeFrame = InitializeEnchantmentAuraButton,
-        hidePermanent = false,
-    })
     local activeSort = SORT_MODES[groupConfig.sortMode]
     container:AddAuraGroup(ENHANCEMENT_AURA_GROUP_KEY, "HELPFUL", {
         candidateFilters = CompileCurrentManagedCandidateFilterState().enhancementCandidateFilters,
@@ -3440,7 +3820,19 @@ local function CreateManagedEnchantmentGroupInfrastructure()
         },
     })
 
-    CreateFishingLureRow(host, container)
+    Managed.weaponEnchantRows = {}
+    for index, target in ipairs(WEAPON_ENCHANT_OVERRIDE_TARGETS) do
+        Managed.weaponEnchantRows[index] = CreateWeaponEnchantRow(
+            host,
+            index == 1
+                and "OdysseusBuffBarsManagedMainHandEnchantRow"
+                or "OdysseusBuffBarsManagedOffHandEnchantRow",
+            target.key,
+            target.inventorySlot,
+            target.label
+        )
+    end
+    CreateFishingLureRow(host)
     CreateFishingLureEventFrame()
 end
 
@@ -3496,6 +3888,8 @@ function Managed:Initialize()
         if not self.host or not self.container
             or not self.debuffHost or not self.debuffContainer
             or not self.enchantmentHost or not self.enchantmentContainer
+            or type(self.weaponEnchantRows) ~= "table"
+            or not self.weaponEnchantRows[1] or not self.weaponEnchantRows[2]
             or not self.fishingLureRow
             or not automaticDiscoveryFrame
             or not fishingLureEventFrame
@@ -3520,6 +3914,7 @@ function Managed:Initialize()
         if not visibilitySuccess then
             error(visibilityReason or "managed presentation commit failed", 0)
         end
+        RefreshWeaponEnchantRows("managed initialization commit", true)
         RefreshFishingLureRow("managed initialization commit", true)
         ReportManagedCompatibilityWarning(self)
     end, function(errorValue)
