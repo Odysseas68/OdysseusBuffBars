@@ -6,7 +6,7 @@
 - Language: Lua 5.1 in the WoW addon sandbox.
 - Purpose: standalone aura-bar research and development addon, separate from the production Odysseus Utility Suite.
 - Keep this addon small and focused on aura scanning, sorting, bar rendering, timer text, icons, and saved frame position.
-- Blizzard-managed containers are the sole production renderer authority for BUFFS, DEBUFFS, and ENCHANTMENTS. The ordinary-bar backend, secure cancellation overlays, direct-scanning backend, and synthetic legacy weapon-enchantment scanner are retired.
+- Blizzard-managed containers are the production renderer authority for BUFFS, DEBUFFS, and the `HelpfulEnhancements` portion of ENCHANTMENTS. OBB-owned ordinary Main Hand, Off Hand, and Fishing Lure rows are the narrow production exceptions. The general ordinary-bar backend, secure cancellation overlays, direct-scanning backend, and synthetic legacy weapon-enchantment scanner are retired.
 
 ## Active Files
 - `OdysseusBuffBars.toc`
@@ -16,7 +16,7 @@
 - `OdysseusBuffBars_Config.lua`
   - Native configuration frame, combat-locked controls, group settings, filters UI, and research/debug commands.
 - `OdysseusBuffBars_Managed.lua`
-  - Production managed BUFFS, DEBUFFS, and ENCHANTMENTS architecture, paired HELPFUL ownership/compiler state, native weapon-enchantment integration, self-contained lure formatting and lure exception, hosts, layout, and managed recovery.
+  - Production managed BUFFS, DEBUFFS, and ENCHANTMENTS architecture, paired HELPFUL ownership/compiler state, OBB-owned weapon-enchantment rows, self-contained lure formatting and lure exception, hosts, layout, and managed recovery.
 
 The TOC must load only this addon's active files and bundled libraries. The old local `Reference\ElkBuffBars\` directory is no longer present in this repository; use historical notes and committed research instead of assuming that local reference tree exists.
 
@@ -28,8 +28,8 @@ The TOC must load only this addon's active files and bundled libraries. The old 
 - PTR Blizzard source mirror: `D:\WowDEV\Reference\Blizzard\wow-ui-source-ptr\`; use it for future/unreleased PTR change monitoring and regression checks.
 - Authoritative research repository: `D:\WowDEV\Projects\BlizzardResearch\`.
 - Current 12.1 authoritative Analysis directory: `D:\WowDEV\Projects\BlizzardResearch\12.1.0\Analysis\`.
-- Completed Live audit commit in BlizzardResearch: `a07fb6de71e915416fe379af9e92565ef7e1df9b` (`Confirm AuraContainer architecture on Live 12.1`).
-- The Live audit verified Retail `12.1.0.69273`, interface `120100`, Live source revision `eb941aad0`, final PTR revision `6e348870e`, and no material Live-only aura architecture changes.
+- The earlier AuraContainer Live audit used Retail `12.1.0.69273`, interface `120100`, Live source revision `eb941aad0`, final PTR revision `6e348870e`, and BlizzardResearch commit `a07fb6de71e915416fe379af9e92565ef7e1df9b`. Preserve it as historical architecture evidence.
+- The completed Retail 12.1.0 research baseline is BlizzardResearch `6edb5740b1f1e4e543899500ded8a7dd5ee887e1` against Live source branch `live`, commit `8ea15b61e45c0ed4eba01439c90757f86eb78d34`, build `12.1.0.69587`. Treat this as a captured historical snapshot; do not silently mix later Retail or PTR behavior into its conclusions.
 
 ## Git Workflow
 - OdysseusBuffBars is now a real Git repository with `main` and a GitHub remote.
@@ -37,12 +37,39 @@ The TOC must load only this addon's active files and bundled libraries. The old 
 - Do not automatically commit or push after implementation or research tasks.
 - Commit and push only when explicitly requested or when a separate repository-maintenance task instructs it.
 
+## Evidence and Compatibility Discipline
+- Preserve four evidence classes when transferring research into OBB guidance: `VERIFIED SOURCE FACT`, `VERIFIED RUNTIME RESULT`, `SOURCE-SUPPORTED INFERENCE`, and `ASSUMPTION / UNKNOWN`. A source finding or controlled experiment becomes an OBB rule only when it is durable, relevant to OBB, and bounded to the evidence.
+- Record the client build plus source branch/commit for compatibility conclusions. A later Retail or PTR change can trigger a fresh audit but does not rewrite what an earlier snapshot established.
+- For working code, migrate only for a concrete compatibility or maintainability reason. Trace the actual old implementation and exact modern target; compare identifier domain, arguments, complete return/data shape, nil/default/cache behavior, multi-return behavior, restrictions, and callbacks; test the affected behavior; and avoid unrelated refactoring. For new Retail code, prefer current namespaces when their contracts are understood.
+- Deprecation, physical presence, TOC loading, fallback enablement, symbol installation, current Blizzard use, semantic equivalence, and removal risk are separate questions. Classify a direct alias, adapter/projection, current older infrastructure, and full subsystem separately; do not replace or preserve something solely because it is labeled deprecated or because Blizzard still uses it.
+- Keep spell identity, spellbook position/bank, action slot, item identity, `ItemLocation`, and inventory slot distinct. Similar names or integer-shaped values do not make APIs interchangeable. For example, the compatibility alias `GetItemIcon` targets `C_Item.GetItemIconByID`, not the `ItemLocation`-based `C_Item.GetItemIcon`.
+- `C_Spell.DoesSpellExist` does not establish spell-data cache readiness. Check multi-return APIs such as `C_Spell.GetSpellTexture` in their Lua expression context, and use `C_Spell` versus `C_SpellBook` according to the caller's real identifier domain.
+- Prefer complete modern structured records when their added fields affect behavior; do not recreate a legacy tuple without checking which fields the projection drops. Preserve cache-readiness and nil behavior, and add asynchronous item-loading work only when the UI genuinely needs data that is not already available.
+- The tested Retail 12.1.0 client had `UnitAura`, `UnitBuff`, `UnitDebuff`, `GetSpellInfo`, `GetSpellCooldown`, `GetSpellCharges`, and `GetSpellBookItemInfo` absent. Do not design new Retail OBB code around those historical globals; re-verify availability for a different client/build rather than presenting the snapshot as timeless.
+
+## Aura, Restricted Layout, and Tooltip Guidance
+- New Retail aura work should retain structured `AuraData`. Where OBB intentionally owns incremental `UNIT_AURA` processing, account for full updates, removed aura-instance IDs, added AuraData records, and updated aura-instance IDs. Use `auraInstanceID` as operational identity without inventing a formal lifetime or reuse guarantee; do not rebuild everything unless the simpler full-refresh architecture is a deliberate choice.
+- `AuraUtil.UnpackAuraData` is current compatibility infrastructure, not broken or unsafe, but it is lossy: it omits modern identity/classification fields such as `auraInstanceID`, `isHelpful`, `isHarmful`, `isRaid`, and `isNameplateOnly`, and flattens `points`. Do not use it when OBB requires those structured fields.
+- The not-cancelable filter token is `!CANCELABLE`, not `NOT_CANCELABLE`. Keep `RAID`, `RAID_PLAYER_DISPELLABLE`, `DISPELLABLE`, and `IMPORTANT` distinct; none is a generic synonym for another.
+- Keep taint, secret values/geometry, forbidden-aspect inheritance, protected operations, secure execution, restricted API access, and combat lockdown distinct. An ordinary-frame success, a source-visible lack of a combat guard, or one successful combat test is not a universal combat-safety contract.
+- Prefer expressing supported layout relationships declaratively instead of reading geometry into addon Lua when geometry may be secret or restricted. This does not ban `GetWidth`/`GetHeight`, guarantee `SetPoint`, or make all combat layout unsafe; evaluate the actual ownership and anchor-dependency composition.
+- OBB's failed manual weapon-tooltip experiment read row geometry and performed addon arithmetic on a secret number. Its failed direct-owner experiment used the restricted-dependent row and failed at `GameTooltip:SetOwner` with `UntrustedLayoutScriptExecution`. Current OBB weapon and lure tooltips use independent `UIParent` ownership with `ANCHOR_CURSOR`, which passed the exercised runtime scenarios. That is a tested fallback for this OBB topology, not a universal recipe; `UIParent` ownership followed by a row-relative `SetPoint` was not tested in OBB.
+- Controlled tooltip experiments also showed that matched restricted templates can change the result for the same apparent relationship. Preserve composition-specific reasoning; do not turn the matrix into rules such as “SetOwner is always unsafe” or “direct anchors always work.”
+- `BackdropTemplate` remains current. Its mixin performs geometry arithmetic, so restricted or secret-geometry-sensitive compositions require review and testing; the prior FlightMaster failure does not establish a Blizzard-wide defect or a blanket ban.
+- For a new ordinary multi-page UI, `TabSystemTemplate` plus `TabSystemOwnerTemplate` is a strong structured option. `PanelTemplates` remains current, and `MinimalTab` is specialized; do not migrate OBB's working navigation solely because another system is newer. `StaticPopup` likewise remains current for compact transient confirmations and should not replace OBB's richer companion editors merely because its API looks older.
+
+## Temporary Enchant and Diagnostic Guidance
+- OBB's fixed weapon rows use `C_PaperDollInfo.GetTemporaryEnchantmentInfo(slot)` directly. The record provides `enchantID`, `remainingTimeMs`, `chargesRemaining`, and `hasExpirationTime`; use the modern expiration field when behavior depends on it. The public record does not provide a localized effect name, and `enchantID` must not be reinterpreted as a spell or item ID.
+- Weapon right-click cancellation uses `C_PaperDollInfo.CancelTemporaryEnchantment` and was runtime-tested out of combat. Do not promote that exercised case into a universal protected/combat contract.
+- Diagnose asynchronous/loading failures through passive observation first and controlled feature isolation when necessary. Treat a repeatable selector as correlation/mitigation evidence until the failing callback and causal mechanism are established. Wrappers and instrumentation can perturb timing, callback ordering, cache state, error handling, taint, and security provenance; record that limitation and never copy experimental diagnostic implementations into production.
+- Preserve exact third-party and client provenance. Evidence from a frozen or instrumented Chonky copy belongs to that copy/version; a later live upstream version does not retroactively redefine the earlier result.
+
 ## Current Working State
 - Uses `OdysseusBuffBarsDB` as the canonical global SavedVariables table.
 - `OdysseusBuffBarsTestDB` is retained temporarily only for safe rename migration when the canonical table is absent; it is not merged or deleted.
 - No profiles for now.
 - No LibQTip for now.
-- No LibDBIcon/minimap launcher yet.
+- The LibDataBroker/LibDBIcon minimap launcher and independent Retail Addon Compartment entry are present and converge on the existing combat-guarded Config open path.
 - LibSharedMedia-3.0 is the media source for the root-level `statusBarTexture` and `font` settings. Both persist registered media names, apply globally across BUFFS/DEBUFFS/ENCHANTMENTS, and fall back safely without rewriting a temporarily unavailable saved name. The font setting controls face only; per-group `fontSize` and count-size behavior remain independent, and headers retain their existing font path.
 - Default groups:
   - player buffs: `HELPFUL`
@@ -75,7 +102,7 @@ The TOC must load only this addon's active files and bundled libraries. The old 
 - Plain `/obb` or `/buffbars` opens the native configuration frame out of combat only.
 - `/obb config`, `/obb options`, or plain `/obb` opens the native configuration frame out of combat only.
 - `/obb anchors` toggles anchors out of combat only.
-- `/obb refresh` and Config `Refresh Auras` call the managed-only Core `RefreshAll()` coordinator directly. It rejects missing DB or unready/FAILED managed state safely, leaves Blizzard-owned managed aura lifecycle authoritative in combat, and out of combat applies configuration before semantic/native/Fishing Lure recovery without Engine or Bars calls. Config Apply and filter/override mutations skip their former duplicate managed follow-up after a successful `RefreshAll()` transaction, while retaining the direct managed call as a failure fallback. The redundant `RefreshAuras()` alias is retired.
+- `/obb refresh` and Config `Refresh Auras` call the managed-only Core `RefreshAll()` coordinator directly. It rejects missing DB or unready/FAILED managed state safely, leaves Blizzard-owned managed aura lifecycle authoritative in combat, and out of combat applies configuration before semantic, weapon-enchant, and Fishing Lure recovery without Engine or Bars calls. Config Apply and filter/override mutations skip their former duplicate managed follow-up after a successful `RefreshAll()` transaction, while retaining the direct managed call as a failure fallback. The redundant `RefreshAuras()` alias is retired.
 - `/obbtest` remains a compatibility alias with the same subcommands.
 - The native configuration frame has General, BUFFS, DEBUFFS, and ENCHANTMENTS pages, is draggable/resizable, and closes with `Esc`.
 - Group pages include Position controls for Anchor target, Placement, Offset X, and Offset Y.
@@ -99,7 +126,7 @@ The TOC must load only this addon's active files and bundled libraries. The old 
 - Populate managed HELPFUL current-aura ownership from current readable source state using the same precedence. Only BUFFS exposes the Whitelist/Blacklist UI; do not interpret internal E ownership rows as destination-filter support.
 - Current managed HELPFUL discovery is runtime-only, returns copied UI rows, and must not mutate persistent filter/override tables. Do not enumerate AuraButtons or private managed collections for config population.
 - Managed DEBUFFS is intentionally broad/unfiltered. Managed ENCHANTMENTS is intentionally broad across effective `HelpfulEnhancements`, MainHand, OffHand, and Fishing Lure sources. Do not reintroduce partial D/E destination filtering without a new explicit product decision plus source/runtime justification.
-- Do not derive temporary-enchantment display names through tooltip scraping, private provider inspection, AuraButton enumeration, hardcoded enchant-ID maps, or by reinterpreting `enchantID` as a spell/item ID. Use only supported public slot/enchant metadata and native weapon-tooltip context; revisit naming only if Blizzard exposes a documented public mapping.
+- Do not derive temporary-enchantment display names through tooltip scraping, private provider inspection, AuraButton enumeration, hardcoded enchant-ID maps, or by reinterpreting `enchantID` as a spell/item ID. Use supported public slot/enchant metadata and OBB's bounded manual state tooltip; revisit naming only if Blizzard exposes a documented public mapping.
 - Preserve historical D/E filter SavedVariables during cleanup. They are dormant compatibility/history data; managed D/E must not expose or consume them.
 - When Blizzard candidate filters can own duration admission, do not read managed aura duration values addon-side. Managed BUFFS Config supports only ALL and TIMED_ONLY; historical TIMELESS_ONLY/NONE is preserved raw and interpreted as runtime-only ALL until explicit user correction. Managed DEBUFFS and ENCHANTMENTS intentionally ignore legacy timed/timeless flags and show all eligible durations.
 - Numeric slider values also have edit boxes for exact manual entry.
@@ -116,10 +143,11 @@ The TOC must load only this addon's active files and bundled libraries. The old 
 - Combat warning chat text is formatted as `OdysseusBuffBars: WARNING:` with `WARNING:` in red.
 - If the configuration frame is open when combat starts, it is hidden and restored after combat ends.
 - The configuration frame intentionally does not use profiles.
-- Managed AuraButtons own native supported tooltip and right-click cancellation behavior. Managed DEBUFFS is non-cancellable; the ordinary Fishing Lure footer has no cancellation path.
+- Managed AuraButtons own native supported tooltip and cancellation behavior for managed aura rows. OBB-owned weapon rows use the manual independent-owner tooltip and out-of-combat PaperDoll cancellation; managed DEBUFFS and the ordinary Fishing Lure footer have no addon cancellation path.
 - The retired legacy secure overlay, synthetic weapon-enchant bar, tooltip, and ordinary-bar anchoring implementation is no longer loaded or present. Do not replace it; managed cancellation remains Blizzard/native.
 
 ## Phase Notes
+- OBB 1.1.0 replaced the Blizzard-managed MainHand/OffHand `AddItemEnchantment` provider branch with OBB-owned ordinary weapon rows. Provider-disabled/restored comparison and two consecutive replacement runs make the old provider branch the strongest verified feature-level selector for the observed AsyncCallbackSystem line-76 failure, while the exact callback and causal mechanism remain unknown. Treat the replacement as a tested OBB mitigation/architecture change, not proof of an OBB or Blizzard defect or a universal Async fix.
 - The MANAGED-only authority cutover is complete. Normal production validation passed fresh login, `/reload`, B/D/E presentation, many World Quests and Delves, heavy simultaneous aura populations, correct routing, and absence of duplicate legacy presentation or observed OBB Lua errors. An unrelated XML/Lua error was traced to CraftSim.
 - Post-cutover cleanup Phase 1 is complete: the show-legacy/comparison Config UI and its SCREEN offset/save compensation were removed while the two default declarations were deliberately left dormant at that checkpoint. The historical LEGACY/STAGED validation remains documentation history, not a current runtime path. The D/E SCREEN startup-normalization correction is also runtime validated.
 - Post-cutover cleanup Phase 2 is complete: raw SavedVariables remain history/Config authority; one copied runtime-only effective state interprets unsupported historical duration/topology for MANAGED without persistence; Config exposes only supported duration/topology; synthetic placement cannot be persisted by dragging; and legacy cycle fallback is non-mutating. Historical compatibility injection paths are source/static validated but not deliberately runtime injected.
@@ -138,15 +166,11 @@ The TOC must load only this addon's active files and bundled libraries. The old 
 - The diagnostic retention/removal audit and its behavior-neutral cleanups are complete. The permanently disabled automatic-routing debug gate/trace layer, unused module-table lifecycle mirrors, and isolated `DumpKnownAuraTooltips` research inspector are removed. The underlying lifecycle generations, local event frames, pending state, quiet-turn work, combat retries, manual helpful-enhancement/Fishing Lure operational diagnostics, unexpected routing failure output, compatibility reporting, and fatal failure reporting remain intentionally available. Focused runtime validation of the earlier trace/mirror cleanup passed `/reload`, normal B/D/E presentation, automatic routing, the manual routing diagnostic, and `/obb refresh` without an observed regression; the diagnostic classified `1234969` Ethereal Augmentation as `AUGMENT_RUNE` and `432021` Flask of Alchemical Chaos as `FLASK_PHIAL`, found two routed IDs, and reported the set already synchronized. Any future frame-name migration remains deferred unless a concrete compatibility need appears.
 - Override Settings shape:
   - Store global aura overrides in `OdysseusBuffBarsDB`, not profiles.
-  - Prefer `spellID` keys for overrides.
-  - First pass supports hidden and HELPFUL routing between `BUFFS` and `ENCHANTMENTS`.
+  - Use numeric `spellID` keys for HELPFUL overrides and stable weapon-slot keys for OBB-owned weapon-row Hidden overrides.
+  - Support hidden and HELPFUL routing between `BUFFS` and `ENCHANTMENTS`; weapon targets remain fixed to ENCHANTMENTS.
   - Do not route BUFFS/DEBUFFS across HELPFUL/HARMFUL filters until a central router is designed.
-  - TODO: make Override Settings more user-friendly by populating known aura rows from cached scanned data.
-  - TODO: show icon, readable cached name, and spellID in the override list, while saving only numeric spellID keys.
-  - TODO: keep manual Spell ID entry as a fallback for auras that are not currently known/visible.
-  - TODO: add per-row controls for Default/BUFFS/ENCHANTMENTS and Hidden once the known-aura row UI is stable.
-  - Support display-name override later, but keep raw secret aura names out of unsafe string operations.
-  - Consider color/icon overrides only after group/name overrides are stable.
+  - Populate the current selector from copied current-readable HELPFUL candidates plus active or already-saved stable weapon targets; keep manual Spell ID entry for inactive/future auras.
+  - Keep readable names/icons as presentation only and persist the stable keys, not secret aura text.
 - Implementation caution:
   - Do not make name-based matching the primary behavior; aura names can be secret in combat.
   - Apply filters/overrides through cached safe aura data and readable spell IDs where possible.
@@ -252,7 +276,6 @@ The TOC must load only this addon's active files and bundled libraries. The old 
 - Do not add Classic/MoP compatibility branches.
 - Do not add profiles yet.
 - Do not add LibQTip yet.
-- Do not add LibDBIcon/minimap launcher until the first aura-engine behavior is stable.
 
 ## Known Legacy Tested Behavior
 - The source ElkBuffBars experiment worked on an open-world training dummy.
@@ -278,8 +301,8 @@ After aura-related changes, test at minimum:
 ## Development Constraints
 - Keep changes minimal and scoped.
 - Prefer one-file-at-a-time changes when actively debugging combat behavior.
-- Use `pcall` around risky C API calls that may reject secret/tainted input.
+- Use `pcall` only as bounded error containment around C API calls that may reject unavailable or restricted input. It does not grant access, make secret values readable, or establish combat safety.
 - Avoid structural frame work in combat unless known safe.
-- Managed cancellation remains Blizzard/native; do not reintroduce addon-owned secure cancel buttons.
-- Run `luacheck OdysseusBuffBars.lua OdysseusBuffBars_Config.lua` after normal Lua changes. The current baseline after Auras retirement is `93 warnings / 0 errors`.
-  - The current baseline has many WoW-global warnings, but should report `0 errors`.
+- Managed aura cancellation remains Blizzard/native. OBB-owned weapon rows use the documented PaperDoll cancellation API out of combat; do not reintroduce addon-owned secure cancel buttons or generalize that tested case to combat.
+- Run LuaCheck across `OdysseusBuffBars.lua`, `OdysseusBuffBars_Config.lua`, and `OdysseusBuffBars_Managed.lua` after normal Lua changes. The established 1.1.0 baseline is Core `19`, Config `71`, Managed `26`, combined addon `116 warnings / 0 errors`.
+  - Treat the warnings as established WoW-global/style baseline noise and report the warning count separately from the required `0 errors` result.

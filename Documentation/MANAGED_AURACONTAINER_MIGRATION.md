@@ -1,6 +1,8 @@
 # Managed AuraContainer Migration
 
-Phase A, managed AuraButton presentation, Phase B.2 dynamic self-sizing, native managed behavior, the all-managed production cutover, readiness/partial-initialization hardening, final renderer-authority retirement, and the atomic production file/namespace rename are validated. MANAGED is the sole production renderer. Its current implementation is `OdysseusBuffBars_Managed.lua`, exposed as `OBB.Managed`. Startup is READY-or-FAILED: successful protected initialization commits complete B/D/E presentation; terminal failure leaves presentation inert, reports once, and attempts no alternate renderer until `/reload`. Retail Live also validates the final group-specific filtering policy: BUFFS retains destination filtering, while managed DEBUFFS and ENCHANTMENTS are intentionally broad/unfiltered. HELPFUL routing and hidden/group overrides remain ownership policy. The legacy Bars/secure-overlay and Auras/Engine backends are removed and runtime validated.
+Phase A, managed AuraButton presentation, Phase B.2 dynamic self-sizing, native managed behavior, the managed-aura production cutover, readiness/partial-initialization hardening, final renderer-authority retirement, and the atomic production file/namespace rename are validated. Managed AuraContainers are the sole production renderer for BUFFS, DEBUFFS, and `HelpfulEnhancements`; OBB-owned MainHand, OffHand, and Fishing Lure rows are the narrow ENCHANTMENTS exceptions. The current implementation is `OdysseusBuffBars_Managed.lua`, exposed as `OBB.Managed`. Startup is READY-or-FAILED: successful protected initialization commits complete B/D/E presentation; terminal failure leaves presentation inert, reports once, and attempts no alternate renderer until `/reload`. Retail Live also validates the final group-specific filtering policy: BUFFS retains destination filtering, while managed DEBUFFS and ENCHANTMENTS are intentionally broad/unfiltered. HELPFUL routing and hidden/group overrides remain ownership policy. The legacy Bars/secure-overlay and Auras/Engine backends are removed and runtime validated.
+
+**OBB 1.1.0 supersession notice:** MainHand/OffHand descriptions below that use Blizzard-managed `AddItemEnchantment` providers are retained as migration history, not current architecture. Checkpoint `2783d38dbebe9843203fb5b5f188d3dedcdb2f11` replaced those providers with OBB-owned ordinary weapon rows driven by `C_PaperDollInfo.GetTemporaryEnchantmentInfo`, manual independent-owner tooltips, and out-of-combat PaperDoll cancellation. Managed AuraButtons remain authoritative for BUFFS, DEBUFFS, and `HelpfulEnhancements`; the external weapon rows and Fishing Lure are the narrow ordinary-row exceptions. The provider branch is a controlled feature-level selector for the historical AsyncCallbackSystem observation, not a proven root cause or universal defect.
 
 Evidence labels used below:
 
@@ -17,7 +19,7 @@ Current milestone status:
 | Managed player-BUFFS production authority | Sole production renderer with the coupled B/E compiler and runtime-validated startup, routing, Config, refresh, combat, and copied unsupported-state compatibility. Historical rollback validation remains recorded below. |
 | Phase B.2 dynamic self-sizing | PTR validated. |
 | Managed player-DEBUFFS production authority | Sole production renderer with a broad `HARMFUL` group, all three sort mappings, native combat tooltips, and supported placement/chaining. Historical comparison/two-way rollback validation is preserved; optional targeted private-aura validation remains unclaimed. |
-| Managed ENCHANTMENTS production authority | Implements the 7+2+1 policy: seven `HelpfulEnhancements`, MainHand/OffHand native providers, and one ordinary lure footer. Production startup, semantic routing, available native scenarios, lure behavior, visual parity, and live growth direction are validated. OffHand is source-validated and structurally symmetric; direct OffHand/both-slot testing remains opportunistic coverage. |
+| Managed ENCHANTMENTS production authority | Implements the 7+2+1 policy: seven managed `HelpfulEnhancements`, two OBB-owned MainHand/OffHand rows, and one ordinary lure footer. Production startup, semantic routing, weapon-row behavior, lure behavior, visual parity, and live growth direction are validated. Direct OffHand/both-slot testing remains opportunistic coverage. |
 | Managed visual parity | Runtime validated for BUFFS, DEBUFFS, and ENCHANTMENTS from the accepted `260 x 18`, three-pixel-spacing baseline, with live OOC font, color, width, height, and spacing synchronization. |
 | Phase A.1 startup configuration consumption | Runtime validated. Initialization occurs after SavedVariables adoption/defaults/migrations/normalization and consumes a copied configuration snapshot. |
 | Live configuration synchronization | Runtime validated out of combat for font/color/geometry, `iconSide`, host scale/alpha, BUFFS/DEBUFFS sort and `maxBars`, BUFFS/ENCHANTMENTS growth direction, BUFFS SCREEN, DEBUFFS SCREEN/BELOW/RIGHT/LEFT relative to BUFFS, and ENCHANTMENTS SCREEN/BELOW/RIGHT/LEFT relative to DEBUFFS. DEBUFFS growth is implemented through the same supported path without equivalent direct real-HARMFUL coverage. |
@@ -30,14 +32,14 @@ Current milestone status:
 
 ## 1. Current Architecture
 
-The addon now has one runtime renderer: managed `CustomAuraContainer` production for BUFFS, DEBUFFS, and ENCHANTMENTS. Managed ENCHANTMENTS contains native item-enchantment sources and a separate managed HELPFUL aura group; HELPFUL entries are not converted into Blizzard item enchantments. A small ordinary fishing-lure row is anchored with ENCHANTMENTS as an explicit exception and is not a managed AuraButton. The standalone custom-bar and direct-scanning Auras/Engine backends are removed.
+The addon now has one aura renderer: managed `CustomAuraContainer` production for BUFFS, DEBUFFS, and `HelpfulEnhancements`. ENCHANTMENTS combines that managed HELPFUL group with OBB-owned ordinary MainHand, OffHand, and Fishing Lure rows; those three rows are explicit exceptions and are not managed AuraButtons. The standalone custom-bar and direct-scanning Auras/Engine backends are removed.
 
 Runtime flow:
 
 ```text
 WoW events
   > Blizzard managed AuraContainer lifecycle owns active aura presentation
-  > OBB.Managed owns semantic/native/Fishing Lure recovery
+  > OBB.Managed owns semantic routing plus weapon-row/Fishing Lure recovery
 
 Config or explicit refresh
   > Core RefreshAll() managed coordinator
@@ -51,7 +53,7 @@ The immutable production authority is deliberately outside SavedVariables:
 ```text
 BUFFS         MANAGED
 DEBUFFS       MANAGED
-ENCHANTMENTS  MANAGED
+ENCHANTMENTS  MANAGED runtime owner; managed HELPFUL plus OBB-owned weapon/lure rows
 ```
 
 No renderer-authority query or setter API remains. Config derives ENCHANTMENTS' fixed managed Sort/Max state directly from group 3; preserved historical E sort/max SavedVariables remain ignored by managed E. The mutable authority tables, group accessors, transition/preparation transaction, legacy fallback activation, and former preflight transition API are removed. Strict copied effective B/D/E duration/placement validation still runs inside protected managed initialization and is unrelated to renderer authority.
@@ -107,7 +109,7 @@ Key components:
   - Owns the managed-only refresh compatibility façade and no longer registers legacy aura/weapon renderer events.
   - Avoids Blizzard-frame visibility changes during combat.
 
-- The retired `OdysseusBuffBars_Bars.lua` and `OdysseusBuffBars_Auras.lua` backends and TOC entries are absent. Their legacy ordinary group/bar, pooling, tooltip, positioning, timer, secure-overlay, direct-scanner/cache/formatter, filter-row writer, and synthetic-enchantment implementations are no longer loaded or creatable through `OBB.Bars` or `OBB.Engine`; managed cancellation, routing/filtering, native enchants, and Fishing Lure behavior remain managed.
+- The retired `OdysseusBuffBars_Bars.lua` and `OdysseusBuffBars_Auras.lua` backends and TOC entries are absent. Their legacy ordinary group/bar, pooling, tooltip, positioning, timer, secure-overlay, direct-scanner/cache/formatter, filter-row writer, and synthetic-enchantment implementations are no longer loaded or creatable through `OBB.Bars` or `OBB.Engine`; managed aura cancellation and routing/filtering remain, alongside the bounded OBB-owned weapon-row and Fishing Lure exceptions.
 
 - [OdysseusBuffBars_Config.lua](<D:/Program Files/Blizzard/World of Warcraft/_retail_/Interface/AddOns/OdysseusBuffBars/OdysseusBuffBars_Config.lua:701>)
   - Edits the three SavedVariables-backed groups.
@@ -116,8 +118,8 @@ Key components:
   - Conservatively prevents configuration mutation in combat.
 
 - [OdysseusBuffBars_Managed.lua](<D:/Program Files/Blizzard/World of Warcraft/_retail_/Interface/AddOns/OdysseusBuffBars/OdysseusBuffBars_Managed.lua>)
-  - Exposes `OBB.Managed`, the sole production B/D/E renderer/runtime owner.
-  - Owns readiness, managed construction and containment, HELPFUL routing/filter composition, native enchant recovery, Fishing Lure behavior, managed hosts/layout, and current diagnostics.
+  - Exposes `OBB.Managed`, the production B/D/E runtime owner and managed-aura renderer.
+  - Owns readiness, managed construction and containment, HELPFUL routing/filter composition, OBB weapon-row recovery, Fishing Lure behavior, managed hosts/layout, and current diagnostics.
 
 ### Phase 2 runtime-only compatibility bridge
 
@@ -289,7 +291,7 @@ The startup snapshot consumes the following compatible settings for BUFFS, DEBUF
 - `alpha`
 - `growUp`
 
-BUFFS and DEBUFFS additionally consume their compatible saved `sort` and `maxBars`. ENCHANTMENTS deliberately retains the validated fixed managed `TIMELEFT`/capacity behavior rather than claiming an exact mapping. Its displayed area combines the `HelpfulEnhancements` group, native MainHand/OffHand item-enchantment rows, and the ordinary fishing-lure row, so one legacy ENCHANTMENTS sort or cap cannot govern all three sources equivalently.
+BUFFS and DEBUFFS additionally consume their compatible saved `sort` and `maxBars`. ENCHANTMENTS deliberately retains the validated fixed managed `TIMELEFT`/capacity behavior rather than claiming an exact mapping. Its displayed area combines the managed `HelpfulEnhancements` group with OBB-owned MainHand/OffHand and Fishing Lure rows, so one legacy ENCHANTMENTS sort or cap cannot govern all sources equivalently.
 
 Startup consumes placement when BUFFS is SCREEN, DEBUFFS is SCREEN/BELOW/RIGHT/LEFT relative to BUFFS, and ENCHANTMENTS is SCREEN/BELOW/RIGHT/LEFT relative to DEBUFFS. Unsupported parent graphs and `ABOVE` remain stored unchanged but are interpreted through copied canonical runtime fallbacks; the managed backend does not silently remap SavedVariables.
 
@@ -327,9 +329,9 @@ The later Config sequencing cleanup captures the `RefreshAll()` result: successf
 
 Global media application resolves LibSharedMedia names for all three groups and the Fishing Lure exception. Status-bar texture changes update managed timer/status bars; font-face changes update SpellName, DurationText, and ApplicationCount while per-group `fontSize` remains authoritative and the count size remains `math.max(10, fontSize - 1)`. Headers retain their separate font path. Color application updates the DurationBar and row background RGBA. Width updates row roots, future/reused rows, and group headers while preserving Blizzard-owned self-sizing. Height updates row roots, square icons, and the `height + iconGap` colored boundary while keeping header height fixed at 18 pixels. Spacing updates `elementSpacing` and the ordinary fishing-lure gap without changing the four-pixel header gap or eight-pixel inter-group gap.
 
-Live `iconSide` reanchors retained addon-owned icon/background references and uses the current height when reserving icon space. Text, count, and StatusBar relationships remain derived from their existing owners. Future/reused rows consume the current managed-runtime-owned style, and no active AuraButton enumeration is used. Live alpha and scale are applied to the ordinary group hosts, so headers, managed rows, native enchantment rows, and the Fishing Lure hierarchy inherit the values; scale does not rewrite logical width or height. Mixed-scale chaining passed runtime validation.
+Live `iconSide` reanchors retained addon-owned icon/background references and uses the current height when reserving icon space. Text, count, and StatusBar relationships remain derived from their existing owners. Future/reused rows consume the current managed-runtime-owned style, and no active AuraButton enumeration is used. Live alpha and scale are applied to the ordinary group hosts, so headers, managed rows, OBB-owned weapon rows, and the Fishing Lure hierarchy inherit the values; scale does not rewrite logical width or height. Mixed-scale chaining passed runtime validation.
 
-The layout bridge uses the public `SetAuraGroupLayout` path for BUFFS, DEBUFFS, and `HelpfulEnhancements`, plus `SetItemEnchantmentLayout` for native ENCHANTMENTS rows. Replacement layout tables use the current managed width, height, and spacing together, so those three settings remain order-independent. The addon does not enumerate managed children, infer active counts, or manually resize a self-sizing container.
+The current layout bridge uses the public `SetAuraGroupLayout` path for BUFFS, DEBUFFS, and `HelpfulEnhancements`; OBB-owned weapon rows consume the same applied ordinary-row style without entering managed FlowLayout. Replacement aura-group layout tables use the current managed width, height, and spacing together, so those settings remain order-independent. The addon does not enumerate managed children, infer active counts, or manually resize a self-sizing container.
 
 Initializer-created presentation references are retained in managed-runtime-owned weak-key structures. A live apply updates those legitimate references without enumerating managed children, inferring active counts, or inspecting aura identity. The current live presentation state is also used when future rows are assigned, created, or reused.
 
@@ -412,7 +414,7 @@ Configuration status is therefore deliberately split:
 - **SavedVariables/legacy boundary:** historical D/E whitelist/blacklist tables remain untouched as compatibility/history data; managed D/E do not expose or consume them.
 - **Pending/research:** BUFFS as a child, arbitrary `anchorTo` graphs, broader cycle policy, full ENCHANTMENTS/lure bounds, the empty-container parity decision, remaining native lifecycle validation, and removal of dormant legacy backend files.
 
-This synchronization does not change ownership. Blizzard continues to own managed AuraButton assignment, aura identity, SpellName/DurationText content, DurationBar timing, native tooltips, native BUFF and weapon-enchantment cancellation, and managed container sizing/layout. OBB owns only its permitted presentation/configuration layer and the existing ordinary fishing-lure row. The lure's detection, slot resolution, timer, tooltip ownership/anchor, and unsupported cancellation behavior are unchanged.
+This synchronization does not change ownership. Blizzard continues to own managed AuraButton assignment, aura identity, SpellName/DurationText content, DurationBar timing, native managed-aura tooltips and BUFF cancellation, and managed container sizing/layout. OBB owns its permitted presentation/configuration layer plus the ordinary MainHand, OffHand, and Fishing Lure rows. Weapon-row timing comes from public PaperDoll state; their manual tooltip and out-of-combat cancellation boundaries remain distinct from managed AuraButton behavior.
 
 ### Filtering and sorting
 
@@ -429,6 +431,8 @@ Map existing settings to native mechanisms where verified:
 The BUFFS/DEBUFFS sort, maximum count, and growth mappings above synchronize live out of combat. BUFFS supports ALL by omitting `maxDuration` and TIMED_ONLY through `maxDuration = math.huge`; Blizzard filters zero-duration permanent candidates and the addon does not inspect duration values. Historical TIMELESS_ONLY and NONE remain stored unchanged but use copied runtime-only ALL until explicit Config correction. Managed DEBUFFS and ENCHANTMENTS intentionally ignore saved duration flags and show all eligible sources. ENCHANTMENTS otherwise retains its source-specific policy.
 
 ### Enhancements
+
+The native MainHand/OffHand provider design in this subsection is historical migration evidence. The current OBB-owned weapon-row architecture is summarized in Section 1 and the 1.1.0 supersession notice.
 
 The validated ENCHANTMENTS presentation combines:
 
@@ -551,7 +555,7 @@ Managed group-specific behavior/filter composition:
 - Effective ownership is exactly `HIDDEN`, `BUFFS`, or `ENCHANTMENTS`, resolved by hidden -> explicit group override -> semantic enhancement route -> default BUFFS. This routing remains shared and unchanged.
 - BUFFS is the only managed destination-filtered group. With any enabled numeric BUFF whitelist entry, blacklist is ignored and only whitelisted effective-B IDs are included; otherwise its blacklist excludes matching effective-B IDs. BUFF current rows and manual Spell ID entry remain supported.
 - `HelpfulEnhancements` includes every effective-E ID. Stored E whitelist/blacklist tables neither seed ownership nor restrict eligibility. Semantic routes and explicit B->E/E->B overrides still move ownership, while hidden removes an ID from both managed HELPFUL groups.
-- Managed DEBUFFS is intentionally broad across eligible player HARMFUL auras. Managed ENCHANTMENTS is intentionally broad/source-owned across `HelpfulEnhancements`, MainHand, OffHand, and Fishing Lure. Neither exposes or consumes destination whitelist/blacklist or duration controls.
+- Managed DEBUFFS is intentionally broad across eligible player HARMFUL auras. ENCHANTMENTS is intentionally broad/source-owned across managed `HelpfulEnhancements` plus OBB-owned MainHand, OffHand, and Fishing Lure rows. Neither exposes or consumes destination whitelist/blacklist or duration controls.
 - BUFF ALL (`true/true`) and TIMED_ONLY (`true/false`) remain unchanged. D/E continue to include timed and timeless eligible state. Duration flags remain outside `Sync Group Bars` fan-out.
 - The BUFFS page contains Whitelist/Blacklist, Timed, and Timeless. D/E contain none of those controls; Grow Up is placed directly below Max Bars. This is a minimal control-policy cleanup, not a broad UI redesign.
 - Historical D/E whitelist/blacklist tables, override data, defaults, and schema remain untouched. Legacy D/E may consume those stored filters during LEGACY/STAGED rollback where authoritative; managed D/E intentionally do not. MANAGED production suppresses legacy D/E scanning/rendering without changing this stored-data boundary.
@@ -717,7 +721,7 @@ Authority retirement is complete:
 
 - MANAGED is the sole production renderer; STAGED/LEGACY modes, mutable authority, setters, transition transactions, legacy pre-scan/fallback, and managed-to-legacy position synchronization are retired.
 - Startup is READY-or-FAILED and fails closed. The Bars and Auras/Engine backends are removed; Core owns no legacy aura/weapon renderer events.
-- `RefreshAll()` remains the managed-only Core coordinator for configuration-first semantic/native/Fishing Lure recovery; slash refresh and Config `Refresh Auras` call it directly, and the redundant `RefreshAuras()` alias is retired. Config Apply/filter/override paths skip their former duplicate direct managed follow-up after success and retain it only as a failure fallback.
+- `RefreshAll()` remains the managed-only Core coordinator for configuration-first semantic/weapon-row/Fishing Lure recovery; slash refresh and Config `Refresh Auras` call it directly, and the redundant `RefreshAuras()` alias is retired. Config Apply/filter/override paths skip their former duplicate direct managed follow-up after success and retain it only as a failure fallback.
 - No renderer-authority query or setter API remains; Config's ENCHANTMENTS fixed Sort/Max state derives directly from group identity.
 - Compatible SavedVariables fields remain preserved until a separate deliberate schema cleanup.
 - ABOVE remains absent from managed placement choices; historical raw values use only the copied runtime fallback until explicit user correction.
@@ -736,10 +740,10 @@ The read-only Bars/secure-overlay audit, narrow Bars file/TOC retirement, and fr
 | Unsafe layout dependencies | High | Keep the movable host independent; prototype restricted layout behavior. |
 | Reintroducing ABOVE through unsafe dynamic-height ownership | High | Keep ABOVE unsupported/retiring unless a separate bottom-owned, full-visible-bounds architecture is researched and runtime validated. |
 | Stale addon-owned aura caches | High | Stop duplicating managed state as each group migrates. |
-| Cancellation regression | High | Use native AuraButton cancellation and validate in combat. |
+| Cancellation regression | High | Keep native AuraButton cancellation for managed auras separate from the runtime-validated out-of-combat PaperDoll cancellation used by OBB-owned weapon rows. |
 | Timed/timeless policy regression | High | Keep BUFF Config limited to ALL/TIMED_ONLY; interpret historical TIMELESS_ONLY/NONE as copied runtime ALL; keep D/E intentionally ALL and avoid addon-side duration reads. |
 | Enhancement routing parity failure | High | Retain the validated guarded spell-metadata classifier and paired managed include/exclude filters; broaden categories only with targeted evidence. |
-| Restricted-layout tooltip taint | High | Do not own tooltips from ordinary frames whose layout depends on restricted managed bounds; use an independent owner such as `UIParent`. |
+| Restricted-layout tooltip taint | High | Treat owner, anchor, and frame ancestry as composition-specific. For the exact current OBB weapon-row topology, retain the runtime-tested `UIParent` plus cursor-anchor fallback; do not generalize it into a universal tooltip recipe. |
 | Blizzard frames reappearing in combat | High | Use the supported Edit Mode Aura Frame `Hidden` setting; do not repeatedly fight Blizzard-managed visibility. |
 | Post-login setter restrictions | High | Create long-lived structures early and queue uncertain mutations out of combat. |
 | Sort-direction mismatch | Medium | Test known aura sets with distinct names and expiration times. |
@@ -769,7 +773,7 @@ Every phase should also include LuaCheck, load/reload testing, Lua error capture
 2. Where must `DisableUntrustedLayoutScriptsTemplate` be applied if future stack-wide chrome depends on managed bounds?
 3. Is optional targeted private/restricted HARMFUL coverage still useful after the broad managed DEBUFFS production cutover, and what exact real aura can exercise it without overstating coverage?
 4. Which deliberate historical-state injection cases are still worth runtime testing now that Config prevents new TIMELESS_ONLY/NONE and unsupported managed topology?
-5. Does combined native item-enchantment and `HelpfulEnhancements` layout remain correct under simultaneous MainHand, OffHand, and routed-aura churn?
+5. Does the combined OBB-owned MainHand/OffHand and managed `HelpfulEnhancements` layout remain correct under simultaneous slot and routed-aura churn?
 6. Does the validated semantic spell-metadata classifier remain sufficiently precise across a broader Retail aura population and any future categories?
 7. Should OBB remove or relabel its best-effort legacy Blizzard-frame visibility control at cutover now that Edit Mode `Hidden` is the supported user-facing mechanism?
 8. Should target, focus, and pet support remain part of the product despite not being exposed in the current configuration UI?
@@ -779,4 +783,4 @@ Every phase should also include LuaCheck, load/reload testing, Lua error capture
 12. Should the six intentionally preserved `Prototype`-containing runtime frame names ever migrate for a concrete compatibility or ownership reason? Defer cosmetic migration; the diagnostic retention/removal cleanup, including retirement of the isolated tooltip/spell metadata inspector, is complete.
 13. Can profession-tool lure cancellation be supported safely through a documented public path, and does slot 28 accept `C_PaperDollInfo.CancelTemporaryEnchantment` at runtime?
 
-The MANAGED-only authority migration, managed Fishing Lure formatter extraction, Bars/secure-overlay retirement, Auras/Engine retirement, legacy runtime-cache cleanup, renderer-authority query-façade retirement, `RefreshAuras()` compatibility-alias retirement, successful-path Config refresh deduplication, dormant renderer-era defaults retirement, atomic production file/namespace rename, internal managed-renderer terminology cleanup, redundant BUFFS/DEBUFFS Sort-button removal, diagnostic retention/removal cleanup, and initial global LibSharedMedia texture/font integration are complete and runtime validated to their recorded boundaries. Blizzard-managed containers and AuraButtons are the sole B/D/E production renderer after normal READY startup; the active implementation is `OdysseusBuffBars_Managed.lua` / `OBB.Managed`; terminal failure is fail closed; `OdysseusBuffBars.Bars`, `OdysseusBuffBars.Engine`, `OBB.ManagedPrototype`, and `OBB.managedAuraPrototype` are absent; and no direct legacy scanner, synthetic legacy weapon-enchantment scanner, legacy cache fallback, authority query/setter API, `RefreshAuras()` alias, production runtime/header Sort button, permanently disabled automatic-routing debug gate, fixed-ID tooltip/spell metadata inspector, or production default/reader/writer for `showLegacyBars` or `legacyComparisonMode` remains. `RefreshAll()` remains the central managed coordinator. The historical Auras-deletion `/reload` retained an empty `auraData` table and nil `filterAuraRows`; the later focused cache-cleanup `/reload` confirmed `groups`, `bars`, `auraData`, and `filterAuraRows` all nil. Alias-retirement validation confirmed `RefreshAll` was a function and `RefreshAuras` was nil. The sequencing checkpoint retained direct Config managed calls only as failed-transaction fallbacks. The defaults checkpoint retained existing `showLegacyBars=false` and `legacyComparisonMode=true` copies without runtime effect or destructive cleanup. No SavedVariables migration or compatibility shim was required for either naming checkpoint. Exactly six `Prototype` occurrences remain as intentionally preserved runtime frame names. Any evidence-driven frame-name migration remains deferred and separate from remaining Config polish, library/licensing work, OdysseusDebugConsole, and release preparation.
+The MANAGED-only authority migration, managed Fishing Lure formatter extraction, Bars/secure-overlay retirement, Auras/Engine retirement, legacy runtime-cache cleanup, renderer-authority query-façade retirement, `RefreshAuras()` compatibility-alias retirement, successful-path Config refresh deduplication, dormant renderer-era defaults retirement, atomic production file/namespace rename, internal managed-renderer terminology cleanup, redundant BUFFS/DEBUFFS Sort-button removal, diagnostic retention/removal cleanup, and initial global LibSharedMedia texture/font integration are complete and runtime validated to their recorded boundaries. Blizzard-managed containers and AuraButtons are the sole BUFFS/DEBUFFS/`HelpfulEnhancements` aura renderer after normal READY startup; OBB-owned MainHand, OffHand, and Fishing Lure rows are the bounded ENCHANTMENTS exceptions. The active implementation is `OdysseusBuffBars_Managed.lua` / `OBB.Managed`; terminal failure is fail closed; `OdysseusBuffBars.Bars`, `OdysseusBuffBars.Engine`, `OBB.ManagedPrototype`, and `OBB.managedAuraPrototype` are absent; and no direct legacy scanner, synthetic legacy weapon-enchantment scanner, legacy cache fallback, authority query/setter API, `RefreshAuras()` alias, production runtime/header Sort button, permanently disabled automatic-routing debug gate, fixed-ID tooltip/spell metadata inspector, or production default/reader/writer for `showLegacyBars` or `legacyComparisonMode` remains. `RefreshAll()` remains the central managed coordinator. The historical Auras-deletion `/reload` retained an empty `auraData` table and nil `filterAuraRows`; the later focused cache-cleanup `/reload` confirmed `groups`, `bars`, `auraData`, and `filterAuraRows` all nil. Alias-retirement validation confirmed `RefreshAll` was a function and `RefreshAuras` was nil. The sequencing checkpoint retained direct Config managed calls only as failed-transaction fallbacks. The defaults checkpoint retained existing `showLegacyBars=false` and `legacyComparisonMode=true` copies without runtime effect or destructive cleanup. No SavedVariables migration or compatibility shim was required for either naming checkpoint. Exactly six `Prototype` occurrences remain as intentionally preserved runtime frame names. Any evidence-driven frame-name migration remains deferred and separate from remaining Config polish, library/licensing work, OdysseusDebugConsole, and release preparation.

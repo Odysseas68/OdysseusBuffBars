@@ -6,21 +6,25 @@ Odysseus BuffBars is a World of Warcraft Retail aura-bar addon. The immutable
 v1.0.0 release uses version `1.0.0`, build date `2026-08-28`, release commit
 `6a7b7f7f967bc834251775b93b0aa149f7a9b5aa`, and annotated tag `v1.0.0`.
 
-The current development checkpoint is a post-v1.0 **v1.1.0 candidate**:
+The current frozen checkpoint is **v1.1.0**:
 
-- Base commit: `af23eee08e83336e6df5196f0cfb4ec094befd54`
-- Subject: `Document current OdysseusBuffBars project status`
-- Candidate metadata is version `1.1.0`, build date `2026-09-08`.
+- Checkpoint commit: `2783d38dbebe9843203fb5b5f188d3dedcdb2f11`
+- Subject: `Complete OBB 1.1.0 weapon enchant replacement`
+- Metadata is version `1.1.0`, build date `2026-09-08`.
 
 Current production behavior and the cumulative Config modernization through
 this checkpoint have been successfully runtime tested by the user on Retail
-LIVE where recorded in the project documentation. Current HEAD is not the
-v1.0.0 tagged release commit and has not been published as another release.
+LIVE where recorded in the project documentation. The checkpoint is pushed to
+`origin/main`; `HEAD`, `main`, and `origin/main` resolve to the same commit.
+No tag points at the v1.1.0 checkpoint, and the immutable `v1.0.0` tag remains
+unchanged.
 
 ## 2. Production architecture
 
-`OBB.Managed` is the production managed-aura implementation, and MANAGED is the
-sole renderer authority for BUFFS, DEBUFFS, and ENCHANTMENTS. The former Bars,
+`OBB.Managed` is the production runtime owner. Blizzard-managed AuraContainers
+are the renderer authority for BUFFS, DEBUFFS, and the `HelpfulEnhancements`
+portion of ENCHANTMENTS; OBB-owned Main Hand, Off Hand, and Fishing Lure rows
+are the narrow ordinary-row exceptions. The former general Bars,
 secure-overlay, and direct Auras/Engine backends are retired and are not loaded
 or available as fallbacks.
 
@@ -31,11 +35,11 @@ while in combat it leaves the Blizzard-managed lifecycle authoritative.
 
 BUFFS uses a managed HELPFUL `CustomAuraContainer`, DEBUFFS uses a separate
 broad HARMFUL container, and ENCHANTMENTS uses its own managed host/container.
-Blizzard-managed AuraButtons own supported aura presentation, updates,
-tooltips, sorting, self-sizing, and cancellation behavior. Addon-owned hosts and
-headers own supported placement and dragging. The Config root and its companion
-UI form a separate ownership tree from the gameplay-facing managed hosts, bars,
-and anchors.
+Blizzard-managed AuraButtons own supported managed-aura presentation, updates,
+tooltips, sorting, self-sizing, and cancellation behavior. OBB owns the external
+weapon and Fishing Lure rows; addon-owned hosts and headers own supported
+placement and dragging. The Config root and its companion UI form a separate
+ownership tree from the gameplay-facing managed hosts, bars, and anchors.
 
 ## 3. ENCHANTMENTS architecture
 
@@ -184,8 +188,9 @@ HEAD was successfully tested by the user on Retail LIVE.
 - v1.0.0 release commit:
   `6a7b7f7f967bc834251775b93b0aa149f7a9b5aa`
 - Annotated release tag: `v1.0.0`
-- Current candidate base commit:
-  `af23eee08e83336e6df5196f0cfb4ec094befd54`
+- Current v1.1.0 checkpoint commit:
+  `2783d38dbebe9843203fb5b5f188d3dedcdb2f11`
 
-The v1.0.0 release and tag are immutable. The current worktree is an uncommitted
-v1.1.0 candidate; it does not move or rewrite the existing release tag.
+The v1.0.0 release and tag are immutable. The v1.1.0 checkpoint is on
+`origin/main`, has no tag, and does not move or rewrite the existing release
+tag.
